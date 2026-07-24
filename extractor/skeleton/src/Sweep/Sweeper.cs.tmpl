@@ -1,0 +1,67 @@
+using System.Text;
+using CloudNative.CloudEvents;
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Extractor;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Sweep;
+
+/// <summary>
+/// Runs once per cron tick: lists the inbound folder, runs each file through
+/// the extract pipeline, and deletes the source file once its content has been
+/// published (or cancelled as a duplicate). Failed files stay in the folder and
+/// are retried on the next tick — the idempotency check makes the retry safe.
+/// </summary>
+public class Sweeper(
+    [FromKeyedServices(Constants.SourceFileAdapterKey)] IFileAdapter fileAdapter,
+    Extractor<In, Out, Context> pipeline,
+    ILoggerFactory loggerFactory)
+{
+    private readonly ILogger _logger = loggerFactory.CreateLogger("{{ .name }}.Pipeline");
+
+    public async Task SweepAsync(CancellationToken ct)
+    {
+        var files = await fileAdapter.ListAsync();
+        if (files.Count == 0)
+            return;
+
+        _logger.LogInformation("Swept {Count} file(s) from inbound", files.Count);
+
+        foreach (var file in files)
+        {
+            var content = await fileAdapter.GetContentAsync(file.FileName, Encoding.UTF8);
+            if (content is null)
+                continue;
+
+            var context = new Context(new Dictionary<string, string>
+            {
+                [Constants.ContextKeyFileName] = file.FileName
+            });
+
+            var (result, _) = await pipeline.Execute(content, context, ct);
+
+            switch (result)
+            {
+                case StepResult<CloudEvent>.Success success:
+                    await fileAdapter.DeleteAsync(file.FileName);
+                    _logger.LogInformation("Published {Subject} to topic {Topic} ({PubSub})",
+                        success.Value.Subject, Constants.TopicName, Constants.PubSubName);
+                    break;
+                case StepResult<CloudEvent>.Cancelled:
+                    await fileAdapter.DeleteAsync(file.FileName);
+                    _logger.LogInformation("Cancelled {FileName} as a duplicate (idempotency check)",
+                        file.FileName);
+                    break;
+                default:
+                    _logger.LogWarning("Processing {FileName} failed ({ResultType}); leaving it for the next tick",
+                        file.FileName, result.GetType().Name);
+                    break;
+            }
+        }
+    }
+}

@@ -1,0 +1,11 @@
+{{- if not .empty -}}
+{
+  "orderId": "ORD-1001",
+  "customerId": "CUST-42",
+  "orderDate": "2026-05-13T09:30:00Z",
+  "lines": [
+    { "sku": "SKU-AAA", "quantity": 2, "unitPrice": 19.95 },
+    { "sku": "SKU-BBB", "quantity": 1, "unitPrice": 49.00 }
+  ]
+}
+{{ end -}}

@@ -1,0 +1,51 @@
+using {{ .name }}.Configuration;
+using {{ .name }}.Extract;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Extract;
+
+public class DeserializerTests
+{
+{{- if .empty }}
+    // Add tests as you implement the pipeline steps. This placeholder keeps
+    // `dotnet test` green until the first real test lands.
+    [Fact(Skip = "Scaffolded with empty step bodies — implement the steps, then write real tests.")]
+    public void Placeholder()
+    {
+    }
+{{- else }}
+    [Fact]
+    public async Task ExecuteAsync_WithValidJson_ReturnsSuccess()
+    {
+        // Arrange
+        var deserializer = new Deserializer();
+        var context = new Context(new Dictionary<string, string>());
+        var json = """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+        // Act
+        var (result, _) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
+
+        // Assert
+        var success = Assert.IsType<BusinessStepResult<In>.Success>(result);
+        Assert.Equal("ORD-1001", success.Value.OrderId);
+        Assert.Single(success.Value.Lines);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithValidJson_StoresOrderIdInContext()
+    {
+        // Arrange
+        var deserializer = new Deserializer();
+        var context = new Context(new Dictionary<string, string>());
+        var json = """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
+
+        // Act
+        var (_, resultContext) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("ORD-1001", resultContext.Metadata[Constants.ContextKeyOrderId]);
+    }
+{{- end }}
+}

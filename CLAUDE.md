@@ -48,8 +48,10 @@ metadata:
   title: <Title Case>
   description: <one sentence>
   tags: [example, go, http]
-  labels:                      # free-form; no key is load-bearing today
+  labels:                      # two intropy.dev/* keys are load-bearing (see below)
     intropy.io/template-level: example
+    intropy.dev/block-kind: extractor   # extractor | loader | aggregator | transactional-integration
+    intropy.dev/data-flow: "in"         # in | out | both | internal
 spec:
   parameters:                  # raw JSON Schema; type must be "object"
     type: object
@@ -80,6 +82,13 @@ Notes:
   composite values needed in multiple skeleton files (e.g. a module path).
   Output is always a string. Don't chain entries — map iteration order
   is non-deterministic.
+- **Two labels are load-bearing.** The CLI reads `intropy.dev/block-kind`
+  (`extractor` | `loader` | `aggregator` | `transactional-integration`) and
+  `intropy.dev/data-flow` (`in` | `out` | `both` | `internal`) at render time
+  and records them in the scaffolded project's `.intropy/scaffold.json`, which
+  `intropy sys create` later assembles into the system declaration. Templates
+  that are a system block must declare both. Everything else under `labels`
+  is free-form.
 - **No `spec.steps`**, no `spec.owner`, no `nextSteps`. The model is
   intentionally narrow: a manifest declares parameters and the skeleton tree
   describes what gets written.

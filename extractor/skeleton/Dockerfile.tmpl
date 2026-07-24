@@ -1,0 +1,17 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /source
+
+# Restore first so the NuGet layer is cached until the csproj changes.
+COPY src/{{ .name }}.csproj src/
+RUN dotnet restore ./src
+
+COPY src/ src/
+RUN dotnet publish ./src -c Release -o /app --no-restore
+
+# Chiseled runtime: no shell or package manager, runs as non-root `app`.
+# Invariant globalization — switch to 10.0-noble-chiseled-extra if the app
+# needs ICU (culture-sensitive parsing/formatting) or tzdata.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
+WORKDIR /app
+COPY --from=build /app .
+ENTRYPOINT ["dotnet", "{{ .name }}.dll"]

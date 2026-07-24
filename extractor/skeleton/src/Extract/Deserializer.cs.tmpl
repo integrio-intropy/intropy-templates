@@ -1,0 +1,27 @@
+using System.Text.Json;
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Extract;
+
+public class Deserializer : DeserializeStep<In, Context>
+{
+    public override Task<(BusinessStepResult<In> Result, Context Context)> ExecuteAsync(
+        string input, Context context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        var order = JsonSerializer.Deserialize<In>(input,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+
+        context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
+
+        return Task.FromResult<(BusinessStepResult<In>, Context)>(
+            (new BusinessStepResult<In>.Success(order), context));
+{{- end }}
+    }
+}

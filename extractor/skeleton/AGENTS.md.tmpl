@@ -1,0 +1,92 @@
+# Agent Instructions
+
+This project is a .NET extractor integration built on the Intropy framework.
+A Dapr cron binding ticks every 5 seconds; on each tick the app sweeps a local
+Dapr file binding, runs each file through the Intropy extractor pipeline, and
+publishes the result as a CloudEvent to a Dapr pub/sub topic.
+
+## Project overview
+
+- Framework: .NET 10
+- App type: Long-running ASP.NET Core web app (runs until stopped)
+- App id: `{{ .appId }}`
+- App port: `5001` (Taskfile `APP_PORT`; the cron ticks arrive as `POST /poll`)
+- Trigger: cron binding `poll` (`@every 5s`)
+- Source binding: `inbound` (Dapr local storage, rootPath `./local/storage/inbound`)
+- Pub/sub component: `pubsub` (in-memory)
+- Topic: `{{ .topic }}` — the extractor's half of the system contract; the
+  consuming loader subscribes to the same topic
+- CloudEvent envelope: source `urn:{{ .organization }}:{{ .name | kebabcase }}`, type `{{ .organization | lower }}.{{ .topic }}.extracted`
+- Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
+  (locally an `HTTPEndpoint` component pointing at `http://127.0.0.1:8080`)
+- Business Incident Service: reached via Dapr service invocation, app id
+  `business-incident-service` (locally an `HTTPEndpoint` at `http://127.0.0.1:8081`)
+
+## Important files
+
+- `Taskfile.yml` - local-dev tasks; `task run` is the canonical way to run the extractor.
+- `Dockerfile` - multi-stage image build on the .NET chiseled ASP.NET runtime
+  (`docker build -t {{ .appId }} .`); the image contains only the app — the
+  Dapr sidecar and components come from the deployment environment.
+- `src/Program.cs` - DI wiring, the `POST /poll` endpoint, and `app.Run()`.
+- `src/Configuration/Constants.cs` - component/topic names, keyed-adapter key, CloudEvent envelope values.
+- `src/Sweep/Sweeper.cs` - the per-tick sweep loop: list inbound, run the pipeline, delete on success.
+- `src/Extract/` - the extractor pipeline steps and the `ExtractorBuilder` wiring
+  (`ServiceCollectionExtensions.cs`).
+- `test/` - xUnit tests for the pipeline steps (`task test`).
+- `local/dapr-components/` - the extractor's local Dapr components (cron trigger, inbound
+  binding, pub/sub, HTTPEndpoints for the platform services).
+- `local/platform-services/` - Docker Compose + Dapr components for the local
+  Idempotency Service and Business Incident Service (included by `docker-compose.yml`).
+- `local/sample-data/sample-order.json` - sample input seeded into the inbound folder.
+
+## Build and run
+
+`task run` is the canonical run path. It seeds the inbound folder with the
+sample order, starts the local stack (grafana/otel-lgtm plus the Idempotency
+Service and Business Incident Service with their backing stores), and runs the
+app under Dapr with OTLP export configured. The app keeps running until you
+stop it with Ctrl+C; within a poll tick it sweeps the seeded file, publishes
+it, and deletes the source.
+
+```bash
+task run
+```
+
+Other tasks: `task build` (dotnet build), `task test` (dotnet test), `task clean`
+(stop the Dapr app and remove `./local/storage`), `task services:down` (stop the
+local stack). See `Taskfile.yml` for ports and flags.
+
+## Development notes
+
+- The source `IFileAdapter` is registered as a keyed singleton
+  (`Constants.SourceFileAdapterKey`). Inject it via `[FromKeyedServices(...)]`
+  or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
+- A failed file stays in the inbound folder and is retried on the next tick;
+  the idempotency check makes the retry safe. Duplicates cancel as a traceable
+  no-op and the file is removed.
+- Additional enrichment steps go into the builder chain in
+  `src/Extract/ServiceCollectionExtensions.cs` via `.WithExtractor(...)` —
+  the extractor pipeline supports any number of them, executed in order.
+{{- if .empty }}
+- The step bodies are scaffolded empty (`NotImplementedException`). The
+  idempotency and business-incident wiring stays in place — `ExtractorBuilder`
+  requires both — but the idempotency extractor lambdas throw. When you
+  implement the steps, point them at a stable business identifier and business
+  timestamp; a per-delivery value (fresh GUID, wall-clock time) makes the
+  check pass everything.
+{{- else }}
+- The pipeline checks idempotency before transforming: the id is the order's
+  `OrderId` and the timestamp its `OrderDate`, so a redelivered unchanged order
+  cancels as a traceable no-op instead of publishing twice. Keep the id/date
+  extractors pointing at *business* fields — a per-delivery value (fresh GUID,
+  wall-clock time) makes the check pass everything.
+- Business failures (validation errors) are routed to the Business Incident
+  Service, keyed on the order id (falling back to the source file name).
+- The `Serializer` must set `CloudEvent.Subject` and `CloudEvent.Time` — the
+  Dapr topic publisher throws if either is missing.
+{{- end }}
+
+## Framework guidance
+
+How-to knowledge for the Intropy framework (pipelines, blocks, endpoints, Dapr components, testing) lives in the Intropy skills collection under `.agents/skills/`. If it is not installed, run `intropy skills collection add --name intropy --ref harbor.intropy.io/skills/index:latest`.

@@ -1,0 +1,8 @@
+{{- if not .empty -}}
+namespace {{ .name }}.Model;
+
+public record Line(
+    string Sku,
+    int Quantity,
+    decimal UnitPrice);
+{{ end -}}

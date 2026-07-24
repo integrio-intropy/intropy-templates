@@ -1,0 +1,45 @@
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Extractor;
+using Intropy.Framework.Blocks.Shared;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ .name }}.Extract;
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddExtractPipeline(this IServiceCollection services)
+    {
+        services.AddSingleton(provider =>
+            ExtractorBuilder<In, Out, Context>.Create("{{ .name }}.Extract", provider)
+                .WithDeserializer(new Deserializer())
+                .WithValidator(new Validator())
+{{- if .empty }}
+                // The extractor pipeline requires idempotency; point these at a
+                // stable business identifier and business timestamp when you
+                // implement the steps — per-delivery values (fresh GUID,
+                // wall-clock time) make the check pass everything.
+                .WithIdempotency(
+                    idExtractor: (_, _) => throw new NotImplementedException(),
+                    dateExtractor: (_, _) => throw new NotImplementedException())
+{{- else }}
+                .WithIdempotency(
+                    idExtractor: (order, _) => order.OrderId,
+                    dateExtractor: (order, _) => order.OrderDate)
+{{- end }}
+                .WithTransformer(new Transformer())
+                .WithSerializer(new Serializer())
+                .WithDaprTopicPublisher(
+                    Constants.PubSubName,
+                    Constants.TopicName,
+                    new Uri(Constants.EventSource),
+                    Constants.EventType)
+                .WithBusinessIncidents(
+                    messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
+                        ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")),
+                    subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
+                        ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")))
+                .Build());
+        return services;
+    }
+}

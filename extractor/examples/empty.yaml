@@ -1,0 +1,8 @@
+# Render fixture: empty bodies (steps throw NotImplementedException; the
+# idempotency/business-incident wiring stays with throwing extractor lambdas)
+# — the migration-agent starting point.
+#   intropy int create extractor -o /tmp/extractor-empty -f extractor/examples/empty.yaml --version main --no-input
+name: OrderExtractor
+organization: Fluxia
+topic: orders
+empty: true

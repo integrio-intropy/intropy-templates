@@ -1,0 +1,34 @@
+using CloudNative.CloudEvents;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Extract;
+
+public class Serializer : SerializeStep<Out, Context>
+{
+    public override Task<(TechnicalStepResult<CloudEvent> Result, Context Context)> ExecuteAsync(
+        Out input, Context context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        // Subject and Time are mandatory: the Dapr topic publisher throws if
+        // either is missing. Source and Type are set by the publisher from the
+        // builder configuration. Data holds the object itself — the publisher's
+        // CloudEvent formatter does the JSON encoding.
+        var cloudEvent = new CloudEvent
+        {
+            Id = Guid.NewGuid().ToString(),
+            Subject = input.OrderId,
+            Time = input.OrderDate,
+            DataContentType = "application/json",
+            Data = input
+        };
+
+        return Task.FromResult<(TechnicalStepResult<CloudEvent>, Context)>(
+            (new TechnicalStepResult<CloudEvent>.Success(cloudEvent), context));
+{{- end }}
+    }
+}

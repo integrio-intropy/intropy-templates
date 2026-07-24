@@ -1,0 +1,14 @@
+# Cron input binding that drives the sweep loop. Dapr delivers each tick as
+# POST /poll (the binding name) to the app; the handler sweeps the inbound
+# folder. Adjust the schedule to taste — "@every 5s" keeps the local feedback
+# loop tight.
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: poll
+spec:
+  type: bindings.cron
+  version: v1
+  metadata:
+    - name: schedule
+      value: "@every 5s"

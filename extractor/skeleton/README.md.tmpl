@@ -1,0 +1,91 @@
+# {{ .name }}
+
+.NET extractor integration. A Dapr cron binding ticks every 5 seconds; on each
+tick the app sweeps JSON orders from a local inbound folder, runs each one
+through the Intropy extractor pipeline, publishes the result as a CloudEvent to
+the `{{ .topic }}` topic on the in-memory Dapr pub/sub, and deletes the source
+file. Unlike a one-shot job, the extractor keeps running until you stop it.
+
+## Run
+
+```bash
+task run
+```
+
+This seeds `./local/storage/inbound` with the bundled sample order, starts the
+local stack (grafana/otel-lgtm observability plus the Intropy Idempotency Service
+and Business Incident Service — see `local/platform-services/`), and runs the app
+under Dapr. Within a poll tick you should see:
+
+```
+== APP == info: {{ .name }}.Pipeline[0]
+== APP ==       Swept 1 file(s) from inbound
+== APP == info: {{ .name }}.Pipeline[0]
+== APP ==       Published ORD-1001 to topic {{ .topic }} (pubsub)
+```
+
+Stop it with Ctrl+C, then confirm the source file is gone:
+
+```bash
+ls local/storage/inbound/
+```
+
+The message went into the extractor's own in-memory pub/sub — nothing
+subscribes there. A standalone run verifies the extractor's whole job (sweep,
+publish, clean up) without needing a consumer to exist.
+
+{{- if not .empty }}
+
+Seed the same order again while the app is running (`task seed` in a second
+terminal) and the pipeline cancels at the idempotency check instead of
+publishing twice — the trace shows the check step cancelled and no downstream
+steps.
+{{- end }}
+
+Other tasks: `task build`, `task test`, `task clean` (remove `./local/storage`),
+and `task services:down` (stop the local stack). See `Taskfile.yml`.
+
+## Container image
+
+```bash
+docker build -t {{ .appId }} .
+```
+
+Multi-stage build on the .NET 10 chiseled ASP.NET runtime. The image contains
+only the app — the Dapr sidecar and components come from the deployment
+environment.
+
+## Pipeline
+
+Per swept file (`src/Sweep/Sweeper.cs` drives this on every cron tick):
+{{- if .empty }}
+
+1. `Deserializer` parses the JSON into `In`.
+2. `Validator` enforces business rules.
+3. Idempotency check — cancels duplicates.
+4. `Transformer` maps `In` → `Out`.
+5. `Serializer` wraps `Out` in a CloudEvent (Subject and Time are mandatory).
+6. The Dapr topic publisher sends it to `pubsub` / `{{ .topic }}`.
+
+Every step body throws `NotImplementedException` — this project was scaffolded
+with empty bodies for a migration agent to fill in. The idempotency and
+business-incident wiring is already in place; point the idempotency extractors
+at stable business fields when you implement the steps (see `AGENTS.md`).
+{{- else }}
+
+1. `Deserializer` parses the JSON into `In` and stamps `order_id` into the
+   pipeline context.
+2. `Validator` enforces required fields and basic business rules; failures are
+   routed to the Business Incident Service.
+3. Idempotency check — asks the Idempotency Service whether this `OrderId` /
+   `OrderDate` combination was already processed; duplicates cancel the run.
+4. `Transformer` maps `In` → the canonical `Out` shape the consuming loader
+   deserializes.
+5. `Serializer` wraps `Out` in a CloudEvent with `Subject` = order id and
+   `Time` = order date.
+6. The Dapr topic publisher sets the envelope source/type and sends it to
+   `pubsub` / `{{ .topic }}`.
+
+On success (or an idempotent duplicate) the source file is deleted; a failed
+file stays in the inbound folder and is retried on the next tick.
+{{- end }}

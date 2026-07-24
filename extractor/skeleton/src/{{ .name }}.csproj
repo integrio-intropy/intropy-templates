@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapr.Client" Version="1.17.9" />
+    <PackageReference Include="Intropy.BusinessIncidentService.Client" Version="0.1.1" />
+    <PackageReference Include="Intropy.Contracts" Version="0.1.0" />
+    <PackageReference Include="Intropy.Framework.Adapters" Version="0.2.3" />
+    <PackageReference Include="Intropy.Framework.Blocks" Version="0.2.3" />
+    <PackageReference Include="Intropy.IdempotencyService.Client" Version="0.1.0" />
+    <PackageReference Include="Intropy.Telemetry.AspNetCore" Version="0.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

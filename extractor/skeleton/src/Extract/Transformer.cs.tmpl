@@ -1,0 +1,29 @@
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Extract;
+
+public class Transformer : TransformStep<In, Out, Context>
+{
+    public override Task<(TechnicalStepResult<Out> Result, Context Context)> ExecuteAsync(
+        In input, Context context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        // The extractor publishes the canonical order shape; the consuming
+        // loader deserializes exactly this. Enrich or reshape here if the
+        // source format ever diverges from the canonical one.
+        var output = new Out(
+            OrderId: input.OrderId,
+            CustomerId: input.CustomerId,
+            OrderDate: input.OrderDate,
+            Lines: input.Lines);
+
+        return Task.FromResult<(TechnicalStepResult<Out>, Context)>(
+            (new TechnicalStepResult<Out>.Success(output), context));
+{{- end }}
+    }
+}

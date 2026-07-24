@@ -1,0 +1,21 @@
+namespace {{ .name }}.Configuration;
+
+public static class Constants
+{
+    public const string ComponentName = "{{ .name | kebabcase }}";
+    public const string Organization = "{{ .organization }}";
+
+    public const string PubSubName = "pubsub";
+    public const string TopicName = "{{ .topic }}";
+
+    public const string InboundBindingName = "inbound";
+
+    public const string SourceFileAdapterKey = "source";
+
+    // CloudEvent envelope: where the data came from and what kind of event it is.
+    public const string EventSource = "urn:{{ .organization }}:{{ .name | kebabcase }}";
+    public const string EventType = "{{ .organization | lower }}.{{ .topic }}.extracted";
+
+    public const string ContextKeyFileName = "file_name";
+    public const string ContextKeyOrderId = "order_id";
+}

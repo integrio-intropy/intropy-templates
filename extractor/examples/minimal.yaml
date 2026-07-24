@@ -1,0 +1,5 @@
+# Render fixture: full sample (business logic + service wiring).
+#   intropy int create extractor -o /tmp/extractor-out -f extractor/examples/minimal.yaml --version main --no-input
+name: OrderExtractor
+organization: Fluxia
+topic: orders

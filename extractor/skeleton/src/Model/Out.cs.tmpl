@@ -1,0 +1,13 @@
+namespace {{ .name }}.Model;
+
+{{- if .empty }}
+
+public record Out();
+{{- else }}
+
+public record Out(
+    string OrderId,
+    string CustomerId,
+    DateTimeOffset OrderDate,
+    IReadOnlyList<Line> Lines);
+{{- end }}
