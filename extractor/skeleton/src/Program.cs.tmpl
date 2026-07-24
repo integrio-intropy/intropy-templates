@@ -1,6 +1,6 @@
 using Dapr.Client;
 using {{ .name }};
-using {{ .name }}.Extract;
+using {{ .name }}.Process;
 using Intropy.BusinessIncidentService.Client;
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Core.Configuration;
@@ -41,7 +41,7 @@ services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _)
         sp.GetRequiredService<DaprClient>(),
         new FileAdapterOptions(Constants.InboundBindingName)));
 
-services.AddExtractPipeline();
+services.AddProcessPipeline();
 services.AddSingleton<ExtractorRunner>();
 
 var serviceProvider = services.BuildServiceProvider();

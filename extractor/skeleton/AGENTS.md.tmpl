@@ -34,7 +34,7 @@ Dapr pub/sub topic, then the source file is deleted.
   run the pipeline, delete on success.
 - `src/Configuration/Constants.cs` - component/topic names, poll interval,
   keyed-adapter key, CloudEvent envelope values.
-- `src/Extract/` - the extractor pipeline steps and the `ExtractorBuilder` wiring
+- `src/Process/` - the extractor pipeline steps and the `ExtractorBuilder` wiring
   (`ServiceCollectionExtensions.cs`).
 - `test/` - xUnit tests for the pipeline steps (`task test`).
 - `local/dapr-components/` - the extractor's local Dapr components (inbound
@@ -69,7 +69,7 @@ local stack). See `Taskfile.yml` for ports and flags.
   the idempotency check makes the retry safe. Duplicates cancel as a traceable
   no-op and the file is removed.
 - Additional enrichment steps go into the builder chain in
-  `src/Extract/ServiceCollectionExtensions.cs` via `.WithExtractor(...)` —
+  `src/Process/ServiceCollectionExtensions.cs` via `.WithExtractor(...)` —
   the extractor pipeline supports any number of them, executed in order.
 {{- if .empty }}
 - The step bodies are scaffolded empty (`NotImplementedException`). The
