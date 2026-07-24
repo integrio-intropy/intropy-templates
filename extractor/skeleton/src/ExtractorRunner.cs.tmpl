@@ -1,5 +1,6 @@
 using System.Text;
 using CloudNative.CloudEvents;
+using Dapr.Client;
 using {{ .name }}.Configuration;
 using {{ .name }}.Model;
 using Intropy.Framework.Adapters.File;
@@ -9,22 +10,80 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace {{ .name }}.Sweep;
+namespace {{ .name }};
 
 /// <summary>
-/// Runs once per cron tick: lists the inbound folder, runs each file through
-/// the extract pipeline, and deletes the source file once its content has been
+/// Runs the extractor lifecycle, including sidecar management and the poll loop.
+/// Every poll tick it sweeps the inbound folder, runs each file through the
+/// extract pipeline, and deletes the source file once its content has been
 /// published (or cancelled as a duplicate). Failed files stay in the folder and
 /// are retried on the next tick — the idempotency check makes the retry safe.
+/// Runs until the cancellation token is signalled (Ctrl+C).
 /// </summary>
-public class Sweeper(
+public class ExtractorRunner(
+    DaprClient daprClient,
     [FromKeyedServices(Constants.SourceFileAdapterKey)] IFileAdapter fileAdapter,
     Extractor<In, Out, Context> pipeline,
     ILoggerFactory loggerFactory)
 {
+    private const int SidecarTimeoutSeconds = 30;
+
     private readonly ILogger _logger = loggerFactory.CreateLogger("{{ .name }}.Pipeline");
 
-    public async Task SweepAsync(CancellationToken ct)
+    /// <summary>
+    /// Waits for the Dapr sidecar, then polls the inbound folder until cancelled.
+    /// </summary>
+    /// <returns>0 on graceful shutdown, 1 on failure.</returns>
+    public async Task<int> RunAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var sidecarCts = new CancellationTokenSource(TimeSpan.FromSeconds(SidecarTimeoutSeconds));
+            await daprClient.WaitForSidecarAsync(sidecarCts.Token);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Dapr sidecar did not become available within {TimeoutSeconds} seconds",
+                SidecarTimeoutSeconds);
+            return 1;
+        }
+
+        _logger.LogInformation("Polling inbound every {Seconds}s — stop with Ctrl+C",
+            Constants.PollIntervalSeconds);
+
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Constants.PollIntervalSeconds));
+            do
+            {
+                await SweepAsync(ct);
+            } while (await timer.WaitForNextTickAsync(ct));
+
+            return 0;
+        }
+        catch (OperationCanceledException)
+        {
+            return 0;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Extractor failed");
+            return 1;
+        }
+        finally
+        {
+            try
+            {
+                await daprClient.ShutdownSidecarAsync();
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning(e, "Failed to shut down Dapr sidecar");
+            }
+        }
+    }
+
+    private async Task SweepAsync(CancellationToken ct)
     {
         var files = await fileAdapter.ListAsync();
         if (files.Count == 0)

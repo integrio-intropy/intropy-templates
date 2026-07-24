@@ -10,6 +10,9 @@ public static class Constants
 
     public const string InboundBindingName = "inbound";
 
+    // How often the runner sweeps the inbound folder.
+    public const int PollIntervalSeconds = 5;
+
     public const string SourceFileAdapterKey = "source";
 
     // CloudEvent envelope: where the data came from and what kind of event it is.

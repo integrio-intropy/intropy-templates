@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: extractor
   title: Extractor Integration
-  description: Long-running .NET extractor that sweeps a local source folder on a cron tick, runs each file through the Intropy extractor pipeline, and publishes the result as a CloudEvent to a Dapr pub/sub topic.
+  description: Long-running .NET extractor that polls a local source folder, runs each file through the Intropy extractor pipeline, and publishes the result as a CloudEvent to a Dapr pub/sub topic.
   tags:
     - example
     - dotnet

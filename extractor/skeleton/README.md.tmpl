@@ -1,10 +1,10 @@
 # {{ .name }}
 
-.NET extractor integration. A Dapr cron binding ticks every 5 seconds; on each
-tick the app sweeps JSON orders from a local inbound folder, runs each one
-through the Intropy extractor pipeline, publishes the result as a CloudEvent to
-the `{{ .topic }}` topic on the in-memory Dapr pub/sub, and deletes the source
-file. Unlike a one-shot job, the extractor keeps running until you stop it.
+.NET extractor integration. The runner polls a local inbound folder every 5
+seconds, runs each swept JSON order through the Intropy extractor pipeline,
+publishes the result as a CloudEvent to the `{{ .topic }}` topic on the
+in-memory Dapr pub/sub, and deletes the source file. Unlike a one-shot job,
+the extractor keeps running until you stop it.
 
 ## Run
 
@@ -51,13 +51,12 @@ and `task services:down` (stop the local stack). See `Taskfile.yml`.
 docker build -t {{ .appId }} .
 ```
 
-Multi-stage build on the .NET 10 chiseled ASP.NET runtime. The image contains
-only the app — the Dapr sidecar and components come from the deployment
-environment.
+Multi-stage build on the .NET 10 chiseled runtime. The image contains only the
+app — the Dapr sidecar and components come from the deployment environment.
 
 ## Pipeline
 
-Per swept file (`src/Sweep/Sweeper.cs` drives this on every cron tick):
+Per swept file (`src/ExtractorRunner.cs` drives this on every poll tick):
 {{- if .empty }}
 
 1. `Deserializer` parses the JSON into `In`.

@@ -1,17 +1,18 @@
 # Agent Instructions
 
 This project is a .NET extractor integration built on the Intropy framework.
-A Dapr cron binding ticks every 5 seconds; on each tick the app sweeps a local
-Dapr file binding, runs each file through the Intropy extractor pipeline, and
-publishes the result as a CloudEvent to a Dapr pub/sub topic.
+A runner polls a local Dapr file binding every 5 seconds; each swept file goes
+through the Intropy extractor pipeline and is published as a CloudEvent to a
+Dapr pub/sub topic, then the source file is deleted.
 
 ## Project overview
 
 - Framework: .NET 10
-- App type: Long-running ASP.NET Core web app (runs until stopped)
+- App type: Long-running console app (no web endpoints; runs until stopped)
+- Runner: `{{ .name }}.ExtractorRunner` (skeleton code — the framework does not
+  yet ship an extractor host)
 - App id: `{{ .appId }}`
-- App port: `5001` (Taskfile `APP_PORT`; the cron ticks arrive as `POST /poll`)
-- Trigger: cron binding `poll` (`@every 5s`)
+- Poll interval: 5 s (`Constants.PollIntervalSeconds`, in-process timer)
 - Source binding: `inbound` (Dapr local storage, rootPath `./local/storage/inbound`)
 - Pub/sub component: `pubsub` (in-memory)
 - Topic: `{{ .topic }}` — the extractor's half of the system contract; the
@@ -25,16 +26,18 @@ publishes the result as a CloudEvent to a Dapr pub/sub topic.
 ## Important files
 
 - `Taskfile.yml` - local-dev tasks; `task run` is the canonical way to run the extractor.
-- `Dockerfile` - multi-stage image build on the .NET chiseled ASP.NET runtime
+- `Dockerfile` - multi-stage image build on the .NET chiseled runtime
   (`docker build -t {{ .appId }} .`); the image contains only the app — the
   Dapr sidecar and components come from the deployment environment.
-- `src/Program.cs` - DI wiring, the `POST /poll` endpoint, and `app.Run()`.
-- `src/Configuration/Constants.cs` - component/topic names, keyed-adapter key, CloudEvent envelope values.
-- `src/Sweep/Sweeper.cs` - the per-tick sweep loop: list inbound, run the pipeline, delete on success.
+- `src/Program.cs` - DI wiring and entrypoint that runs the `ExtractorRunner`.
+- `src/ExtractorRunner.cs` - sidecar lifecycle and the poll loop: sweep inbound,
+  run the pipeline, delete on success.
+- `src/Configuration/Constants.cs` - component/topic names, poll interval,
+  keyed-adapter key, CloudEvent envelope values.
 - `src/Extract/` - the extractor pipeline steps and the `ExtractorBuilder` wiring
   (`ServiceCollectionExtensions.cs`).
 - `test/` - xUnit tests for the pipeline steps (`task test`).
-- `local/dapr-components/` - the extractor's local Dapr components (cron trigger, inbound
+- `local/dapr-components/` - the extractor's local Dapr components (inbound
   binding, pub/sub, HTTPEndpoints for the platform services).
 - `local/platform-services/` - Docker Compose + Dapr components for the local
   Idempotency Service and Business Incident Service (included by `docker-compose.yml`).

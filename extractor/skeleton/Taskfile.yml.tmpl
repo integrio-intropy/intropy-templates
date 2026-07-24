@@ -1,16 +1,16 @@
 version: "3"
 
 # Local-dev tasks for {{ .name }} — a .NET extractor integration.
-# A Dapr cron binding ticks every 5 s; on each tick the app sweeps the inbound
-# folder, runs each file through the extract pipeline, publishes the result as
-# a CloudEvent to the pub/sub topic, and deletes the source file.
+# The runner polls the inbound folder every 5 s; each swept file goes through
+# the extract pipeline and is published as a CloudEvent to the pub/sub topic,
+# then the source file is deleted.
 #
-# This is a long-running web app: `run` passes --app-port so the sidecar can
-# deliver cron ticks, and the app keeps running until you stop it with Ctrl+C.
+# This is a long-running console app (no web endpoints): the poll loop runs
+# in-process, so `run` omits --app-port. The app runs until you stop it with
+# Ctrl+C, and `dapr run` follows it down.
 
 vars:
   APP_ID: {{ .appId }}
-  APP_PORT: '{{ "{{" }}.APP_PORT | default "5001"}}'
   DAPR_HTTP_PORT: '{{ "{{" }}.DAPR_HTTP_PORT | default "3500"}}'
   DAPR_GRPC_PORT: '{{ "{{" }}.DAPR_GRPC_PORT | default "50001"}}'
   LOG_LEVEL: '{{ "{{" }}.LOG_LEVEL | default "info"}}'
@@ -44,22 +44,20 @@ tasks:
 
   # ── Component runner ──────────────────────────────────────────────
   run:
-    desc: Run the extractor under Dapr (in-memory pub/sub); stop with Ctrl+C
+    desc: Run the extractor via Dapr (in-memory pub/sub); stop with Ctrl+C
     deps: [seed, services:up]
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     env:
-      ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: 'http://localhost:{{ "{{" }}.APP_PORT}}'
+      DOTNET_ENVIRONMENT: Development
       # Export OTLP to the local grafana/otel-lgtm stack (see `task services:up`).
       # If nothing is listening the exporter just logs a warning — it won't crash the app.
       OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
     cmds:
-      # --app-port keeps the sidecar attached to the app so it can deliver the
-      # cron binding ticks; the app runs until you stop it.
+      # No --app-port: the poll loop runs in-process (nothing is delivered to the
+      # app over HTTP), and `dapr run` follows the app down when you stop it.
       - >-
         dapr run
         --app-id {{ "{{" }}.APP_ID}}
-        --app-port {{ "{{" }}.APP_PORT}}
         --dapr-http-port {{ "{{" }}.DAPR_HTTP_PORT}}
         --dapr-grpc-port {{ "{{" }}.DAPR_GRPC_PORT}}
         --resources-path ./local/dapr-components

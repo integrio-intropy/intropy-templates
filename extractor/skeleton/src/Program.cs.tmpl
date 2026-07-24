@@ -1,52 +1,58 @@
 using Dapr.Client;
+using {{ .name }};
 using {{ .name }}.Extract;
-using {{ .name }}.Sweep;
 using Intropy.BusinessIncidentService.Client;
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Core.Configuration;
 using Intropy.IdempotencyService.Client;
-using Intropy.Telemetry.AspNetCore;
+using Intropy.Telemetry.ConsoleApp;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Constants = {{ .name }}.Configuration.Constants;
 
-var builder = WebApplication.CreateBuilder(args);
-var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+var services = new ServiceCollection();
+var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 
-builder.Services.AddOpenTelemetry(conf =>
+services.AddLogging(builder => builder.AddConsole());
+
+services.AddOpenTelemetry(conf =>
 {
     conf.ServiceNamespace = Constants.Organization;
     conf.ServiceName = Constants.ComponentName;
     conf.Environment = environment;
 });
 
-builder.Services.AddSingleton(_ => new DaprClientBuilder().Build());
+services.AddSingleton(_ => new DaprClientBuilder().Build());
 
 // Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
 // contributes its own DaprClient registration (camelCase JSON + string enums),
 // and the last registration wins for GetRequiredService<DaprClient>().
-builder.Services.AddIdempotencyServiceClient();      // Dapr app id / HTTPEndpoint name: idempotency-service
-builder.Services.AddBusinessIncidentServiceClient(); // Dapr app id / HTTPEndpoint name: business-incident-service
+services.AddIdempotencyServiceClient();      // Dapr app id / HTTPEndpoint name: idempotency-service
+services.AddBusinessIncidentServiceClient(); // Dapr app id / HTTPEndpoint name: business-incident-service
 
-builder.Services.AddIntropyFramework(x =>
+services.AddIntropyFramework(x =>
 {
     x.ComponentName = Constants.ComponentName;
     x.ServiceNamespace = Constants.Organization;
 });
 
-builder.Services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
+services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
     new LocalFileAdapter(
         sp.GetRequiredService<DaprClient>(),
         new FileAdapterOptions(Constants.InboundBindingName)));
 
-builder.Services.AddExtractPipeline();
-builder.Services.AddSingleton<Sweeper>();
+services.AddExtractPipeline();
+services.AddSingleton<ExtractorRunner>();
 
-var app = builder.Build();
+var serviceProvider = services.BuildServiceProvider();
+using var telemetryScope = new OpenTelemetryScope(serviceProvider);
 
-// Dapr delivers each tick of the `poll` cron binding as POST /<binding-name>.
-app.MapPost("/poll", async (Sweeper sweeper, CancellationToken ct) =>
+using var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
 {
-    await sweeper.SweepAsync(ct);
-    return Results.Ok();
-});
+    e.Cancel = true;
+    cts.Cancel();
+};
 
-app.Run();
+var runner = serviceProvider.GetRequiredService<ExtractorRunner>();
+return await runner.RunAsync(cts.Token);
