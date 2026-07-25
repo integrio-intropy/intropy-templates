@@ -20,9 +20,9 @@ yet ship a loader host, so the skeleton carries its own `LoaderRunner`
 The pipeline wires idempotency and business incidents (the loader block
 requires both), so the local compose stack includes the Intropy Idempotency
 Service and Business Incident Service alongside grafana/otel-lgtm. Loader
-idempotency keys off CloudEvent Subject/Time; since `dapr publish` envelopes
-carry neither, the sample `Deserializer` backfills them from the order's
-business identity.
+idempotency keys off CloudEvent Subject/Time; the sample `Deserializer`
+stamps both from the order's business identity (a `dapr publish` envelope
+carries no subject and a wall-clock time).
 
 There is no sample-data seeding: a subscriber is verified by publishing
 through its own sidecar (`dapr publish --publish-app-id ...`), because the

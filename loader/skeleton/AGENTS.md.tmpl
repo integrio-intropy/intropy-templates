@@ -80,17 +80,18 @@ remove `./local/storage`), `task services:down` (stop the local stack). See
 {{- if .empty }}
 - The step bodies are scaffolded empty (`NotImplementedException`). The
   idempotency and business-incident wiring stays in place — `LoaderBuilder`
-  requires both. There are no idempotency lambdas to stub; instead, backfill
+  requires both. There are no idempotency lambdas to stub; instead, stamp
   the `cloudevent.subject` / `cloudevent.time` context keys from a stable
-  business identifier and business timestamp in your `Deserializer`
-  (`dapr publish` envelopes carry neither) — a per-delivery value (fresh
-  GUID, wall-clock time) makes the check pass everything.
+  business identifier and business timestamp in your `Deserializer` — a
+  per-delivery value (fresh GUID, wall-clock time, or the `dapr publish`
+  envelope's delivery-time `time`) makes the check pass everything.
 {{- else }}
-- `dapr publish` envelopes carry no `Subject`/`Time`, so the `Deserializer`
-  backfills the context keys from the order's `OrderId` / `OrderDate`
-  (envelope values win when present). Keep the backfill pointing at *business*
-  fields — a per-delivery value (fresh GUID, wall-clock time) makes the
-  idempotency check pass everything.
+- The `Deserializer` stamps the `cloudevent.subject` / `cloudevent.time`
+  context keys from the order's `OrderId` / `OrderDate` — for
+  extractor-published events these equal the envelope values, and a
+  `dapr publish` envelope carries no subject and a wall-clock time. Keep the
+  stamping pointed at *business* fields — a per-delivery value (fresh GUID,
+  wall-clock time) makes the idempotency check pass everything.
 - Business failures (validation errors) are routed to the Business Incident
   Service, keyed on the order id (falling back to the envelope subject).
 {{- end }}

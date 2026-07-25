@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using CloudNative.CloudEvents;
 using Dapr.Client;
 using Dapr.Messaging.PublishSubscribe;
@@ -144,8 +145,8 @@ public class LoaderRunner(
     /// Rebuilds a CloudEvent from the streaming-subscription message. Id,
     /// Source, Type and DataContentType are first-class on TopicMessage;
     /// Subject and Time only arrive as CloudEvent extension attributes when
-    /// the publisher set them (`dapr publish` does not) — the Deserializer
-    /// backfills them from the payload's business identity when absent.
+    /// the publisher set them (`dapr publish` sets time but never subject) —
+    /// the Deserializer stamps both from the payload's business identity.
     /// </summary>
     private static CloudEvent ToCloudEvent(TopicMessage message)
     {
@@ -153,7 +154,7 @@ public class LoaderRunner(
         {
             Id = message.Id,
             Type = message.Type,
-            Data = message.Data
+            Data = Encoding.UTF8.GetString(message.Data.Span)
         };
 
         if (!string.IsNullOrEmpty(message.DataContentType))

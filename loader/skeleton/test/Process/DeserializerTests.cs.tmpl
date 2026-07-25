@@ -53,10 +53,10 @@ public class DeserializerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithoutEnvelopeSubjectAndTime_BackfillsFromOrder()
+    public async Task ExecuteAsync_WithoutEnvelopeSubjectAndTime_StampsFromOrder()
     {
         // Arrange: the idempotency step requires Subject/Time in the context,
-        // but a `dapr publish` envelope carries neither.
+        // but a `dapr publish` envelope carries no Subject.
         var deserializer = new Deserializer();
         var context = new Context(new Dictionary<string, string>());
         var cloudEvent = new CloudEvent { Id = "evt-1", Data = Json };
@@ -71,9 +71,11 @@ public class DeserializerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithEnvelopeSubject_KeepsEnvelopeValue()
+    public async Task ExecuteAsync_WithEnvelopeSubjectAndTime_StampsBusinessIdentity()
     {
-        // Arrange: an envelope with Subject set (as the extractor publishes it).
+        // Arrange: an envelope with per-delivery Subject/Time. The idempotency
+        // identity must stay on business fields — a wall-clock Time would make
+        // the duplicate check pass everything.
         var deserializer = new Deserializer();
         var context = new Context(new Dictionary<string, string>());
         var cloudEvent = new CloudEvent
@@ -87,8 +89,10 @@ public class DeserializerTests
         // Act
         var (_, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
 
-        // Assert: the backfill must not clobber what the publisher set.
-        Assert.Equal("envelope-subject", resultContext.Metadata[Constants.ContextKeyCloudEventSubject]);
+        // Assert
+        Assert.Equal("ORD-1001", resultContext.Metadata[Constants.ContextKeyCloudEventSubject]);
+        Assert.Equal(new DateTimeOffset(2026, 1, 15, 9, 30, 0, TimeSpan.Zero).ToString("O"),
+            resultContext.Metadata[Constants.ContextKeyCloudEventTime]);
     }
 {{- end }}
 }

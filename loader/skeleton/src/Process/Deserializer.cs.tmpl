@@ -34,12 +34,14 @@ public class Deserializer : DeserializeStep<In, Context>
 
         context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
 
-        // The base step has already copied the envelope's Subject/Time into the
-        // context — but `dapr publish` generates an envelope without Subject
-        // (and Time does not always survive delivery). The idempotency check
-        // requires both, so backfill them from the order's business identity.
-        context.Metadata.TryAdd(Constants.ContextKeyCloudEventSubject, order.OrderId);
-        context.Metadata.TryAdd(Constants.ContextKeyCloudEventTime, order.OrderDate.ToString("O"));
+        // The idempotency check keys off the CloudEvent Subject/Time context
+        // keys the base step extracted from the envelope. Stamp both from the
+        // order's business identity: for extractor-published events these equal
+        // the envelope values, and a `dapr publish` envelope carries no Subject
+        // and a wall-clock Time — a per-delivery value that would make the
+        // duplicate check pass everything.
+        context.Metadata[Constants.ContextKeyCloudEventSubject] = order.OrderId;
+        context.Metadata[Constants.ContextKeyCloudEventTime] = order.OrderDate.ToString("O");
 
         return Task.FromResult<(BusinessStepResult<In>, Context)>(
             (new BusinessStepResult<In>.Success(order), context));

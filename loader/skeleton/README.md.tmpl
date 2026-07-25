@@ -86,8 +86,10 @@ business fields in your `Deserializer` (see `AGENTS.md`).
 {{- else }}
 
 1. `Deserializer` parses `CloudEvent.Data` into `In`, stamps `order_id` into
-   the pipeline context, and backfills the envelope `subject`/`time` context
-   keys from the order when the publisher set neither (`dapr publish` doesn't).
+   the pipeline context, and stamps the `subject`/`time` context keys from the
+   order's `OrderId`/`OrderDate` — for extractor-published events these equal
+   the envelope values, and a `dapr publish` envelope carries no subject and a
+   wall-clock time.
 2. `Validator` enforces required fields and basic business rules; failures are
    routed to the Business Incident Service.
 3. Idempotency check — asks the Idempotency Service whether this Subject /
