@@ -70,10 +70,10 @@ spec:
   values:                      # optional; derived values rendered via Go template + sprig
     module: 'github.com/example/{{ .name }}'
   dependencies:                # optional; sibling templates scaffolded when missing
-    - template: shared-models  # directory name in this repo
-      output: '{{ .models }}'  # Go template; single path segment (conventionally "Models")
+    - template: shared-contracts  # directory name in this repo
+      output: '{{ .contracts }}'  # Go template; single path segment (conventionally "Contracts")
       values:                  # Go templates over this template's resolved values
-        name: '{{ .models }}'
+        name: '{{ .contracts }}'
 ```
 
 Notes:
@@ -111,14 +111,15 @@ Notes:
   Authoring rules:
   - A dependency render never prompts — the `values` map plus the dependency
     template's own defaults must cover all its required parameters.
-  - Shared-support templates (like `shared-models`) declare
+  - Shared-support templates (like `shared-contracts`) declare
     `intropy.dev/template-role: shared-library` and **no**
     `intropy.dev/block-kind` / `data-flow` labels; the role is recorded in
     scaffold.json so system assembly can tell them apart from blocks.
   - A skeleton may reference its declared dependencies (e.g. a
     `ProjectReference` to `../../<dep>/…`) — the mechanism guarantees the
-    sibling exists. Never reference projects that `system create`
-    *generates* (Contracts); the CLI inserts those references itself.
+    sibling exists. The system-host skeleton never references the workspace's
+    shared contracts project; `intropy sys create` discovers it by its
+    scaffold record and inserts that reference itself.
 - **No `spec.steps`**, no `spec.owner`, no `nextSteps`. The model is
   intentionally narrow: a manifest declares parameters and the skeleton tree
   describes what gets written.

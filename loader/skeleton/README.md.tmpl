@@ -57,10 +57,10 @@ Other tasks: `task build`, `task test`, `task clean` (remove
 `./local/storage`), and `task services:down` (stop the local stack). See
 `Taskfile.yml`.
 
-## Shared models
+## Shared contracts
 
 The canonical contract types (`Order`, `OrderLine`) live in the sibling
-`../{{ .models }}` project, referenced from `src/{{ .name }}.csproj`. It was
+`../{{ .contracts }}` project, referenced from `src/{{ .name }}.csproj`. It was
 scaffolded together with this project (or already existed — components in the
 same parent directory share it); the publishing extractor serializes exactly
 those records. Only the destination load record (`Out`) stays local in
@@ -69,11 +69,11 @@ those records. Only the destination load record (`Out`) stays local in
 ## Container image
 
 ```bash
-docker build --build-context models=../{{ .models }} -t {{ .appId }} .
+docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .
 ```
 
-Multi-stage build on the .NET 10 chiseled runtime. The shared models sibling
-enters the build as the `models` named context (it lies outside this build
+Multi-stage build on the .NET 10 chiseled runtime. The shared contracts sibling
+enters the build as the `contracts` named context (it lies outside this build
 context). The image contains only the app — the Dapr sidecar and components
 come from the deployment environment.
 
@@ -97,7 +97,7 @@ business fields in your `Deserializer` (see `AGENTS.md`).
 {{- else }}
 
 1. `Deserializer` parses `CloudEvent.Data` into the shared `Order` contract
-   (from `../{{ .models }}` — the same record the extractor publishes), stamps
+   (from `../{{ .contracts }}` — the same record the extractor publishes), stamps
    `order_id` into the pipeline context, and stamps the `subject`/`time`
    context keys from the order's `OrderId`/`OrderDate` — for
    extractor-published events these equal the envelope values, and a

@@ -21,6 +21,7 @@ spec:
       - name
       - organization
       - topic
+      - contract
     properties:
       name:
         type: string
@@ -37,6 +38,11 @@ spec:
         title: Topic
         description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value.
         pattern: "^[a-z][a-z0-9-]*$"
+      contract:
+        type: string
+        title: Contract type
+        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic and the scaffolded Contracts project use Order; a different value means renaming the record in Contracts (and the sample pipeline code, unless empty=true) to match.
+        pattern: "^[A-Z][A-Za-z0-9]*$"
       empty:
         type: boolean
         title: Empty bodies
@@ -44,14 +50,18 @@ spec:
         default: false
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
-    # Name of the sibling shared-models project; also drives the dependency
+    # Name of the sibling shared-contracts project; also drives the dependency
     # output below and the ProjectReference in the skeleton csproj. Plain
-    # "Models" on purpose: the project is scoped to the system directory it
+    # "Contracts" on purpose: the project is scoped to the system directory it
     # lives in, not to the organization.
-    models: 'Models'
+    contracts: 'Contracts'
+    # The pub/sub component name the skeleton subscribes through
+    # (Constants.cs). Recorded in .intropy/scaffold.json for
+    # `intropy sys create`, together with the contract parameter above.
+    pubsub: 'pubsub'
   dependencies:
-    - template: shared-models
-      output: '{{ .models }}'
+    - template: shared-contracts
+      output: '{{ .contracts }}'
       values:
-        name: '{{ .models }}'
+        name: '{{ .contracts }}'
         empty: '{{ .empty }}'

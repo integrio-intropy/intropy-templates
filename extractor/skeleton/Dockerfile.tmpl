@@ -2,10 +2,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /source
 
-# The app references the shared models sibling (../../{{ .models }}), which
+# The app references the shared contracts sibling (../../{{ .contracts }}), which
 # lies outside this build context. Pass it in as a named context:
-#   docker build --build-context models=../{{ .models }} -t {{ .appId }} .
-COPY --from=models --exclude=bin --exclude=obj . {{ .models }}/
+#   docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .
+COPY --from=contracts --exclude=bin --exclude=obj . {{ .contracts }}/
 
 # Restore first so the NuGet layer is cached until a csproj changes.
 COPY src/{{ .name }}.csproj app/src/

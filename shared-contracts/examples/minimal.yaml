@@ -1,5 +1,5 @@
 # Render fixture. Normally this template is not rendered directly — component
 # templates (e.g. extractor) declare it under spec.dependencies and the CLI
 # scaffolds it as a sibling when missing.
-#   intropy int create shared-models -o /tmp/shared-models-out -f shared-models/examples/minimal.yaml --version main --no-input
-name: Models
+#   intropy int create shared-contracts -o /tmp/shared-contracts-out -f shared-contracts/examples/minimal.yaml --version main --no-input
+name: Contracts

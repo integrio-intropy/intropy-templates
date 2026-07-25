@@ -19,10 +19,12 @@ The renderer and the CLI's codegen own different files:
 |---|---|
 | this skeleton | `Program.cs`, `<Project>.SystemHost.csproj`, `Taskfile.yml`, `Properties/launchSettings.json`, `AGENTS.md`, `README.md`, `.gitignore` |
 | this skeleton, as compilable placeholders that codegen overwrites | `<Project>System.cs`, `Topics.cs` |
-| `intropy sys create` codegen only | `Apis.cs`, `Connectors.cs`, the sibling `<Project>.Contracts/` project |
 
-The host csproj's reference to `../<Project>.Contracts/` is `Exists`-guarded,
-so a direct render builds before the Contracts project is generated.
+Contract types are not generated: the host references the workspace's shared
+contracts project (the `shared-library` scaffold, typically `Contracts/`), and
+`sys create` inserts that `ProjectReference` into the rendered csproj itself —
+templates never hardcode cross-project references. `Apis.cs` / `Connectors.cs`
+codegen is deferred; today's codegen owns only the two placeholder files.
 
 An empty system compiles, and `dotnet run -- check` reports **ITP002** ("a
 system must declare at least one component") until `Define()` declares

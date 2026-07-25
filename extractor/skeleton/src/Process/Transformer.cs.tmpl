@@ -1,4 +1,4 @@
-using {{ .models }};
+using {{ .contracts }};
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Extractor.Steps;
 using Intropy.Framework.Blocks.Shared;
@@ -14,7 +14,7 @@ public class Transformer : TransformStep<In, Order, Context>
 {{- if .empty }}
         throw new NotImplementedException();
 {{- else }}
-        // Order is the canonical contract from the shared models project; the
+        // Order is the canonical contract from the shared contracts project; the
         // consuming loader deserializes exactly this. Enrich or reshape here
         // if the source format ever diverges from the canonical one.
         var output = new Order(

@@ -28,13 +28,13 @@ There is no sample-data seeding: a subscriber is verified by publishing
 through its own sidecar (`dapr publish --publish-app-id ...`), because the
 in-memory pub/sub lives inside the integration's sidecar.
 
-The template declares a `spec.dependencies` entry on `shared-models`: the
-render also scaffolds a sibling `Models` class library holding the consumed
+The template declares a `spec.dependencies` entry on `shared-contracts`: the
+render also scaffolds a sibling `Contracts` class library holding the consumed
 contract (`Order`, `OrderLine`) — unless that sibling already exists
 (scaffolded by an earlier component, typically the extractor), in which case
 it is left untouched. The loader's csproj references it as
-`../../Models/Models.csproj`; only the destination load record (`Out`) stays
-local to the component. The name is plain `Models` because the project is
+`../../Contracts/Contracts.csproj`; only the destination load record (`Out`) stays
+local to the component. The name is plain `Contracts` because the project is
 scoped by the system directory it lives in.
 
 ## Parameters

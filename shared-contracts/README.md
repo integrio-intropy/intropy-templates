@@ -1,6 +1,6 @@
-# shared-models
+# shared-contracts
 
-Scaffolds the shared models class library of an integration system: the
+Scaffolds the shared contracts class library of an integration system: the
 contract records (`Order`, `OrderLine`) that cross component boundaries.
 Components reference it as a sibling `ProjectReference`
 (`../<name>/<name>.csproj`), so the folder name, csproj name, and namespace
@@ -11,14 +11,14 @@ declare it under `spec.dependencies`:
 
 ```yaml
 dependencies:
-  - template: shared-models
-    output: '{{ .models }}'        # a derived value, conventionally plain "Models"
+  - template: shared-contracts
+    output: '{{ .contracts }}'        # a derived value, conventionally plain "Contracts"
     values:
-      name: '{{ .models }}'
+      name: '{{ .contracts }}'
       empty: '{{ .empty }}'
 ```
 
-The name is plain `Models` by convention: the project is scoped by the system
+The name is plain `Contracts` by convention: the project is scoped by the system
 directory it lives in, so an organization prefix would overstate its reach.
 
 The first `intropy int create` into a system directory scaffolds it as a
@@ -31,12 +31,12 @@ record so system assembly knows this project is not a block.
 
 | Name    | Required | Description                                                                        |
 | ------- | -------- | ---------------------------------------------------------------------------------- |
-| `name`  | yes      | PascalCase project/namespace/assembly name (dots allowed; conventionally `Models`). |
+| `name`  | yes      | PascalCase project/namespace/assembly name (dots allowed; conventionally `Contracts`). |
 | `empty` | no       | Strip the sample contract fields (`Order` stays as an empty shell so pipeline generics compile). |
 
 ## Render (standalone)
 
 ```bash
-intropy int create shared-models -o /tmp/shared-models-out \
-  -f shared-models/examples/minimal.yaml --version main --no-input
+intropy int create shared-contracts -o /tmp/shared-contracts-out \
+  -f shared-contracts/examples/minimal.yaml --version main --no-input
 ```

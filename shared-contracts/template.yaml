@@ -1,8 +1,8 @@
 apiVersion: intropy.dev/v1
 kind: Template
 metadata:
-  name: shared-models
-  title: Shared Models
+  name: shared-contracts
+  title: Shared Contracts
   description: Class library holding the contract types shared by the components of an integration system — scaffolded once as a sibling of the first component template that declares it as a dependency, and referenced by every component via a ProjectReference.
   tags:
     - example
@@ -21,7 +21,7 @@ spec:
       name:
         type: string
         title: Project name
-        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed. Component templates conventionally pass plain "Models" — the project is scoped by the system directory it lives in, so it needs no organization prefix.
+        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed. Component templates conventionally pass plain "Contracts" — the project is scoped by the system directory it lives in, so it needs no organization prefix.
         pattern: "^[A-Z][A-Za-z0-9]*(\\.[A-Z][A-Za-z0-9]*)*$"
       empty:
         type: boolean
