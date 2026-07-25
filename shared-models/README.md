@@ -12,11 +12,14 @@ declare it under `spec.dependencies`:
 ```yaml
 dependencies:
   - template: shared-models
-    output: '{{ .organization }}.Models'
+    output: '{{ .models }}'        # a derived value, conventionally plain "Models"
     values:
-      name: '{{ .organization }}.Models'
+      name: '{{ .models }}'
       empty: '{{ .empty }}'
 ```
+
+The name is plain `Models` by convention: the project is scoped by the system
+directory it lives in, so an organization prefix would overstate its reach.
 
 The first `intropy int create` into a system directory scaffolds it as a
 sibling; every later component render finds its `.intropy/scaffold.json` and
@@ -28,7 +31,7 @@ record so system assembly knows this project is not a block.
 
 | Name    | Required | Description                                                                        |
 | ------- | -------- | ---------------------------------------------------------------------------------- |
-| `name`  | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Fluxia.Models`).   |
+| `name`  | yes      | PascalCase project/namespace/assembly name (dots allowed; conventionally `Models`). |
 | `empty` | no       | Strip the sample contract fields (`Order` stays as an empty shell so pipeline generics compile). |
 
 ## Render (standalone)

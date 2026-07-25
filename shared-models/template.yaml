@@ -21,7 +21,7 @@ spec:
       name:
         type: string
         title: Project name
-        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed (e.g. Fluxia.Models). Component templates conventionally derive it as <organization>.Models.
+        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed. Component templates conventionally pass plain "Models" — the project is scoped by the system directory it lives in, so it needs no organization prefix.
         pattern: "^[A-Z][A-Za-z0-9]*(\\.[A-Z][A-Za-z0-9]*)*$"
       empty:
         type: boolean

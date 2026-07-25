@@ -29,12 +29,13 @@ through its own sidecar (`dapr publish --publish-app-id ...`), because the
 in-memory pub/sub lives inside the integration's sidecar.
 
 The template declares a `spec.dependencies` entry on `shared-models`: the
-render also scaffolds a sibling `<organization>.Models` class library holding
-the consumed contract (`Order`, `OrderLine`) — unless that sibling already
-exists (scaffolded by an earlier component, typically the extractor), in
-which case it is left untouched. The loader's csproj references it as
-`../../<organization>.Models/<organization>.Models.csproj`; only the
-destination load record (`Out`) stays local to the component.
+render also scaffolds a sibling `Models` class library holding the consumed
+contract (`Order`, `OrderLine`) — unless that sibling already exists
+(scaffolded by an earlier component, typically the extractor), in which case
+it is left untouched. The loader's csproj references it as
+`../../Models/Models.csproj`; only the destination load record (`Out`) stays
+local to the component. The name is plain `Models` because the project is
+scoped by the system directory it lives in.
 
 ## Parameters
 

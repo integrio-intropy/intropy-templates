@@ -71,9 +71,9 @@ spec:
     module: 'github.com/example/{{ .name }}'
   dependencies:                # optional; sibling templates scaffolded when missing
     - template: shared-models  # directory name in this repo
-      output: '{{ .organization }}.Models'   # Go template; single path segment
+      output: '{{ .models }}'  # Go template; single path segment (conventionally "Models")
       values:                  # Go templates over this template's resolved values
-        name: '{{ .organization }}.Models'
+        name: '{{ .models }}'
 ```
 
 Notes:

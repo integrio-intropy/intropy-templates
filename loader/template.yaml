@@ -45,8 +45,10 @@ spec:
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
     # Name of the sibling shared-models project; also drives the dependency
-    # output below and the ProjectReference in the skeleton csproj.
-    models: '{{ .organization }}.Models'
+    # output below and the ProjectReference in the skeleton csproj. Plain
+    # "Models" on purpose: the project is scoped to the system directory it
+    # lives in, not to the organization.
+    models: 'Models'
   dependencies:
     - template: shared-models
       output: '{{ .models }}'
