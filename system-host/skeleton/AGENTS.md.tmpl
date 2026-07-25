@@ -70,11 +70,18 @@ Dapr YAML + per-component runtime config to `./out`), `task build`.
   files pass through, and generated components with the same `metadata.name`
   replace them. The staged files are regenerated on every start — change the
   declaration, not the artifacts.
-- Component lifecycles differ: extractors are run-to-completion jobs — a host
-  run currently executes each one once at startup (it exits when its sweep
-  completes); scheduled re-runs will be declared on the block in `Define()`
-  once the topology API ships schedule support (a CronJob in production).
-  Loaders are long-running ASP.NET services and stay up for the whole host run.
+- Component lifecycles differ. Extractors are run-to-completion jobs: declare
+  `.WithSchedule("<cron>")` on the block in `Define()` (five-field cron or a
+  `@daily`-style macro; invalid syntax fails `task check` with ITP210) and the
+  host runs the extractor once at startup and then re-runs it on every tick —
+  CronJob emulation: a tick that lands while the previous run is still going is
+  skipped with a warning, and every scheduled component gets a "Run now"
+  command in the dashboard. Without a schedule an extractor runs once at host
+  start. In production the schedule becomes a Kubernetes CronJob. Loaders are
+  long-running ASP.NET services and stay up for the whole host run.
+- `intropy sys create` regenerates `{{ .systemClass }}.cs` without emitting
+  `WithSchedule` (CLI codegen doesn't know it yet) — re-add the schedule by
+  hand after regenerating the definition.
 
 ## Framework guidance
 

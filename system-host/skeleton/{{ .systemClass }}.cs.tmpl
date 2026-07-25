@@ -17,7 +17,12 @@ public sealed class {{ .systemClass }} : ISystemDefinition
         // here, wiring internal edges through the refs in Topics.cs and the outside world through
         // the refs in Connectors.cs, e.g.:
         //
-        //   builder.AddExtractor("order-extractor").From(Connectors.OrderExtractorSource).Publishes(Topics.Orders);
+        //   builder.AddExtractor("order-extractor")
+        //       .From(Connectors.OrderExtractorSource)
+        //       .Publishes(Topics.Orders)
+        //       .WithSchedule("*/5 * * * *");  // optional, extractors only: re-run on a cron
+        //                                      // tick; without it the extractor runs once at
+        //                                      // host start
         //   builder.AddLoader("order-loader").Subscribes(Topics.Orders).To(Connectors.OrderLoaderDestination);
     }
 }

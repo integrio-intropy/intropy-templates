@@ -11,9 +11,12 @@ task run        # the whole system under the Aspire dashboard; Ctrl+C to stop
 ```
 
 Extractors are run-to-completion jobs: a host run executes each one once at
-startup, so seed their inbound folders before starting (scheduled re-runs
-arrive with topology schedule support). Loaders are long-running services and
-stay up for the whole host run.
+startup and, when the block declares `.WithSchedule("<cron>")` in `Define()`,
+re-runs it on every cron tick — so you can drop files into inbound folders
+while the system is live. Overlapping ticks are skipped, and each scheduled
+component has a "Run now" command in the dashboard. Without a schedule, seed
+inbound folders before starting. Loaders are long-running services and stay up
+for the whole host run.
 
 ## Inspect the model without starting anything
 
