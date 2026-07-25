@@ -14,9 +14,10 @@ public sealed class {{ .systemClass }} : ISystemDefinition
     {
         // TODO(intropy): no components declared yet — an empty system fails `check` with ITP002.
         // Scaffold components as sibling folders (`intropy int create ...`) and declare each one
-        // here, wiring edges through the shared refs in Topics.cs, e.g.:
+        // here, wiring internal edges through the refs in Topics.cs and the outside world through
+        // the refs in Connectors.cs, e.g.:
         //
-        //   builder.AddExtractor("order-extractor").Publishes(Topics.Orders);
-        //   builder.AddLoader("order-loader").Subscribes(Topics.Orders);
+        //   builder.AddExtractor("order-extractor").From(Connectors.OrderExtractorSource).Publishes(Topics.Orders);
+        //   builder.AddLoader("order-loader").Subscribes(Topics.Orders).To(Connectors.OrderLoaderDestination);
     }
 }

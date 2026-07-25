@@ -3,3 +3,4 @@
 name: OrderExtractor
 organization: Fluxia
 topic: orders
+contract: Order

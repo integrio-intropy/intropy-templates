@@ -59,6 +59,12 @@ spec:
     # (Constants.cs). Recorded in .intropy/scaffold.json for
     # `intropy sys create`, together with the contract parameter above.
     pubsub: 'pubsub'
+    # The extractor's source connector — the local port it reads the outside
+    # world through. Derived like appId so it stays unique per component.
+    # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to
+    # a local file transport by default (external system and transport are
+    # never asked for at scaffold time).
+    connector: '{{ .name | kebabcase | replace "." "-" }}-source'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'

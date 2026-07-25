@@ -25,8 +25,13 @@ declaration — an Aspire run backend and a generation backend.
   by `intropy sys create` from the sibling components' scaffold records; owned
   by you afterwards.
 - `Topics.cs` — the system's topics as typed refs (`TopicRef<T>`), declared as
-  static fields. Same placeholder-then-regenerated lifecycle. `Apis.cs` /
-  `Connectors.cs` appear the same way once components declare APIs or connectors.
+  static fields. Same placeholder-then-regenerated lifecycle. `Apis.cs` appears
+  the same way once components declare APIs.
+- `Connectors.cs` — the system's connectors as refs (`ConnectorRef`), declared as
+  static fields. Same placeholder-then-regenerated lifecycle. `intropy sys create`
+  resolves each connector to a local file transport rooted in `test/<connector>/`
+  under this project, so the system runs end-to-end with zero external
+  configuration; point connectors at real external systems afterwards.
 - `../{{ .projectName }}.Contracts/Contracts.cs` — the contract records carried on
   topics and APIs, shared by this host and every component project.
 

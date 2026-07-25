@@ -13,7 +13,9 @@ Dapr pub/sub topic, then the source file is deleted.
   yet ship an extractor host)
 - App id: `{{ .appId }}`
 - Poll interval: 5 s (`Constants.PollIntervalSeconds`, in-process timer)
-- Source binding: `inbound` (Dapr local storage, rootPath `./local/storage/inbound`)
+- Source binding: `binding.{{ .connector }}` (Dapr local storage, rootPath
+  `./local/storage/{{ .connector }}`) — named after the source connector so the
+  system host's generated binding replaces it in the staged overlay
 - Pub/sub component: `pubsub` (in-memory)
 - Topic: `{{ .topic }}` — the extractor's half of the system contract; the
   consuming loader subscribes to the same topic
@@ -45,7 +47,7 @@ Dapr pub/sub topic, then the source file is deleted.
 - `src/Process/` - the extractor pipeline steps and the `ExtractorBuilder` wiring
   (`ServiceCollectionExtensions.cs`).
 - `test/` - xUnit tests for the pipeline steps (`task test`).
-- `local/dapr-components/` - the extractor's local Dapr components (inbound
+- `local/dapr-components/` - the extractor's local Dapr components (source
   binding, pub/sub, HTTPEndpoints for the platform services).
 - `local/platform-services/` - Docker Compose + Dapr components for the local
   Idempotency Service and Business Incident Service (included by `docker-compose.yml`).

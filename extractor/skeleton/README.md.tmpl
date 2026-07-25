@@ -12,7 +12,7 @@ the extractor keeps running until you stop it.
 task run
 ```
 
-This seeds `./local/storage/inbound` with the bundled sample order, starts the
+This seeds `./local/storage/{{ .connector }}` with the bundled sample order, starts the
 local stack (grafana/otel-lgtm observability plus the Intropy Idempotency Service
 and Business Incident Service — see `local/platform-services/`), and runs the app
 under Dapr. Within a poll tick you should see:
@@ -27,7 +27,7 @@ under Dapr. Within a poll tick you should see:
 Stop it with Ctrl+C, then confirm the source file is gone:
 
 ```bash
-ls local/storage/inbound/
+ls local/storage/{{ .connector }}/
 ```
 
 The message went into the extractor's own in-memory pub/sub — nothing

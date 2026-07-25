@@ -3,3 +3,4 @@
 name: OrderLoader
 organization: Fluxia
 topic: orders
+contract: Order

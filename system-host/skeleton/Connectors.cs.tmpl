@@ -1,0 +1,18 @@
+// The system's connectors — the named ports its edge blocks reach the outside world
+// through. Each is declared once and referenced from the system definition via
+// `.From(...)` (extractor source) or `.To(...)` (loader destination).
+//
+// `intropy sys create` regenerates this file from the sibling components' scaffold
+// records, resolving every connector to a local file transport (a folder under the
+// SystemHost's test/ directory) so the system runs end-to-end with zero external
+// configuration. Point a connector at a real external system afterwards by switching
+// to `ConnectorRef.Define(name, externalSystem, transport)` — validate with
+// `dotnet run -- check`.
+public static class Connectors
+{
+    // TODO(intropy): no connectors yet. Declare them as refs (with
+    // `using Intropy.Topology;`), e.g.:
+    //
+    //   public static readonly ConnectorRef OrderExtractorSource =
+    //       ConnectorRef.Define("order-extractor-source", Transport.File("./test/order-extractor-source"));
+}

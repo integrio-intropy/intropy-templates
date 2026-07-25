@@ -6,3 +6,4 @@ name: OrderExtractor
 organization: Fluxia
 topic: orders
 empty: true
+contract: Order

@@ -18,8 +18,9 @@ destination binding.
   `dapr publish --publish-app-id {{ .appId }} ...`)
 - Topic: `{{ .topic }}` — the loader's half of the system contract; the
   publishing extractor uses the same topic
-- Destination binding: `destination` (Dapr local storage, rootPath
-  `./local/storage/destination`)
+- Destination binding: `binding.{{ .connector }}` (Dapr local storage, rootPath
+  `./local/storage/{{ .connector }}`) — named after the destination connector so
+  the system host's generated binding replaces it in the staged overlay
 - Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
   (locally an `HTTPEndpoint` component pointing at `http://127.0.0.1:8080`)
 - Business Incident Service: reached via Dapr service invocation, app id

@@ -42,7 +42,7 @@ dapr publish --publish-app-id {{ .appId }} --pubsub pubsub --topic {{ .topic }} 
 and writes the destination file:
 
 ```bash
-cat local/storage/destination/ORD-2001.json
+cat local/storage/{{ .connector }}/ORD-2001.json
 ```
 
 {{- if not .empty }}

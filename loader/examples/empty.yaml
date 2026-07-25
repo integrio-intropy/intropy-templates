@@ -7,3 +7,4 @@ name: OrderLoader
 organization: Fluxia
 topic: orders
 empty: true
+contract: Order

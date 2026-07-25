@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: system-host
   title: System Host
-  description: The Aspire host project of an Intropy integration system. Declares the system's components and the edges between them as one typed C# declaration, validates the topology, and runs or generates the system from the same model. Scaffolded by `intropy sys create`, whose codegen assembles the declaration files (the system definition and Topics.cs) from the sibling components' scaffold records and inserts a reference to the workspace's shared contracts project — this template owns only the static shell and compilable placeholders.
+  description: The Aspire host project of an Intropy integration system. Declares the system's components and the edges between them as one typed C# declaration, validates the topology, and runs or generates the system from the same model. Scaffolded by `intropy sys create`, whose codegen assembles the declaration files (the system definition, Topics.cs, and Connectors.cs) from the sibling components' scaffold records and inserts a reference to the workspace's shared contracts project — this template owns only the static shell and compilable placeholders.
   tags:
     - dotnet
     - aspire

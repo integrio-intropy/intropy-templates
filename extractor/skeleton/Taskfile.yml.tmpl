@@ -16,7 +16,7 @@ vars:
   LOG_LEVEL: '{{ "{{" }}.LOG_LEVEL | default "info"}}'
   # Working folder the local-storage binding reads from.
   # Keep in sync with local/dapr-components/inbound.yaml.
-  INBOUND_DIR: ./local/storage/inbound
+  INBOUND_DIR: ./local/storage/{{ .connector }}
 
 tasks:
   # ── .NET build ────────────────────────────────────────────────────

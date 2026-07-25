@@ -18,13 +18,16 @@ The renderer and the CLI's codegen own different files:
 | Owner | Files |
 |---|---|
 | this skeleton | `Program.cs`, `<Project>.SystemHost.csproj`, `Taskfile.yml`, `Properties/launchSettings.json`, `AGENTS.md`, `README.md`, `.gitignore` |
-| this skeleton, as compilable placeholders that codegen overwrites | `<Project>System.cs`, `Topics.cs` |
+| this skeleton, as compilable placeholders that codegen overwrites | `<Project>System.cs`, `Topics.cs`, `Connectors.cs` |
 
 Contract types are not generated: the host references the workspace's shared
 contracts project (the `shared-library` scaffold, typically `Contracts/`), and
 `sys create` inserts that `ProjectReference` into the rendered csproj itself —
-templates never hardcode cross-project references. `Apis.cs` / `Connectors.cs`
-codegen is deferred; today's codegen owns only the two placeholder files.
+templates never hardcode cross-project references. `Apis.cs` codegen is
+deferred; today's codegen owns the three placeholder files. Connectors are
+resolved to local file transports rooted in the host's `test/` folder (one
+drop folder per connector, created by `sys create`), so a freshly assembled
+system runs end-to-end with zero external configuration.
 
 An empty system compiles, and `dotnet run -- check` reports **ITP002** ("a
 system must declare at least one component") until `Define()` declares
