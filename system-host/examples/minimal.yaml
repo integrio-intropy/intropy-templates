@@ -1,0 +1,4 @@
+# Render fixture: required parameters only — a valid empty system (compiles;
+# `dotnet run -- check` reports ITP002 until components are declared).
+#   intropy int create system-host -o /tmp/system-host-out -f system-host/examples/minimal.yaml --version main --no-input
+name: order-flow

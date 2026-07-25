@@ -1,0 +1,35 @@
+apiVersion: intropy.dev/v1
+kind: Template
+metadata:
+  name: system-host
+  title: System Host
+  description: The Aspire host project of an Intropy integration system. Declares the system's components and the edges between them as one typed C# declaration, validates the topology, and runs or generates the system from the same model. Scaffolded by `intropy sys create`, whose codegen assembles the declaration files (the system definition, Topics.cs, and the sibling Contracts project) from the sibling components' scaffold records — this template owns only the static shell and compilable placeholders.
+  tags:
+    - dotnet
+    - aspire
+    - system
+  labels:
+    intropy.io/template-level: example
+    intropy.dev/template-role: system-host
+
+spec:
+  # `intropy sys create` renders this template with only `name` and --no-input.
+  # No other parameter may ever be required: anything else needs a `default`
+  # or a `spec.values` derivation.
+  parameters:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        title: System name
+        description: DNS-1123 name of the integration system (e.g. order-flow). Becomes the SystemName. The pub/sub component is always named `pubsub` (system-independent), so a component runs the same standalone or under this host.
+        pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+  values:
+    # Must keep matching the CLI's pascalCase(name): codegen overwrites
+    # `<projectName>System.cs` — if the derivations disagree, codegen adds a
+    # second ISystemDefinition next to the placeholder instead of replacing it.
+    projectName: '{{ .name | replace "-" " " | title | replace " " "" }}'
+    systemClass: '{{ .name | replace "-" " " | title | replace " " "" }}System'
+    pubsub: 'pubsub'

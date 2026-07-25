@@ -1,0 +1,24 @@
+using Intropy.Topology;
+
+namespace {{ .projectName }}.SystemHost;
+
+// The discoverable system definition. SystemDiscovery finds this one ISystemDefinition in the
+// SystemHost assembly (exactly one per assembly), builds + validates its topology, and both
+// backends (Aspire run, generate/check) consume the result.
+//
+// `intropy sys create` regenerates this file from the sibling components' scaffold records;
+// it is yours to edit afterwards — validate changes with `dotnet run -- check`.
+public sealed class {{ .systemClass }} : ISystemDefinition
+{
+    public string SystemName => "{{ .name }}";
+
+    public void Define(SystemBuilder builder)
+    {
+        // TODO(intropy): no components declared yet — an empty system fails `check` with ITP002.
+        // Scaffold components as sibling folders (`intropy int create ...`) and declare each one
+        // here, wiring edges through the shared refs in Topics.cs, e.g.:
+        //
+        //   builder.AddExtractor("order-extractor").Publishes(Topics.Orders);
+        //   builder.AddLoader("order-loader").Subscribes(Topics.Orders);
+    }
+}

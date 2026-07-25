@@ -1,0 +1,40 @@
+version: "3"
+
+# Local-dev tasks for the {{ .name }} SystemHost — the Aspire host that holds the
+# system's topology as a typed declaration. `task run` starts the whole system
+# (Aspire dashboard, Redis-backed pub/sub, one Dapr sidecar per component); the
+# other tasks inspect and export the same model without starting anything.
+
+tasks:
+  # ── Build ─────────────────────────────────────────────────────────
+  build:
+    desc: Build the SystemHost
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet build
+
+  # ── Run backend ───────────────────────────────────────────────────
+  run:
+    desc: Run the system under the Aspire dashboard; stop with Ctrl+C
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet run
+
+  # ── Generation backend ────────────────────────────────────────────
+  check:
+    desc: Build and validate the topology without starting anything
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet run -- check
+
+  graph:
+    desc: Print the SystemTopology JSON
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet run -- graph
+
+  generate:
+    desc: Write Dapr YAML + per-component runtime config to ./out
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet run -- generate ./out
