@@ -1,3 +1,4 @@
+using {{ .models }};
 using {{ .name }}.Process;
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Shared;
@@ -20,14 +21,14 @@ public class TransformerTests
             OrderId: "ORD-1001",
             CustomerId: "CUST-42",
             OrderDate: orderDate,
-            Lines: [new Line("SKU-1", 2, 10.0m), new Line("SKU-2", 1, 5.0m)]);
+            Lines: [new OrderLine("SKU-1", 2, 10.0m), new OrderLine("SKU-2", 1, 5.0m)]);
 
         // Act
         var (result, _) = await transformer.ExecuteAsync(
             order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var success = Assert.IsType<TechnicalStepResult<Out>.Success>(result);
+        var success = Assert.IsType<TechnicalStepResult<Order>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Equal("CUST-42", success.Value.CustomerId);
         Assert.Equal(orderDate, success.Value.OrderDate);

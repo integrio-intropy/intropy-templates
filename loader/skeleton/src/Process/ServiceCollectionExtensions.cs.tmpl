@@ -1,3 +1,4 @@
+using {{ .models }};
 using {{ .name }}.Configuration;
 using {{ .name }}.Model;
 using Intropy.Framework.Adapters.File;
@@ -12,7 +13,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddProcessPipeline(this IServiceCollection services)
     {
         services.AddSingleton(provider =>
-            LoaderBuilder<In, Out, Context>.Create("{{ .name }}.Process", provider)
+            LoaderBuilder<Order, Out, Context>.Create("{{ .name }}.Process", provider)
                 .WithDeserializer(new Deserializer())
                 .WithValidator(new Validator())
                 // The loader pipeline requires idempotency. It keys off CloudEvent

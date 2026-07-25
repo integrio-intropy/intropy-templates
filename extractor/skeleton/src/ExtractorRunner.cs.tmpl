@@ -1,6 +1,7 @@
 using System.Text;
 using CloudNative.CloudEvents;
 using Dapr.Client;
+using {{ .models }};
 using {{ .name }}.Configuration;
 using {{ .name }}.Model;
 using Intropy.Framework.Adapters.File;
@@ -23,7 +24,7 @@ namespace {{ .name }};
 public class ExtractorRunner(
     DaprClient daprClient,
     [FromKeyedServices(Constants.SourceFileAdapterKey)] IFileAdapter fileAdapter,
-    Extractor<In, Out, Context> pipeline,
+    Extractor<In, Order, Context> pipeline,
     ILoggerFactory loggerFactory)
 {
     private const int SidecarTimeoutSeconds = 30;

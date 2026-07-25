@@ -1,0 +1,30 @@
+apiVersion: intropy.dev/v1
+kind: Template
+metadata:
+  name: shared-models
+  title: Shared Models
+  description: Class library holding the contract types shared by the components of an integration system — scaffolded once as a sibling of the first component template that declares it as a dependency, and referenced by every component via a ProjectReference.
+  tags:
+    - example
+    - dotnet
+    - shared
+  labels:
+    intropy.io/template-level: example
+    intropy.dev/template-role: shared-library
+
+spec:
+  parameters:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        title: Project name
+        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed (e.g. Fluxia.Models). Component templates conventionally derive it as <organization>.Models.
+        pattern: "^[A-Z][A-Za-z0-9]*(\\.[A-Z][A-Za-z0-9]*)*$"
+      empty:
+        type: boolean
+        title: Empty bodies
+        description: When true, strip the sample contract fields. The library still compiles (the Order record stays as an empty shell for pipeline generics) so a migration agent can fill in the real contract.
+        default: false

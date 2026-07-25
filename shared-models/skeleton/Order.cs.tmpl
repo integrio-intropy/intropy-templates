@@ -1,0 +1,16 @@
+namespace {{ .name }};
+
+{{- if .empty }}
+
+public record Order();
+{{- else }}
+
+// The canonical order contract: the extractor publishes exactly this shape
+// and the consuming loader deserializes it. Change it here, and every
+// component that references this project picks the change up on rebuild.
+public record Order(
+    string OrderId,
+    string CustomerId,
+    DateTimeOffset OrderDate,
+    IReadOnlyList<OrderLine> Lines);
+{{- end }}

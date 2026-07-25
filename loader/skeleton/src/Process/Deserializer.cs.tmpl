@@ -1,7 +1,7 @@
 using System.Text.Json;
 using CloudNative.CloudEvents;
+using {{ .models }};
 using {{ .name }}.Configuration;
-using {{ .name }}.Model;
 using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
@@ -9,9 +9,9 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Deserializer : DeserializeStep<In, Context>
+public class Deserializer : DeserializeStep<Order, Context>
 {
-    protected override Task<(BusinessStepResult<In> Result, Context Context)> DeserializeAsync(
+    protected override Task<(BusinessStepResult<Order> Result, Context Context)> DeserializeAsync(
         CloudEvent cloudEvent, Context context)
     {
 {{- if .empty }}
@@ -25,11 +25,11 @@ public class Deserializer : DeserializeStep<In, Context>
                 Description = "CloudEvent data is null or empty",
                 Context = new Dictionary<string, string>()
             };
-            return Task.FromResult<(BusinessStepResult<In>, Context)>(
-                (new BusinessStepResult<In>.Failure(incident), context));
+            return Task.FromResult<(BusinessStepResult<Order>, Context)>(
+                (new BusinessStepResult<Order>.Failure(incident), context));
         }
 
-        var order = JsonSerializer.Deserialize<In>(json,
+        var order = JsonSerializer.Deserialize<Order>(json,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
         context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
@@ -43,8 +43,8 @@ public class Deserializer : DeserializeStep<In, Context>
         context.Metadata[Constants.ContextKeyCloudEventSubject] = order.OrderId;
         context.Metadata[Constants.ContextKeyCloudEventTime] = order.OrderDate.ToString("O");
 
-        return Task.FromResult<(BusinessStepResult<In>, Context)>(
-            (new BusinessStepResult<In>.Success(order), context));
+        return Task.FromResult<(BusinessStepResult<Order>, Context)>(
+            (new BusinessStepResult<Order>.Success(order), context));
 {{- end }}
     }
 }

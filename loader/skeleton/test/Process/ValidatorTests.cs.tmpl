@@ -1,5 +1,5 @@
+using {{ .models }};
 using {{ .name }}.Process;
-using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
@@ -21,7 +21,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<In>.Success>(result);
+        Assert.IsType<BusinessStepResult<Order>.Success>(result);
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var failure = Assert.IsType<BusinessStepResult<In>.Failure>(result);
+        var failure = Assert.IsType<BusinessStepResult<Order>.Failure>(result);
         Assert.Equal("OrderId is required", failure.Value.Description);
     }
 
@@ -50,7 +50,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<In>.Failure>(result);
+        Assert.IsType<BusinessStepResult<Order>.Failure>(result);
     }
 
     [Fact]
@@ -64,14 +64,14 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var failure = Assert.IsType<BusinessStepResult<In>.Failure>(result);
+        var failure = Assert.IsType<BusinessStepResult<Order>.Failure>(result);
         Assert.Equal("Order must contain at least one line", failure.Value.Description);
     }
 
-    private static In CreateValidOrder() => new(
+    private static Order CreateValidOrder() => new(
         OrderId: "ORD-1001",
         CustomerId: "CUST-42",
         OrderDate: DateTimeOffset.UtcNow.AddDays(-1),
-        Lines: [new Line("SKU-1", 2, 10.0m)]);
+        Lines: [new OrderLine("SKU-1", 2, 10.0m)]);
 {{- end }}
 }

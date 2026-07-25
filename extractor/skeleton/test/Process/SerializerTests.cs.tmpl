@@ -1,6 +1,6 @@
 using CloudNative.CloudEvents;
+using {{ .models }};
 using {{ .name }}.Process;
-using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
@@ -17,11 +17,11 @@ public class SerializerTests
         // Arrange: the Dapr topic publisher throws if Subject or Time is missing.
         var serializer = new Serializer();
         var orderDate = new DateTimeOffset(2026, 1, 15, 9, 30, 0, TimeSpan.Zero);
-        var output = new Out(
+        var output = new Order(
             OrderId: "ORD-1001",
             CustomerId: "CUST-42",
             OrderDate: orderDate,
-            Lines: [new Line("SKU-1", 2, 10.0m)]);
+            Lines: [new OrderLine("SKU-1", 2, 10.0m)]);
 
         // Act
         var (result, _) = await serializer.ExecuteAsync(

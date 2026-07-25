@@ -1,7 +1,7 @@
 {{- if not .empty -}}
-namespace {{ .name }}.Model;
+namespace {{ .name }};
 
-public record Line(
+public record OrderLine(
     string Sku,
     int Quantity,
     decimal UnitPrice);

@@ -1,3 +1,4 @@
+using {{ .models }};
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Extractor.Steps;
 using Intropy.Framework.Blocks.Shared;
@@ -5,25 +6,25 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Transformer : TransformStep<In, Out, Context>
+public class Transformer : TransformStep<In, Order, Context>
 {
-    public override Task<(TechnicalStepResult<Out> Result, Context Context)> ExecuteAsync(
+    public override Task<(TechnicalStepResult<Order> Result, Context Context)> ExecuteAsync(
         In input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();
 {{- else }}
-        // The extractor publishes the canonical order shape; the consuming
-        // loader deserializes exactly this. Enrich or reshape here if the
-        // source format ever diverges from the canonical one.
-        var output = new Out(
+        // Order is the canonical contract from the shared models project; the
+        // consuming loader deserializes exactly this. Enrich or reshape here
+        // if the source format ever diverges from the canonical one.
+        var output = new Order(
             OrderId: input.OrderId,
             CustomerId: input.CustomerId,
             OrderDate: input.OrderDate,
             Lines: input.Lines);
 
-        return Task.FromResult<(TechnicalStepResult<Out>, Context)>(
-            (new TechnicalStepResult<Out>.Success(output), context));
+        return Task.FromResult<(TechnicalStepResult<Order>, Context)>(
+            (new TechnicalStepResult<Order>.Success(output), context));
 {{- end }}
     }
 }

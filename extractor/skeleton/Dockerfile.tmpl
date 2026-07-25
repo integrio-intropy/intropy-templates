@@ -1,12 +1,18 @@
+# syntax=docker/dockerfile:1
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /source
 
-# Restore first so the NuGet layer is cached until the csproj changes.
-COPY src/{{ .name }}.csproj src/
-RUN dotnet restore ./src
+# The app references the shared models sibling (../../{{ .models }}), which
+# lies outside this build context. Pass it in as a named context:
+#   docker build --build-context models=../{{ .models }} -t {{ .appId }} .
+COPY --from=models --exclude=bin --exclude=obj . {{ .models }}/
 
-COPY src/ src/
-RUN dotnet publish ./src -c Release -o /app --no-restore
+# Restore first so the NuGet layer is cached until a csproj changes.
+COPY src/{{ .name }}.csproj app/src/
+RUN dotnet restore ./app/src
+
+COPY src/ app/src/
+RUN dotnet publish ./app/src -c Release -o /app --no-restore
 
 # Chiseled runtime: no shell or package manager, runs as non-root `app`.
 # Invariant globalization — switch to 10.0-noble-chiseled-extra if the app

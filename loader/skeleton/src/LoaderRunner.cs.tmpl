@@ -3,6 +3,7 @@ using System.Text;
 using CloudNative.CloudEvents;
 using Dapr.Client;
 using Dapr.Messaging.PublishSubscribe;
+using {{ .models }};
 using {{ .name }}.Configuration;
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Loader;
@@ -23,7 +24,7 @@ namespace {{ .name }};
 public class LoaderRunner(
     DaprClient daprClient,
     DaprPublishSubscribeClient pubSubClient,
-    Loader<In, Out, Context> pipeline,
+    Loader<Order, Out, Context> pipeline,
     ILoggerFactory loggerFactory)
 {
     private const int SidecarTimeoutSeconds = 30;

@@ -1,3 +1,4 @@
+using {{ .models }};
 using {{ .name }}.Configuration;
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Extractor;
@@ -11,7 +12,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddProcessPipeline(this IServiceCollection services)
     {
         services.AddSingleton(provider =>
-            ExtractorBuilder<In, Out, Context>.Create("{{ .name }}.Process", provider)
+            ExtractorBuilder<In, Order, Context>.Create("{{ .name }}.Process", provider)
                 .WithDeserializer(new Deserializer())
                 .WithValidator(new Validator())
 {{- if .empty }}

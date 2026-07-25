@@ -1,13 +1,15 @@
+{{- if .empty -}}
 namespace {{ .name }}.Model;
 
-{{- if .empty }}
-
 public record In();
-{{- else }}
+{{- else -}}
+using {{ .models }};
+
+namespace {{ .name }}.Model;
 
 public record In(
     string OrderId,
     string CustomerId,
     DateTimeOffset OrderDate,
-    IReadOnlyList<Line> Lines);
+    IReadOnlyList<OrderLine> Lines);
 {{- end }}

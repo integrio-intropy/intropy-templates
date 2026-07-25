@@ -1,7 +1,7 @@
 using CloudNative.CloudEvents;
 using {{ .name }}.Configuration;
+using {{ .models }};
 using {{ .name }}.Process;
-using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
@@ -32,7 +32,7 @@ public class DeserializerTests
         var (result, _) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
 
         // Assert
-        var success = Assert.IsType<BusinessStepResult<In>.Success>(result);
+        var success = Assert.IsType<BusinessStepResult<Order>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Single(success.Value.Lines);
     }

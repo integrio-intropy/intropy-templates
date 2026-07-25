@@ -22,13 +22,21 @@ Dapr pub/sub topic, then the source file is deleted.
   (locally an `HTTPEndpoint` component pointing at `http://127.0.0.1:8080`)
 - Business Incident Service: reached via Dapr service invocation, app id
   `business-incident-service` (locally an `HTTPEndpoint` at `http://127.0.0.1:8081`)
+- Shared models: the published contract (`Order`, `OrderLine`) lives in the
+  sibling project `../{{ .models }}` (namespace `{{ .models }}`), referenced
+  from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
+  dependency declaration; when it already exists (another component created
+  it) the scaffold leaves it untouched. `In` (the source file shape) stays
+  local in `src/Model/`.
 
 ## Important files
 
 - `Taskfile.yml` - local-dev tasks; `task run` is the canonical way to run the extractor.
 - `Dockerfile` - multi-stage image build on the .NET chiseled runtime
-  (`docker build -t {{ .appId }} .`); the image contains only the app — the
-  Dapr sidecar and components come from the deployment environment.
+  (`docker build --build-context models=../{{ .models }} -t {{ .appId }} .` —
+  the shared models sibling enters as a named context); the image contains
+  only the app — the Dapr sidecar and components come from the deployment
+  environment.
 - `src/Program.cs` - DI wiring and entrypoint that runs the `ExtractorRunner`.
 - `src/ExtractorRunner.cs` - sidecar lifecycle and the poll loop: sweep inbound,
   run the pipeline, delete on success.

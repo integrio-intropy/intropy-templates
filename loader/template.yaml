@@ -44,3 +44,12 @@ spec:
         default: false
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
+    # Name of the sibling shared-models project; also drives the dependency
+    # output below and the ProjectReference in the skeleton csproj.
+    models: '{{ .organization }}.Models'
+  dependencies:
+    - template: shared-models
+      output: '{{ .models }}'
+      values:
+        name: '{{ .models }}'
+        empty: '{{ .empty }}'

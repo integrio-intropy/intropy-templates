@@ -57,14 +57,25 @@ Other tasks: `task build`, `task test`, `task clean` (remove
 `./local/storage`), and `task services:down` (stop the local stack). See
 `Taskfile.yml`.
 
+## Shared models
+
+The canonical contract types (`Order`, `OrderLine`) live in the sibling
+`../{{ .models }}` project, referenced from `src/{{ .name }}.csproj`. It was
+scaffolded together with this project (or already existed — components in the
+same parent directory share it); the publishing extractor serializes exactly
+those records. Only the destination load record (`Out`) stays local in
+`src/Model/`.
+
 ## Container image
 
 ```bash
-docker build -t {{ .appId }} .
+docker build --build-context models=../{{ .models }} -t {{ .appId }} .
 ```
 
-Multi-stage build on the .NET 10 chiseled runtime. The image contains only the
-app — the Dapr sidecar and components come from the deployment environment.
+Multi-stage build on the .NET 10 chiseled runtime. The shared models sibling
+enters the build as the `models` named context (it lies outside this build
+context). The image contains only the app — the Dapr sidecar and components
+come from the deployment environment.
 
 ## Pipeline
 
@@ -72,10 +83,10 @@ Per delivered message (`src/LoaderRunner.cs` rebuilds it into a CloudEvent and
 drives this):
 {{- if .empty }}
 
-1. `Deserializer` parses `CloudEvent.Data` into `In`.
+1. `Deserializer` parses `CloudEvent.Data` into the shared `Order` contract.
 2. `Validator` enforces business rules.
 3. Idempotency check — cancels duplicates.
-4. `Transformer` maps `In` → `Out`.
+4. `Transformer` maps `Order` → `Out`.
 5. `Sender` writes `Out` through the `destination` binding.
 
 Every step body throws `NotImplementedException` — this project was scaffolded
@@ -85,11 +96,12 @@ CloudEvent Subject/Time from the context, so backfill those from stable
 business fields in your `Deserializer` (see `AGENTS.md`).
 {{- else }}
 
-1. `Deserializer` parses `CloudEvent.Data` into `In`, stamps `order_id` into
-   the pipeline context, and stamps the `subject`/`time` context keys from the
-   order's `OrderId`/`OrderDate` — for extractor-published events these equal
-   the envelope values, and a `dapr publish` envelope carries no subject and a
-   wall-clock time.
+1. `Deserializer` parses `CloudEvent.Data` into the shared `Order` contract
+   (from `../{{ .models }}` — the same record the extractor publishes), stamps
+   `order_id` into the pipeline context, and stamps the `subject`/`time`
+   context keys from the order's `OrderId`/`OrderDate` — for
+   extractor-published events these equal the envelope values, and a
+   `dapr publish` envelope carries no subject and a wall-clock time.
 2. `Validator` enforces required fields and basic business rules; failures are
    routed to the Business Incident Service.
 3. Idempotency check — asks the Idempotency Service whether this Subject /

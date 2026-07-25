@@ -45,14 +45,24 @@ steps.
 Other tasks: `task build`, `task test`, `task clean` (remove `./local/storage`),
 and `task services:down` (stop the local stack). See `Taskfile.yml`.
 
+## Shared models
+
+The canonical contract types (`Order`, `OrderLine`) live in the sibling
+`../{{ .models }}` project, referenced from `src/{{ .name }}.csproj`. It was
+scaffolded together with this project (or already existed — components in the
+same parent directory share it); the consuming loader deserializes exactly
+those records.
+
 ## Container image
 
 ```bash
-docker build -t {{ .appId }} .
+docker build --build-context models=../{{ .models }} -t {{ .appId }} .
 ```
 
-Multi-stage build on the .NET 10 chiseled runtime. The image contains only the
-app — the Dapr sidecar and components come from the deployment environment.
+Multi-stage build on the .NET 10 chiseled runtime. The shared models sibling
+enters the build as the `models` named context (it lies outside this build
+context). The image contains only the app — the Dapr sidecar and components
+come from the deployment environment.
 
 ## Pipeline
 
@@ -62,8 +72,8 @@ Per swept file (`src/ExtractorRunner.cs` drives this on every poll tick):
 1. `Deserializer` parses the JSON into `In`.
 2. `Validator` enforces business rules.
 3. Idempotency check — cancels duplicates.
-4. `Transformer` maps `In` → `Out`.
-5. `Serializer` wraps `Out` in a CloudEvent (Subject and Time are mandatory).
+4. `Transformer` maps `In` → the shared `Order` contract.
+5. `Serializer` wraps `Order` in a CloudEvent (Subject and Time are mandatory).
 6. The Dapr topic publisher sends it to `pubsub` / `{{ .topic }}`.
 
 Every step body throws `NotImplementedException` — this project was scaffolded
@@ -78,9 +88,9 @@ at stable business fields when you implement the steps (see `AGENTS.md`).
    routed to the Business Incident Service.
 3. Idempotency check — asks the Idempotency Service whether this `OrderId` /
    `OrderDate` combination was already processed; duplicates cancel the run.
-4. `Transformer` maps `In` → the canonical `Out` shape the consuming loader
-   deserializes.
-5. `Serializer` wraps `Out` in a CloudEvent with `Subject` = order id and
+4. `Transformer` maps `In` → the canonical `Order` shape from the shared
+   models project (`../{{ .models }}`) that the consuming loader deserializes.
+5. `Serializer` wraps `Order` in a CloudEvent with `Subject` = order id and
    `Time` = order date.
 6. The Dapr topic publisher sets the envelope source/type and sends it to
    `pubsub` / `{{ .topic }}`.

@@ -36,7 +36,9 @@ Rules:
   scaffolded project.
 - There is **no shared content between templates**. No repo-level
   `skeletons/` dir, no cross-template includes. If two templates need the
-  same file, duplicate it.
+  same file, duplicate it. (Composition happens at the *output* level:
+  a template may declare whole sibling templates under `spec.dependencies`
+  — see below — but never share skeleton files with them.)
 
 ## Manifest schema (`<template>/template.yaml`)
 
@@ -67,6 +69,11 @@ spec:
         default: 8080
   values:                      # optional; derived values rendered via Go template + sprig
     module: 'github.com/example/{{ .name }}'
+  dependencies:                # optional; sibling templates scaffolded when missing
+    - template: shared-models  # directory name in this repo
+      output: '{{ .organization }}.Models'   # Go template; single path segment
+      values:                  # Go templates over this template's resolved values
+        name: '{{ .organization }}.Models'
 ```
 
 Notes:
@@ -89,6 +96,29 @@ Notes:
   `intropy sys create` later assembles into the system declaration. Templates
   that are a system block must declare both. Everything else under `labels`
   is free-form.
+- **`spec.dependencies` composes whole templates at the output level.** Each
+  entry names a sibling template in this repo, an `output` (a Go template
+  that must render to a single path segment — the dependency is created as a
+  direct sibling of the component's output directory), and a `values` map
+  (Go templates rendered against the declaring template's resolved values).
+  The CLI renders dependencies from the same fetched tag right after the
+  component render. Idempotency: a target directory whose
+  `.intropy/scaffold.json` names the same template is **skipped silently**
+  (drift in values only warns); a missing or empty directory is rendered; a
+  foreign scaffold record or an unmanaged non-empty directory is an error.
+  `--force` never propagates to dependencies. The component's scaffold
+  record lists every declared dependency under `dependsOn`.
+  Authoring rules:
+  - A dependency render never prompts — the `values` map plus the dependency
+    template's own defaults must cover all its required parameters.
+  - Shared-support templates (like `shared-models`) declare
+    `intropy.dev/template-role: shared-library` and **no**
+    `intropy.dev/block-kind` / `data-flow` labels; the role is recorded in
+    scaffold.json so system assembly can tell them apart from blocks.
+  - A skeleton may reference its declared dependencies (e.g. a
+    `ProjectReference` to `../../<dep>/…`) — the mechanism guarantees the
+    sibling exists. Never reference projects that `system create`
+    *generates* (Contracts); the CLI inserts those references itself.
 - **No `spec.steps`**, no `spec.owner`, no `nextSteps`. The model is
   intentionally narrow: a manifest declares parameters and the skeleton tree
   describes what gets written.

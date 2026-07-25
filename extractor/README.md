@@ -20,6 +20,14 @@ The pipeline wires idempotency and business incidents (the extractor block
 requires both), so the local compose stack includes the Intropy Idempotency
 Service and Business Incident Service alongside grafana/otel-lgtm.
 
+The template declares a `spec.dependencies` entry on `shared-models`: the
+render also scaffolds a sibling `<organization>.Models` class library holding
+the published contract (`Order`, `OrderLine`) — unless that sibling already
+exists (scaffolded by an earlier component), in which case it is left
+untouched. The extractor's csproj references it as
+`../../<organization>.Models/<organization>.Models.csproj`; only the inbound
+file shape (`In`) stays local to the component.
+
 ## Parameters
 
 | Name           | Required | Description                                                                                          |

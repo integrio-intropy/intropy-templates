@@ -1,3 +1,4 @@
+using {{ .models }};
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
@@ -5,10 +6,10 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Transformer : TransformStep<In, Out, Context>
+public class Transformer : TransformStep<Order, Out, Context>
 {
     public override Task<(TechnicalStepResult<Out> Result, Context Context)> ExecuteAsync(
-        In input, Context context, CancellationToken ct)
+        Order input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();

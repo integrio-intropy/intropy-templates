@@ -1,3 +1,4 @@
+using {{ .models }};
 using {{ .name }}.Process;
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Shared;
@@ -72,6 +73,6 @@ public class ValidatorTests
         OrderId: "ORD-1001",
         CustomerId: "CUST-42",
         OrderDate: DateTimeOffset.UtcNow.AddDays(-1),
-        Lines: [new Line("SKU-1", 2, 10.0m)]);
+        Lines: [new OrderLine("SKU-1", 2, 10.0m)]);
 {{- end }}
 }

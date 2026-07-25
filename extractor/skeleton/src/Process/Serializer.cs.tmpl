@@ -1,15 +1,15 @@
 using CloudNative.CloudEvents;
-using {{ .name }}.Model;
+using {{ .models }};
 using Intropy.Framework.Blocks.Extractor.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Serializer : SerializeStep<Out, Context>
+public class Serializer : SerializeStep<Order, Context>
 {
     public override Task<(TechnicalStepResult<CloudEvent> Result, Context Context)> ExecuteAsync(
-        Out input, Context context, CancellationToken ct)
+        Order input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();

@@ -1,0 +1,16 @@
+# {{ .name }}
+
+Shared models class library for the integration system. Sibling components
+reference it via `ProjectReference` and exchange these contract types over
+pub/sub — the extractor publishes `Order`, the consuming loader deserializes
+the same record.
+
+This project was scaffolded automatically as a dependency of the first
+component that needed it. Rendering further components into the same parent
+directory leaves it untouched.
+
+## Build
+
+```bash
+dotnet build
+```

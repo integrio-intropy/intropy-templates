@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <PackageReference Include="Dapr.Client" Version="1.17.9" />
-    <PackageReference Include="Dapr.Messaging" Version="1.17.9" />
     <PackageReference Include="Intropy.BusinessIncidentService.Client" Version="0.1.1" />
     <PackageReference Include="Intropy.Contracts" Version="0.1.0" />
     <PackageReference Include="Intropy.Framework.Adapters" Version="0.2.3" />
@@ -18,6 +17,12 @@
     <PackageReference Include="Intropy.Telemetry.ConsoleApp" Version="0.1.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.8" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The shared models sibling is scaffolded by this template's
+         spec.dependencies entry, so it exists whenever this project does. -->
+    <ProjectReference Include="../../{{ .models }}/{{ .models }}.csproj" />
   </ItemGroup>
 
   <ItemGroup>
