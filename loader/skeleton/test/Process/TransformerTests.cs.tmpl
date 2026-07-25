@@ -1,0 +1,36 @@
+using {{ .name }}.Process;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Process;
+
+public class TransformerTests
+{
+{{- if .empty }}
+    // Add tests as you implement the pipeline steps.
+{{- else }}
+    [Fact]
+    public async Task ExecuteAsync_WithOrder_MapsToLoadRecord()
+    {
+        // Arrange
+        var transformer = new Transformer();
+        var order = new In(
+            OrderId: "ORD-1001",
+            CustomerId: "CUST-42",
+            OrderDate: new DateTimeOffset(2026, 1, 15, 9, 30, 0, TimeSpan.Zero),
+            Lines: [new Line("SKU-1", 2, 10.0m)]);
+        var before = DateTimeOffset.UtcNow;
+
+        // Act
+        var (result, _) = await transformer.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        var success = Assert.IsType<TechnicalStepResult<Out>.Success>(result);
+        Assert.Equal("ORD-1001", success.Value.OrderId);
+        Assert.Equal("CUST-42", success.Value.CustomerId);
+        Assert.Equal("Loaded", success.Value.Status);
+        Assert.InRange(success.Value.LoadedAt, before, DateTimeOffset.UtcNow);
+    }
+{{- end }}
+}

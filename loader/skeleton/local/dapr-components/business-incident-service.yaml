@@ -1,0 +1,11 @@
+# Lets the job's sidecar reach the local Business Incident Service (started by
+# `task services:up`) via Dapr service invocation. The endpoint name matches
+# the BusinessIncidentServiceClientOptions.AppId default, so no client config
+# is needed. In a deployed environment this component is replaced by real
+# service discovery.
+apiVersion: dapr.io/v1alpha1
+kind: HTTPEndpoint
+metadata:
+  name: business-incident-service
+spec:
+  baseUrl: http://127.0.0.1:8081

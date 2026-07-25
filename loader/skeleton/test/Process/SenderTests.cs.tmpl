@@ -1,0 +1,41 @@
+using System.Text;
+using {{ .name }}.Process;
+using {{ .name }}.Model;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using NSubstitute;
+
+namespace {{ .name }}.Test.Process;
+
+public class SenderTests
+{
+{{- if .empty }}
+    // Add tests as you implement the pipeline steps.
+{{- else }}
+    [Fact]
+    public async Task ExecuteAsync_WithOrder_WritesPascalCaseJsonToOrderNamedFile()
+    {
+        // Arrange
+        var fileAdapter = Substitute.For<IFileAdapter>();
+        var sender = new Sender(fileAdapter);
+        var output = new Out(
+            OrderId: "ORD-1001",
+            CustomerId: "CUST-42",
+            LoadedAt: new DateTimeOffset(2026, 1, 15, 9, 31, 0, TimeSpan.Zero),
+            Status: "Loaded");
+
+        // Act
+        var (result, _) = await sender.ExecuteAsync(
+            output, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        await fileAdapter.Received(1).WriteAsync(
+            "ORD-1001.json",
+            Arg.Is<string>(json => json.Contains("\"OrderId\":\"ORD-1001\"") && json.Contains("\"Status\":\"Loaded\"")),
+            Encoding.UTF8);
+        var success = Assert.IsType<TechnicalStepResult<Out>.Success>(result);
+        Assert.Same(output, success.Value);
+    }
+{{- end }}
+}

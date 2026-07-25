@@ -1,0 +1,22 @@
+# State store for the Idempotency Service, backed by the azurite Azure Table
+# Storage emulator (well-known dev account credentials — never real secrets).
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: idempotency-service-state-store
+spec:
+  type: state.azure.tablestorage
+  version: v1
+  metadata:
+    - name: accountName
+      value: "devstoreaccount1"
+    - name: accountKey
+      value: "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+    - name: tableName
+      value: "IdempotencyService"
+    - name: serviceURL
+      value: "http://azurite:10002/devstoreaccount1"
+    - name: keyPrefix
+      value: "none"
+scopes:
+  - idempotency-service

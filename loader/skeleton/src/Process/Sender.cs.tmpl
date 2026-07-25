@@ -1,0 +1,26 @@
+using System.Text;
+using System.Text.Json;
+using {{ .name }}.Model;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Loader.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+public class Sender(IFileAdapter fileAdapter) : SendStep<Out, Context>
+{
+    public override {{ if not .empty }}async {{ end }}Task<(TechnicalStepResult<Out> Result, Context Context)> ExecuteAsync(
+        Out input, Context context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        // Default System.Text.Json options — PascalCase property names, so the
+        // destination file carries the C# record shape verbatim.
+        var json = JsonSerializer.Serialize(input);
+        await fileAdapter.WriteAsync($"{input.OrderId}.json", json, Encoding.UTF8);
+        return (new TechnicalStepResult<Out>.Success(input), context);
+{{- end }}
+    }
+}

@@ -1,0 +1,102 @@
+# {{ .name }}
+
+.NET loader integration. The runner holds a Dapr streaming subscription on the
+`{{ .topic }}` topic of the in-memory pub/sub, runs each delivered message
+through the Intropy loader pipeline, and writes the result as
+`{orderId}.json` through the `destination` folder binding. Like the
+extractor, the loader keeps running until you stop it.
+
+## Run
+
+```bash
+task run
+```
+
+This starts the local stack (grafana/otel-lgtm observability plus the Intropy
+Idempotency Service and Business Incident Service — see
+`local/platform-services/`) and runs the app under Dapr. Once the
+subscription registers you should see:
+
+```
+== APP == info: {{ .name }}.Pipeline[0]
+== APP ==       Subscribed to topic {{ .topic }} (pubsub)
+```
+
+A subscriber alone has nothing publishing to it. The in-memory pub/sub lives
+inside this integration's own sidecar, so a standalone loader is verified by
+publishing through that sidecar — which is exactly what `--publish-app-id`
+does. In a second terminal:
+
+```bash
+dapr publish --publish-app-id {{ .appId }} --pubsub pubsub --topic {{ .topic }} \
+  --data '{"orderId":"ORD-2001","customerId":"CUST-42","orderDate":"2026-07-24T09:30:00Z","lines":[{"sku":"SKU-AAA","quantity":1,"unitPrice":12.50}]}'
+```
+
+(`task publish` runs the same command.) The loader picks it up:
+
+```
+== APP == info: {{ .name }}.Pipeline[0]
+== APP ==       Loaded ORD-2001 from topic {{ .topic }} (pubsub)
+```
+
+and writes the destination file:
+
+```bash
+cat local/storage/destination/ORD-2001.json
+```
+
+{{- if not .empty }}
+
+Publish the same order again and the pipeline cancels at the idempotency
+check instead of loading twice — the log shows
+`Cancelled ORD-2001 as a duplicate (idempotency check)` and no file is
+rewritten.
+{{- end }}
+
+Other tasks: `task build`, `task test`, `task clean` (remove
+`./local/storage`), and `task services:down` (stop the local stack). See
+`Taskfile.yml`.
+
+## Container image
+
+```bash
+docker build -t {{ .appId }} .
+```
+
+Multi-stage build on the .NET 10 chiseled runtime. The image contains only the
+app — the Dapr sidecar and components come from the deployment environment.
+
+## Pipeline
+
+Per delivered message (`src/LoaderRunner.cs` rebuilds it into a CloudEvent and
+drives this):
+{{- if .empty }}
+
+1. `Deserializer` parses `CloudEvent.Data` into `In`.
+2. `Validator` enforces business rules.
+3. Idempotency check — cancels duplicates.
+4. `Transformer` maps `In` → `Out`.
+5. `Sender` writes `Out` through the `destination` binding.
+
+Every step body throws `NotImplementedException` — this project was scaffolded
+with empty bodies for a migration agent to fill in. The idempotency and
+business-incident wiring is already in place; the idempotency step keys off
+CloudEvent Subject/Time from the context, so backfill those from stable
+business fields in your `Deserializer` (see `AGENTS.md`).
+{{- else }}
+
+1. `Deserializer` parses `CloudEvent.Data` into `In`, stamps `order_id` into
+   the pipeline context, and backfills the envelope `subject`/`time` context
+   keys from the order when the publisher set neither (`dapr publish` doesn't).
+2. `Validator` enforces required fields and basic business rules; failures are
+   routed to the Business Incident Service.
+3. Idempotency check — asks the Idempotency Service whether this Subject /
+   Time combination was already processed; duplicates cancel the run.
+4. `Transformer` maps the canonical order to the load record `Out`
+   (`LoadedAt` = now, `Status` = `"Loaded"`).
+5. `Sender` serializes `Out` with default System.Text.Json (PascalCase) and
+   writes `{orderId}.json` through the `destination` binding.
+
+Success, an idempotent duplicate, and a routed business incident all
+acknowledge the message; a technical failure requests redelivery.
+{{- end }}

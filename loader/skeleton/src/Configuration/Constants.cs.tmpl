@@ -1,0 +1,23 @@
+namespace {{ .name }}.Configuration;
+
+public static class Constants
+{
+    public const string ComponentName = "{{ .name | kebabcase }}";
+    public const string Organization = "{{ .organization }}";
+
+    public const string PubSubName = "pubsub";
+    public const string TopicName = "{{ .topic }}";
+
+    public const string DestinationBindingName = "destination";
+
+    public const string DestinationFileAdapterKey = "destination";
+
+    // Context keys the loader pipeline's idempotency step reads CloudEvent
+    // Subject (id) and Time (date) from. The values mirror the framework's
+    // internal CloudEventContextKeys (Intropy.Framework.Blocks) — they must
+    // match exactly.
+    public const string ContextKeyCloudEventSubject = "cloudevent.subject";
+    public const string ContextKeyCloudEventTime = "cloudevent.time";
+
+    public const string ContextKeyOrderId = "order_id";
+}

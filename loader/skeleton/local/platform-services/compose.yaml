@@ -1,0 +1,87 @@
+# Intropy platform services for local development: the Idempotency Service and
+# the Business Incident Service, each with its own Dapr sidecar, plus their
+# backing stores (azurite for state, rabbitmq for the incident service's
+# internal pub/sub). Included by the project-root docker-compose.yml.
+#
+# The integration job (running on the host via `task run`) reaches these
+# services through the HTTPEndpoint components in ../dapr-components/, which
+# point at the ports published here (8080 / 8081).
+
+services:
+  idempotency-service:
+    image: harbor.intropy.io/platform/idempotency-service:1.1.1
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+      DAPR_HTTP_PORT: "3500"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4317"
+    # No healthcheck: the image is distroless (no shell to exec a probe with).
+
+  idempotency-dapr:
+    image: daprio/daprd:1.16.1
+    command: [
+      "./daprd",
+      "-app-id", "idempotency-service",
+      "-app-port", "8080",
+      "-dapr-http-port", "3500",
+      "-resources-path", "/components"
+    ]
+    volumes:
+      - ./idempotency:/components
+    network_mode: "service:idempotency-service"
+    depends_on:
+      - idempotency-service
+      - azurite
+
+  business-incident-service:
+    image: harbor.intropy.io/platform/business-incident-service:1.1.0
+    ports:
+      - "8081:8080"
+    environment:
+      DaprComponentsConfig:StateStoreName: "business-incidents"
+      DaprComponentsConfig:InternalPubSubName: "business-incidents-internal"
+      DaprComponentsConfig:InternalTopicName: "business-incidents"
+      DaprComponentsConfig:NotificationPubSubName: "business-incidents-notifications"
+      DaprComponentsConfig:NotificationTopicName: "business-incident-notifications"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4317"
+    # No healthcheck: the image is distroless (no shell to exec a probe with).
+
+  business-incident-service-dapr:
+    image: daprio/daprd:1.16.1
+    command: [
+      "./daprd",
+      "--app-id", "business-incident-service",
+      "--app-port", "8080",
+      "--resources-path", "/components"
+    ]
+    volumes:
+      - ./business-incident:/components
+    network_mode: "service:business-incident-service"
+    restart: on-failure
+    depends_on:
+      business-incident-service:
+        condition: service_started
+      azurite:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+
+  rabbitmq:
+    image: rabbitmq:4.0.2-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5

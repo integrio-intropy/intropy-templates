@@ -1,0 +1,77 @@
+using {{ .name }}.Process;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Process;
+
+public class ValidatorTests
+{
+{{- if .empty }}
+    // Add tests as you implement the pipeline steps.
+{{- else }}
+    [Fact]
+    public async Task ExecuteAsync_WithValidOrder_ReturnsSuccess()
+    {
+        // Arrange
+        var validator = new Validator();
+        var order = CreateValidOrder();
+
+        // Act
+        var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        Assert.IsType<BusinessStepResult<In>.Success>(result);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithMissingOrderId_ReturnsFailure()
+    {
+        // Arrange
+        var validator = new Validator();
+        var order = CreateValidOrder() with { OrderId = "" };
+
+        // Act
+        var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        var failure = Assert.IsType<BusinessStepResult<In>.Failure>(result);
+        Assert.Equal("OrderId is required", failure.Value.Description);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithFutureOrderDate_ReturnsFailure()
+    {
+        // Arrange
+        var validator = new Validator();
+        var order = CreateValidOrder() with { OrderDate = DateTimeOffset.UtcNow.AddDays(1) };
+
+        // Act
+        var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        Assert.IsType<BusinessStepResult<In>.Failure>(result);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithNoLines_ReturnsFailure()
+    {
+        // Arrange
+        var validator = new Validator();
+        var order = CreateValidOrder() with { Lines = [] };
+
+        // Act
+        var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        var failure = Assert.IsType<BusinessStepResult<In>.Failure>(result);
+        Assert.Equal("Order must contain at least one line", failure.Value.Description);
+    }
+
+    private static In CreateValidOrder() => new(
+        OrderId: "ORD-1001",
+        CustomerId: "CUST-42",
+        OrderDate: DateTimeOffset.UtcNow.AddDays(-1),
+        Lines: [new Line("SKU-1", 2, 10.0m)]);
+{{- end }}
+}

@@ -1,0 +1,48 @@
+using System.Text.Json;
+using CloudNative.CloudEvents;
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Framework.Blocks.Loader.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+public class Deserializer : DeserializeStep<In, Context>
+{
+    protected override Task<(BusinessStepResult<In> Result, Context Context)> DeserializeAsync(
+        CloudEvent cloudEvent, Context context)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        var json = cloudEvent.Data?.ToString();
+        if (string.IsNullOrEmpty(json))
+        {
+            var incident = new BusinessIncidentData
+            {
+                Description = "CloudEvent data is null or empty",
+                Context = new Dictionary<string, string>()
+            };
+            return Task.FromResult<(BusinessStepResult<In>, Context)>(
+                (new BusinessStepResult<In>.Failure(incident), context));
+        }
+
+        var order = JsonSerializer.Deserialize<In>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+
+        context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
+
+        // The base step has already copied the envelope's Subject/Time into the
+        // context — but `dapr publish` generates an envelope without Subject
+        // (and Time does not always survive delivery). The idempotency check
+        // requires both, so backfill them from the order's business identity.
+        context.Metadata.TryAdd(Constants.ContextKeyCloudEventSubject, order.OrderId);
+        context.Metadata.TryAdd(Constants.ContextKeyCloudEventTime, order.OrderDate.ToString("O"));
+
+        return Task.FromResult<(BusinessStepResult<In>, Context)>(
+            (new BusinessStepResult<In>.Success(order), context));
+{{- end }}
+    }
+}

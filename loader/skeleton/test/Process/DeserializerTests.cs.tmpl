@@ -1,0 +1,94 @@
+using CloudNative.CloudEvents;
+using {{ .name }}.Configuration;
+using {{ .name }}.Process;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Process;
+
+public class DeserializerTests
+{
+{{- if .empty }}
+    // Add tests as you implement the pipeline steps. This placeholder keeps
+    // `dotnet test` green until the first real test lands.
+    [Fact(Skip = "Scaffolded with empty step bodies — implement the steps, then write real tests.")]
+    public void Placeholder()
+    {
+    }
+{{- else }}
+    private const string Json =
+        """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    [Fact]
+    public async Task ExecuteAsync_WithValidCloudEvent_ReturnsSuccess()
+    {
+        // Arrange: a bare envelope, like `dapr publish` produces (no Subject/Time).
+        var deserializer = new Deserializer();
+        var context = new Context(new Dictionary<string, string>());
+        var cloudEvent = new CloudEvent { Id = "evt-1", Data = Json };
+
+        // Act
+        var (result, _) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+
+        // Assert
+        var success = Assert.IsType<BusinessStepResult<In>.Success>(result);
+        Assert.Equal("ORD-1001", success.Value.OrderId);
+        Assert.Single(success.Value.Lines);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithValidCloudEvent_StoresOrderIdInContext()
+    {
+        // Arrange
+        var deserializer = new Deserializer();
+        var context = new Context(new Dictionary<string, string>());
+        var cloudEvent = new CloudEvent { Id = "evt-1", Data = Json };
+
+        // Act
+        var (_, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("ORD-1001", resultContext.Metadata[Constants.ContextKeyOrderId]);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutEnvelopeSubjectAndTime_BackfillsFromOrder()
+    {
+        // Arrange: the idempotency step requires Subject/Time in the context,
+        // but a `dapr publish` envelope carries neither.
+        var deserializer = new Deserializer();
+        var context = new Context(new Dictionary<string, string>());
+        var cloudEvent = new CloudEvent { Id = "evt-1", Data = Json };
+
+        // Act
+        var (_, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("ORD-1001", resultContext.Metadata[Constants.ContextKeyCloudEventSubject]);
+        Assert.Equal(new DateTimeOffset(2026, 1, 15, 9, 30, 0, TimeSpan.Zero).ToString("O"),
+            resultContext.Metadata[Constants.ContextKeyCloudEventTime]);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithEnvelopeSubject_KeepsEnvelopeValue()
+    {
+        // Arrange: an envelope with Subject set (as the extractor publishes it).
+        var deserializer = new Deserializer();
+        var context = new Context(new Dictionary<string, string>());
+        var cloudEvent = new CloudEvent
+        {
+            Id = "evt-1",
+            Subject = "envelope-subject",
+            Time = DateTimeOffset.UtcNow,
+            Data = Json
+        };
+
+        // Act
+        var (_, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+
+        // Assert: the backfill must not clobber what the publisher set.
+        Assert.Equal("envelope-subject", resultContext.Metadata[Constants.ContextKeyCloudEventSubject]);
+    }
+{{- end }}
+}

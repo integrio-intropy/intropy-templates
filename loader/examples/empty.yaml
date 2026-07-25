@@ -1,0 +1,9 @@
+# Render fixture: empty bodies (steps throw NotImplementedException; the
+# idempotency/business-incident wiring stays — loader idempotency keys off
+# CloudEvent Subject/Time, so there are no lambdas to stub) — the
+# migration-agent starting point.
+#   intropy int create loader -o /tmp/loader-empty -f loader/examples/empty.yaml --version main --no-input
+name: OrderLoader
+organization: Fluxia
+topic: orders
+empty: true
