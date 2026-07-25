@@ -28,6 +28,10 @@ services:
       "-dapr-http-port", "3500",
       "-resources-path", "/components"
     ]
+    environment:
+      # The sidecar shares the app container's network namespace, so its own
+      # address is loopback. daprd 1.16 cannot infer this and exits without it.
+      DAPR_HOST_IP: "127.0.0.1"
     volumes:
       - ./idempotency:/components
     network_mode: "service:idempotency-service"
@@ -56,6 +60,8 @@ services:
       "--app-port", "8080",
       "--resources-path", "/components"
     ]
+    environment:
+      DAPR_HOST_IP: "127.0.0.1"
     volumes:
       - ./business-incident:/components
     network_mode: "service:business-incident-service"
