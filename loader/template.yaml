@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: loader
   title: Loader Integration
-  description: Long-running .NET loader that subscribes to a Dapr pub/sub topic via a streaming subscription, runs each message through the Intropy loader pipeline, and writes the result through a local destination folder binding.
+  description: Long-running ASP.NET loader that subscribes to a Dapr pub/sub topic over HTTP delivery, runs each delivered message through the Intropy loader pipeline, and writes the result through a local destination folder binding. Runs as a Deployment in production.
   tags:
     - example
     - dotnet

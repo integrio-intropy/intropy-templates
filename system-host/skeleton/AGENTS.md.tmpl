@@ -70,6 +70,11 @@ Dapr YAML + per-component runtime config to `./out`), `task build`.
   files pass through, and generated components with the same `metadata.name`
   replace them. The staged files are regenerated on every start — change the
   declaration, not the artifacts.
+- Component lifecycles differ: extractors are run-to-completion jobs — a host
+  run currently executes each one once at startup (it exits when its sweep
+  completes); scheduled re-runs will be declared on the block in `Define()`
+  once the topology API ships schedule support (a CronJob in production).
+  Loaders are long-running ASP.NET services and stay up for the whole host run.
 
 ## Framework guidance
 

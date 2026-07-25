@@ -1,17 +1,23 @@
 # Agent Instructions
 
 This project is a .NET loader integration built on the Intropy framework.
-A runner holds a Dapr streaming subscription on a pub/sub topic; each
-delivered message is rebuilt into a CloudEvent, run through the Intropy
-loader pipeline, and written as `{orderId}.json` through a local Dapr
-destination binding.
+An ASP.NET service holds a Dapr subscription on a pub/sub topic; the sidecar
+POSTs each delivered message to the subscription endpoint, where it is rebuilt
+into a CloudEvent, run through the Intropy loader pipeline, and written as
+`{orderId}.json` through a local Dapr destination binding.
 
 ## Project overview
 
 - Framework: .NET 10
-- App type: Long-running console app (no web endpoints; runs until stopped)
-- Runner: `{{ .name }}.LoaderRunner` (skeleton code — the framework does not
-  yet ship a loader host)
+- App type: ASP.NET Dapr subscriber service (long-running; a Deployment in
+  production)
+- App port: 5001 under `task run` (Taskfile `APP_PORT`; the sidecar's
+  `--app-port` and the app's `--urls` must agree)
+- Subscription endpoint: `POST /events/{{ .topic }}`
+  (`src/Endpoints/LoaderEndpoints.cs`), announced to the sidecar via
+  `GET /dapr/subscribe`; the ack is the response body's `status` field
+  (SUCCESS / RETRY)
+- Health endpoint: `GET /healthz`
 - App id: `{{ .appId }}`
 - Pub/sub component: `pubsub` (in-memory — it lives inside this integration's
   own sidecar, so publish to it via
@@ -35,14 +41,16 @@ destination binding.
 ## Important files
 
 - `Taskfile.yml` - local-dev tasks; `task run` is the canonical way to run the loader.
-- `Dockerfile` - multi-stage image build on the .NET chiseled runtime
+- `Dockerfile` - multi-stage image build on the chiseled ASP.NET runtime,
+  listening on port 8080 in the container
   (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
   the shared contracts sibling enters as a named context); the image contains
   only the app — the Dapr sidecar and components come from the deployment
   environment.
-- `src/Program.cs` - DI wiring and entrypoint that runs the `LoaderRunner`.
-- `src/LoaderRunner.cs` - sidecar lifecycle, the streaming subscription, the
-  TopicMessage → CloudEvent rebuild, and the pipeline-result → ack mapping.
+- `src/Program.cs` - DI wiring, the WebApplication setup, and the endpoint maps
+  (subscription, `/dapr/subscribe`, `/healthz`).
+- `src/Endpoints/LoaderEndpoints.cs` - the subscription endpoint: the envelope
+  → CloudEvent rebuild and the pipeline-result → ack mapping.
 - `src/Configuration/Constants.cs` - component/topic/binding names,
   keyed-adapter key, and the CloudEvent context keys the idempotency step reads.
 - `src/Process/` - the loader pipeline steps and the `LoaderBuilder` wiring
@@ -58,9 +66,10 @@ destination binding.
 `task run` is the canonical run path. It starts the local stack
 (grafana/otel-lgtm plus the Idempotency Service and Business Incident Service
 with their backing stores) and runs the app under Dapr with OTLP export
-configured. The app keeps running until you stop it with Ctrl+C. Verify it by
-publishing through the loader's own sidecar: `task publish` (or the equivalent
-raw `dapr publish --publish-app-id {{ .appId }} ...` — see `README.md`).
+configured, listening on port 5001 with the sidecar delivering to it. The app
+keeps running until you stop it with Ctrl+C. Verify it by publishing through
+the loader's own sidecar: `task publish` (or the equivalent raw
+`dapr publish --publish-app-id {{ .appId }} ...` — see `README.md`).
 
 ```bash
 task run
@@ -80,12 +89,16 @@ remove `./local/storage`), `task services:down` (stop the local stack). See
   read from the context keys `cloudevent.subject` / `cloudevent.time`
   (constants in `Constants.cs`, mirroring the framework's internal keys —
   there are no id/date extractor lambdas to configure).
-- Ack mapping (`LoaderRunner`): success, an idempotent duplicate, and a routed
-  business incident all return `TopicResponseAction.Success` (redelivering a
-  validation failure would loop forever); technical failures return `Retry`.
-  Note the pipeline finalizer reports a routed business failure as `Success`
-  with a null value — which is why the runner matches
-  `Success { Value: not null }` for the loaded case.
+- Ack mapping (`LoaderEndpoints`): success, an idempotent duplicate, and a
+  routed business incident all ack with `status: SUCCESS` (redelivering a
+  validation failure would loop forever); technical failures return
+  `status: RETRY` and the sidecar redelivers. Note the pipeline finalizer
+  reports a routed business failure as `Success` with a null value — which is
+  why the handler matches `Success { Value: not null }` for the loaded case.
+- Redelivery detection: HTTP delivery has no counterpart to the streaming
+  API's `retrycount` extension, so the pipeline context's `IsRetry` is always
+  false — a routed business incident is not auto-resolved by a later
+  successful redelivery.
 {{- if .empty }}
 - The step bodies are scaffolded empty (`NotImplementedException`). The
   idempotency and business-incident wiring stays in place — `LoaderBuilder`

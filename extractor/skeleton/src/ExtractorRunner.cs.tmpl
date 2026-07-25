@@ -14,12 +14,13 @@ using Microsoft.Extensions.Logging;
 namespace {{ .name }};
 
 /// <summary>
-/// Runs the extractor lifecycle, including sidecar management and the poll loop.
-/// Every poll tick it sweeps the inbound folder, runs each file through the
-/// extract pipeline, and deletes the source file once its content has been
-/// published (or cancelled as a duplicate). Failed files stay in the folder and
-/// are retried on the next tick — the idempotency check makes the retry safe.
-/// Runs until the cancellation token is signalled (Ctrl+C).
+/// Runs the extractor as a run-to-completion job: one sweep of the inbound
+/// folder, then exit. Each swept file goes through the extract pipeline and
+/// the source file is deleted once its content has been published (or
+/// cancelled as a duplicate). Failed files stay in the folder for the next
+/// scheduled run — the idempotency check makes the retry safe. Scheduling
+/// lives outside the block: the system host locally, a Kubernetes CronJob
+/// in production.
 /// </summary>
 public class ExtractorRunner(
     DaprClient daprClient,
@@ -32,9 +33,9 @@ public class ExtractorRunner(
     private readonly ILogger _logger = loggerFactory.CreateLogger("{{ .name }}.Pipeline");
 
     /// <summary>
-    /// Waits for the Dapr sidecar, then polls the inbound folder until cancelled.
+    /// Waits for the Dapr sidecar, sweeps the inbound folder once, and returns.
     /// </summary>
-    /// <returns>0 on graceful shutdown, 1 on failure.</returns>
+    /// <returns>0 when every swept file succeeded (or the run was aborted), 1 on failure.</returns>
     public async Task<int> RunAsync(CancellationToken ct)
     {
         try
@@ -49,21 +50,15 @@ public class ExtractorRunner(
             return 1;
         }
 
-        _logger.LogInformation("Polling inbound every {Seconds}s — stop with Ctrl+C",
-            Constants.PollIntervalSeconds);
-
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Constants.PollIntervalSeconds));
-            do
-            {
-                await SweepAsync(ct);
-            } while (await timer.WaitForNextTickAsync(ct));
-
-            return 0;
+            var failed = await SweepAsync(ct);
+            return failed == 0 ? 0 : 1;
         }
         catch (OperationCanceledException)
         {
+            // An aborted run is not a failure: unprocessed files stay safely
+            // in the inbound folder for the next scheduled run.
             return 0;
         }
         catch (Exception e)
@@ -84,13 +79,19 @@ public class ExtractorRunner(
         }
     }
 
-    private async Task SweepAsync(CancellationToken ct)
+    /// <returns>The number of files that failed and were left in place.</returns>
+    private async Task<int> SweepAsync(CancellationToken ct)
     {
         var files = await fileAdapter.ListAsync();
         if (files.Count == 0)
-            return;
+        {
+            _logger.LogInformation("Inbound is empty; nothing to do");
+            return 0;
+        }
 
         _logger.LogInformation("Swept {Count} file(s) from inbound", files.Count);
+
+        var failed = 0;
 
         foreach (var file in files)
         {
@@ -118,10 +119,17 @@ public class ExtractorRunner(
                         file.FileName);
                     break;
                 default:
-                    _logger.LogWarning("Processing {FileName} failed ({ResultType}); leaving it for the next tick",
+                    _logger.LogWarning("Processing {FileName} failed ({ResultType}); leaving it for the next scheduled run",
                         file.FileName, result.GetType().Name);
+                    failed++;
                     break;
             }
         }
+
+        if (failed > 0)
+            _logger.LogWarning("{Failed} of {Total} file(s) failed; exiting 1 so the scheduler records a failed run",
+                failed, files.Count);
+
+        return failed;
     }
 }

@@ -1,10 +1,11 @@
 # {{ .name }}
 
-.NET extractor integration. The runner polls a local inbound folder every 5
-seconds, runs each swept JSON order through the Intropy extractor pipeline,
-publishes the result as a CloudEvent to the `{{ .topic }}` topic on the
-in-memory Dapr pub/sub, and deletes the source file. Unlike a one-shot job,
-the extractor keeps running until you stop it.
+.NET extractor integration. One run = one sweep: the runner lists the local
+inbound folder, runs each swept JSON order through the Intropy extractor
+pipeline, publishes the result as a CloudEvent to the `{{ .topic }}` topic on
+the in-memory Dapr pub/sub, deletes the source file, and exits. Scheduling
+lives outside the block — the system host locally, a Kubernetes CronJob in
+production.
 
 ## Run
 
@@ -15,7 +16,7 @@ task run
 This seeds `./local/storage/{{ .connector }}` with the bundled sample order, starts the
 local stack (grafana/otel-lgtm observability plus the Intropy Idempotency Service
 and Business Incident Service — see `local/platform-services/`), and runs the app
-under Dapr. Within a poll tick you should see:
+once under Dapr. You should see:
 
 ```
 == APP == info: {{ .name }}.Pipeline[0]
@@ -24,7 +25,8 @@ under Dapr. Within a poll tick you should see:
 == APP ==       Published ORD-1001 to topic {{ .topic }} (pubsub)
 ```
 
-Stop it with Ctrl+C, then confirm the source file is gone:
+The job exits by itself once the sweep completes (exit code 1 means at least
+one file failed and was left in place). Confirm the source file is gone:
 
 ```bash
 ls local/storage/{{ .connector }}/
@@ -36,10 +38,9 @@ publish, clean up) without needing a consumer to exist.
 
 {{- if not .empty }}
 
-Seed the same order again while the app is running (`task seed` in a second
-terminal) and the pipeline cancels at the idempotency check instead of
-publishing twice — the trace shows the check step cancelled and no downstream
-steps.
+Run `task run` a second time — it re-seeds the same order — and the pipeline
+cancels at the idempotency check instead of publishing twice: the trace shows
+the check step cancelled and no downstream steps.
 {{- end }}
 
 Other tasks: `task build`, `task test`, `task clean` (remove `./local/storage`),
@@ -66,7 +67,7 @@ come from the deployment environment.
 
 ## Pipeline
 
-Per swept file (`src/ExtractorRunner.cs` drives this on every poll tick):
+Per swept file (`src/ExtractorRunner.cs` drives this once per run):
 {{- if .empty }}
 
 1. `Deserializer` parses the JSON into `In`.
@@ -96,5 +97,6 @@ at stable business fields when you implement the steps (see `AGENTS.md`).
    `pubsub` / `{{ .topic }}`.
 
 On success (or an idempotent duplicate) the source file is deleted; a failed
-file stays in the inbound folder and is retried on the next tick.
+file stays in the inbound folder and is retried on the next scheduled run,
+which the run's exit code 1 asks the scheduler to record.
 {{- end }}

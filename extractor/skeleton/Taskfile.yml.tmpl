@@ -1,13 +1,13 @@
 version: "3"
 
 # Local-dev tasks for {{ .name }} — a .NET extractor integration.
-# The runner polls the inbound folder every 5 s; each swept file goes through
+# One run = one sweep of the inbound folder: each swept file goes through
 # the extract pipeline and is published as a CloudEvent to the pub/sub topic,
-# then the source file is deleted.
+# then the source file is deleted. Scheduling lives outside the block — the
+# system host locally, a Kubernetes CronJob in production.
 #
-# This is a long-running console app (no web endpoints): the poll loop runs
-# in-process, so `run` omits --app-port. The app runs until you stop it with
-# Ctrl+C, and `dapr run` follows it down.
+# This is a console one-shot job (no web endpoints): `run` deliberately omits
+# --app-port so `dapr run` follows the app down once it completes and exits.
 
 vars:
   APP_ID: {{ .appId }}
@@ -44,7 +44,7 @@ tasks:
 
   # ── Component runner ──────────────────────────────────────────────
   run:
-    desc: Run the extractor via Dapr (in-memory pub/sub); stop with Ctrl+C
+    desc: Run the extractor once via Dapr (in-memory pub/sub) and exit
     deps: [seed, services:up]
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     env:
@@ -53,8 +53,7 @@ tasks:
       # If nothing is listening the exporter just logs a warning — it won't crash the app.
       OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
     cmds:
-      # No --app-port: the poll loop runs in-process (nothing is delivered to the
-      # app over HTTP), and `dapr run` follows the app down when you stop it.
+      # No --app-port: a console job exits on completion and `dapr run` follows it down.
       - >-
         dapr run
         --app-id {{ "{{" }}.APP_ID}}

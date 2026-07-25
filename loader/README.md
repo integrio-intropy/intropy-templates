@@ -1,21 +1,23 @@
 # loader
 
-Scaffolds a long-running .NET loader integration: a runner holds a Dapr
-streaming subscription on a pub/sub topic, rebuilds each delivered message
+Scaffolds a long-running ASP.NET loader integration: the service declares a
+Dapr subscription on a pub/sub topic, the sidecar POSTs each delivered
+message to the subscription endpoint, and the handler rebuilds the envelope
 into a CloudEvent, runs it through the Intropy loader pipeline
 (`Intropy.Framework.Blocks.Loader`), and writes the result as
-`{orderId}.json` through a local destination folder binding. The loader is
-the consuming half of a system contract — scaffold the publishing extractor
-with the same `topic` value.
+`{orderId}.json` through a local destination folder binding. In production
+the loader runs as a Deployment (unlike the run-to-completion `extractor`).
+The loader is the consuming half of a system contract — scaffold the
+publishing extractor with the same `topic` value.
 
-The rendered project is a console app (like `extractor`, running until
-stopped) with a Taskfile (`task run` starts the local observability +
-platform-services stack and runs the app under Dapr until Ctrl+C;
-`task publish` sends a sample order through the loader's own sidecar), xUnit
-tests for the pipeline steps, a Dockerfile on the chiseled runtime, and an
-`AGENTS.md` describing the component to coding agents. The framework does not
-yet ship a loader host, so the skeleton carries its own `LoaderRunner`
-(sidecar lifecycle + streaming subscription), modeled on `ExtractorRunner`.
+The rendered project is an ASP.NET service with a Taskfile (`task run` starts
+the local observability + platform-services stack and runs the app under
+Dapr — app port 5001, HTTP delivery — until Ctrl+C; `task publish` sends a
+sample order through the loader's own sidecar), a `/healthz` endpoint, xUnit
+tests for the pipeline steps, a Dockerfile on the chiseled ASP.NET runtime,
+and an `AGENTS.md` describing the component to coding agents. The
+subscription lives in `src/Endpoints/LoaderEndpoints.cs` (`Dapr.AspNetCore`'s
+`.WithTopic` + `MapSubscribeHandler`).
 
 The pipeline wires idempotency and business incidents (the loader block
 requires both), so the local compose stack includes the Intropy Idempotency

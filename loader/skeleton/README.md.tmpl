@@ -1,10 +1,11 @@
 # {{ .name }}
 
-.NET loader integration. The runner holds a Dapr streaming subscription on the
-`{{ .topic }}` topic of the in-memory pub/sub, runs each delivered message
-through the Intropy loader pipeline, and writes the result as
-`{orderId}.json` through the `destination` folder binding. Like the
-extractor, the loader keeps running until you stop it.
+.NET loader integration. An ASP.NET service subscribes to the `{{ .topic }}`
+topic of the in-memory pub/sub: the Dapr sidecar POSTs each delivered message
+to the subscription endpoint, which runs it through the Intropy loader
+pipeline and writes the result as `{orderId}.json` through the `destination`
+folder binding. The loader is a long-running service (a Deployment in
+production) and keeps running until you stop it.
 
 ## Run
 
@@ -14,12 +15,13 @@ task run
 
 This starts the local stack (grafana/otel-lgtm observability plus the Intropy
 Idempotency Service and Business Incident Service — see
-`local/platform-services/`) and runs the app under Dapr. Once the
-subscription registers you should see:
+`local/platform-services/`) and runs the app under Dapr, listening on port
+5001. At startup the sidecar calls `GET /dapr/subscribe`, discovers the
+subscription endpoint, and from then on POSTs every delivery to it. Check the
+service is up:
 
-```
-== APP == info: {{ .name }}.Pipeline[0]
-== APP ==       Subscribed to topic {{ .topic }} (pubsub)
+```bash
+curl http://localhost:5001/healthz
 ```
 
 A subscriber alone has nothing publishing to it. The in-memory pub/sub lives
@@ -79,8 +81,8 @@ come from the deployment environment.
 
 ## Pipeline
 
-Per delivered message (`src/LoaderRunner.cs` rebuilds it into a CloudEvent and
-drives this):
+Per delivered message (`src/Endpoints/LoaderEndpoints.cs` rebuilds the
+envelope into a CloudEvent and drives this):
 {{- if .empty }}
 
 1. `Deserializer` parses `CloudEvent.Data` into the shared `Order` contract.
@@ -112,5 +114,6 @@ business fields in your `Deserializer` (see `AGENTS.md`).
    writes `{orderId}.json` through the `destination` binding.
 
 Success, an idempotent duplicate, and a routed business incident all
-acknowledge the message; a technical failure requests redelivery.
+acknowledge the message (`status: SUCCESS` in the response body); a technical
+failure returns `status: RETRY` and the sidecar redelivers.
 {{- end }}

@@ -1,18 +1,19 @@
 # Agent Instructions
 
 This project is a .NET extractor integration built on the Intropy framework.
-A runner polls a local Dapr file binding every 5 seconds; each swept file goes
+One run = one sweep of a local Dapr file binding; each swept file goes
 through the Intropy extractor pipeline and is published as a CloudEvent to a
-Dapr pub/sub topic, then the source file is deleted.
+Dapr pub/sub topic, then the source file is deleted. Scheduling lives outside
+the block — the system host locally, a Kubernetes CronJob in production.
 
 ## Project overview
 
 - Framework: .NET 10
-- App type: Long-running console app (no web endpoints; runs until stopped)
+- App type: Run-to-completion console job (no web endpoints; one sweep per run,
+  then exit — exit code 1 when any file failed and was left in place)
 - Runner: `{{ .name }}.ExtractorRunner` (skeleton code — the framework does not
   yet ship an extractor host)
 - App id: `{{ .appId }}`
-- Poll interval: 5 s (`Constants.PollIntervalSeconds`, in-process timer)
 - Source binding: `binding.{{ .connector }}` (Dapr local storage, rootPath
   `./local/storage/{{ .connector }}`) — named after the source connector so the
   system host's generated binding replaces it in the staged overlay
@@ -40,10 +41,10 @@ Dapr pub/sub topic, then the source file is deleted.
   only the app — the Dapr sidecar and components come from the deployment
   environment.
 - `src/Program.cs` - DI wiring and entrypoint that runs the `ExtractorRunner`.
-- `src/ExtractorRunner.cs` - sidecar lifecycle and the poll loop: sweep inbound,
-  run the pipeline, delete on success.
-- `src/Configuration/Constants.cs` - component/topic names, poll interval,
-  keyed-adapter key, CloudEvent envelope values.
+- `src/ExtractorRunner.cs` - sidecar lifecycle and the one-shot sweep: list
+  inbound, run the pipeline per file, delete on success.
+- `src/Configuration/Constants.cs` - component/topic names, keyed-adapter key,
+  CloudEvent envelope values.
 - `src/Process/` - the extractor pipeline steps and the `ExtractorBuilder` wiring
   (`ServiceCollectionExtensions.cs`).
 - `test/` - xUnit tests for the pipeline steps (`task test`).
@@ -58,9 +59,9 @@ Dapr pub/sub topic, then the source file is deleted.
 `task run` is the canonical run path. It seeds the inbound folder with the
 sample order, starts the local stack (grafana/otel-lgtm plus the Idempotency
 Service and Business Incident Service with their backing stores), and runs the
-app under Dapr with OTLP export configured. The app keeps running until you
-stop it with Ctrl+C; within a poll tick it sweeps the seeded file, publishes
-it, and deletes the source.
+app under Dapr with OTLP export configured. The app runs once and exits: it
+sweeps the seeded file, publishes it, and deletes the source. Exit code 1
+means at least one file failed and was left in place.
 
 ```bash
 task run
@@ -75,9 +76,9 @@ local stack). See `Taskfile.yml` for ports and flags.
 - The source `IFileAdapter` is registered as a keyed singleton
   (`Constants.SourceFileAdapterKey`). Inject it via `[FromKeyedServices(...)]`
   or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
-- A failed file stays in the inbound folder and is retried on the next tick;
-  the idempotency check makes the retry safe. Duplicates cancel as a traceable
-  no-op and the file is removed.
+- A failed file stays in the inbound folder and is retried on the next
+  scheduled run; the idempotency check makes the retry safe. Duplicates cancel
+  as a traceable no-op and the file is removed.
 - Additional enrichment steps go into the builder chain in
   `src/Process/ServiceCollectionExtensions.cs` via `.WithExtractor(...)` —
   the extractor pipeline supports any number of them, executed in order.

@@ -10,6 +10,11 @@ them; everything the host does is a backend over that declaration.
 task run        # the whole system under the Aspire dashboard; Ctrl+C to stop
 ```
 
+Extractors are run-to-completion jobs: a host run executes each one once at
+startup, so seed their inbound folders before starting (scheduled re-runs
+arrive with topology schedule support). Loaders are long-running services and
+stay up for the whole host run.
+
 ## Inspect the model without starting anything
 
 ```bash

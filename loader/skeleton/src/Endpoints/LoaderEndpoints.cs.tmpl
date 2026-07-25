@@ -1,0 +1,129 @@
+using System.Globalization;
+using System.Text.Json;
+using CloudNative.CloudEvents;
+using {{ .contracts }};
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Loader;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Microsoft.AspNetCore.Mvc;
+
+namespace {{ .name }}.Endpoints;
+
+/// <summary>
+/// Maps the Dapr pub/sub subscription endpoint. <c>.WithTopic</c> attaches the
+/// subscription metadata that <c>MapSubscribeHandler</c> serves to the sidecar
+/// (GET /dapr/subscribe) at startup; the sidecar then POSTs every delivery to
+/// this route as a CloudEvents JSON envelope. The response body's
+/// <c>status</c> field is the ack: SUCCESS consumes the message, RETRY asks
+/// for redelivery.
+/// </summary>
+public static class LoaderEndpoints
+{
+    // The route the sidecar delivers to; announced via GET /dapr/subscribe.
+    private const string SubscriptionRoute = "/events/{{ .topic }}";
+
+    private static readonly IResult AckSuccess = Results.Ok(new { status = "SUCCESS" });
+    private static readonly IResult AckRetry = Results.Ok(new { status = "RETRY" });
+
+    public static IEndpointRouteBuilder MapLoaderEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapPost(SubscriptionRoute, HandleDeliveryAsync)
+            .WithTopic(Constants.PubSubName, Constants.TopicName);
+
+        return endpoints;
+    }
+
+    private static async Task<IResult> HandleDeliveryAsync(
+        HttpRequest request,
+        [FromServices] Loader<Order, Out, Context> pipeline,
+        [FromServices] ILoggerFactory loggerFactory,
+        CancellationToken ct)
+    {
+        var logger = loggerFactory.CreateLogger("{{ .name }}.Pipeline");
+
+        try
+        {
+            // The envelope arrives as application/cloudevents+json, which the
+            // minimal-API JSON binder rejects — parse the body by hand.
+            using var envelope = await JsonDocument.ParseAsync(request.Body, cancellationToken: ct);
+
+            // Redelivery detection is not available over HTTP delivery (the
+            // streaming API's retrycount extension has no envelope
+            // counterpart), so IsRetry is always false: a routed business
+            // incident is not auto-resolved by a later successful redelivery.
+            var context = new Context(new Dictionary<string, string>(), IsRetry: false);
+
+            var (result, finalContext) = await pipeline.Execute(ToCloudEvent(envelope.RootElement), context, ct);
+            var subject = finalContext.Metadata.GetValueOrDefault(
+                Constants.ContextKeyCloudEventSubject,
+                envelope.RootElement.GetProperty("id").GetString() ?? "");
+
+            switch (result)
+            {
+                case StepResult<Out>.Success { Value: not null }:
+                    logger.LogInformation("Loaded {Subject} from topic {Topic} ({PubSub})",
+                        subject, Constants.TopicName, Constants.PubSubName);
+                    return AckSuccess;
+                case StepResult<Out>.Success:
+                    // A business failure was routed to the Business Incident
+                    // Service; the pipeline finalizer reports that as Success
+                    // with a default (null) value. Ack it — redelivering a
+                    // validation failure would loop forever.
+                    logger.LogWarning("Routed a business incident for {Subject}; message consumed", subject);
+                    return AckSuccess;
+                case StepResult<Out>.Cancelled:
+                    logger.LogInformation("Cancelled {Subject} as a duplicate (idempotency check)", subject);
+                    return AckSuccess;
+                default:
+                    logger.LogWarning("Processing {Subject} failed ({ResultType}); requesting redelivery",
+                        subject, result.GetType().Name);
+                    return AckRetry;
+            }
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Error processing delivery");
+            return AckRetry;
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds a CloudEvent from the delivery envelope. Over HTTP the
+    /// envelope carries Subject and Time as first-class members, but only
+    /// when the publisher set them (`dapr publish` sets time but never
+    /// subject) — the Deserializer stamps both from the payload's business
+    /// identity.
+    /// </summary>
+    private static CloudEvent ToCloudEvent(JsonElement envelope)
+    {
+        var data = envelope.GetProperty("data");
+        var cloudEvent = new CloudEvent
+        {
+            Id = envelope.GetProperty("id").GetString(),
+            Type = envelope.GetProperty("type").GetString(),
+            // The pipeline's Deserializer expects the raw payload text.
+            Data = data.ValueKind == JsonValueKind.String ? data.GetString() : data.GetRawText()
+        };
+
+        if (envelope.TryGetProperty("datacontenttype", out var contentType) &&
+            !string.IsNullOrEmpty(contentType.GetString()))
+            cloudEvent.DataContentType = contentType.GetString();
+
+        if (envelope.TryGetProperty("source", out var sourceValue) &&
+            Uri.TryCreate(sourceValue.GetString(), UriKind.RelativeOrAbsolute, out var source))
+            cloudEvent.Source = source;
+
+        if (envelope.TryGetProperty("subject", out var subject) &&
+            !string.IsNullOrEmpty(subject.GetString()))
+            cloudEvent.Subject = subject.GetString();
+
+        if (envelope.TryGetProperty("time", out var time) &&
+            DateTimeOffset.TryParse(time.GetString(), CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out var parsedTime))
+            cloudEvent.Time = parsedTime;
+
+        return cloudEvent;
+    }
+}
