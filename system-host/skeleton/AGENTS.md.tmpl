@@ -79,9 +79,10 @@ Dapr YAML + per-component runtime config to `./out`), `task build`.
   command in the dashboard. Without a schedule an extractor runs once at host
   start. In production the schedule becomes a Kubernetes CronJob. Loaders are
   long-running ASP.NET services and stay up for the whole host run.
-- `intropy sys create` regenerates `{{ .systemClass }}.cs` without emitting
-  `WithSchedule` (CLI codegen doesn't know it yet) — re-add the schedule by
-  hand after regenerating the definition.
+- `intropy sys create` emits `.WithSchedule("* * * * *")` (once every minute)
+  on every extractor it generates — edit the cron in place afterwards; the
+  file is yours after generation. Regenerating the definition resets any
+  edited cron to that default.
 
 ## Framework guidance
 
