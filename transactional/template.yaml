@@ -11,6 +11,7 @@ metadata:
     - transactional
   labels:
     intropy.io/template-level: example
+    intropy.dev/block-kind: loader
 
 spec:
   parameters:
