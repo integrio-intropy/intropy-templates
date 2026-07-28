@@ -54,6 +54,15 @@ intropy int create system-host -o /tmp/system-host-out \
 ```
 
 Building the render requires the `Intropy.Topology.Aspire` /
-`Intropy.Topology.Generation` packages (0.1.0) to be resolvable from a NuGet
-feed; until they are published, pack the Intropy.Topology repo to a local
-folder feed.
+`Intropy.Topology.Generation` packages (0.2.6) to be resolvable from a NuGet
+feed; until they are published, pack the intropy-topology repo to a local
+folder feed:
+
+```bash
+cd ~/dev/intropy/tooling/intropy-topology
+dotnet pack -p:Version=0.2.6 -o ~/dev/intropy/local-nuget
+```
+
+Do not lower the pin below 0.2.5. That is the first version whose `graph` verb
+emits the `topology.intropy.io/v1` record `intropy dashboard` decodes; earlier
+versions emit a pre-v1 shape the CLI rejects, so the flow view comes up empty.
