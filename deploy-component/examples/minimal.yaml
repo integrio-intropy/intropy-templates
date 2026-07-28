@@ -1,0 +1,5 @@
+name: order-load
+domain: sales
+system: ordersync
+appId: order-load
+registry: harbor.intropy.io

@@ -120,6 +120,49 @@ Notes:
     sibling exists. The system-host skeleton never references the workspace's
     shared contracts project; `intropy sys create` discovers it by its
     scaffold record and inserts that reference itself.
+- **`spec.files` decides which files exist at all**, where `spec.parameters`
+  only decides what is in them. Each entry is a `path` glob relative to
+  `skeleton/` plus a `when` — a Go template (sprig available) rendered against
+  the resolved values. Any result other than `""`, `"false"` or `"0"` includes
+  the match.
+
+  ```yaml
+  files:
+    - path: base/dapr/pubsub-servicebus.yaml.tmpl
+      when: '{{ eq .pubsub "servicebus" }}'
+    - path: base/dapr/pubsub-rabbitmq.yaml.tmpl
+      when: '{{ eq .pubsub "rabbitmq" }}'
+    - path: base/secrets/**
+      when: '{{ eq .secretStore "kubernetes" }}'
+  ```
+
+  Rules:
+  - **The first matching rule decides**, so a specific rule can override a
+    broader one placed after it. A path no rule matches is **included** — which
+    is why every template written before this field existed renders unchanged.
+  - **Paths match the source**, `.tmpl` suffix included. A rule that decides on
+    values cannot depend on a path those values produce, so a
+    `{{ .name }}/` segment is only reachable via a glob.
+  - **A trailing `/**` matches the directory and everything under it**, and
+    prunes the subtree *before* its contents are parsed. So a skeleton may carry
+    a file that is not even a valid template for the values in play.
+  - `*` does not cross a `/`, so `dapr/*.yaml` cannot silently prune
+    `dapr/nested/x.yaml`.
+  - `when` is required and parsed at load time: a syntax error fails
+    immediately rather than part way through a render. `missingkey=error`
+    applies, so a typo'd value name is a loud error, not a silent skip.
+  - **Prefer a value-derived filename over a conditional list.** If the rendered
+    file is named after the parameter that selected it
+    (`pubsub-{{ .pubsub }}.yaml`), a `kustomization.yaml` referencing it needs
+    no conditional at all.
+
+  ⚠️ **Do not add `spec.files` to a pre-existing template until the CLI floor
+  moves.** The CLI parses manifests without rejecting unknown fields, so an
+  older CLI reading a template that uses `spec.files` silently **ignores the
+  filter and renders every file** — a wrong answer with no error. New templates
+  fetched only by a new command (`deploy-host`, `deploy-component`) are safe
+  because no old CLI ever fetches them.
+
 - **No `spec.steps`**, no `spec.owner`, no `nextSteps`. The model is
   intentionally narrow: a manifest declares parameters and the skeleton tree
   describes what gets written.

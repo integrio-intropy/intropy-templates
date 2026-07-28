@@ -1,0 +1,25 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .pubsubName }}
+spec:
+  type: pubsub.azure.servicebus.topics
+  version: v1
+  metadata:
+    - name: connectionString
+      secretKeyRef:
+        name: {{ .secretName }}
+        key: servicebus-connection
+    - name: maxActiveMessages
+      value: "100"
+# Resolved through the system's secret store, not necessarily a Kubernetes
+# Secret: with kubernetes that is the rendered secrets/secrets.yaml, and with
+# Key Vault or Vault the key is looked up there instead.
+auth:
+  secretStore: {{ .system }}-secretstore
+scopes:
+{{- range .topology.pubsubs }}
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,81 @@
+apiVersion: intropy.dev/v1
+kind: Template
+metadata:
+  name: deploy-component
+  title: Block deployment manifests
+  description: The workload and overlays for one block, as one ArgoCD Application.
+  tags: [deploy, gitops, kustomize]
+  labels:
+    intropy.dev/template-kind: deploy
+spec:
+  parameters:
+    type: object
+    required: [name, domain, system, registry]
+    properties:
+      name:
+        type: string
+        title: Component
+        description: Block name, as a GitOps path segment.
+        pattern: "^[a-z][a-z0-9-]*$"
+      domain:
+        type: string
+        title: Domain
+        pattern: "^[a-z][a-z0-9-]*$"
+      system:
+        type: string
+        title: System
+        pattern: "^[a-z][a-z0-9-]*$"
+      appId:
+        type: string
+        title: Dapr app-id
+        description: What the sidecar registers as, and what a Component's scopes list.
+      kind:
+        type: string
+        title: Block kind
+        description: The topology's block kind, carried through as a label.
+        default: ""
+      workload:
+        type: string
+        title: Workload
+        description: An extractor is scheduled and exits; everything else stays resident.
+        enum: [cronjob, deployment]
+        default: deployment
+      namespace:
+        type: string
+        title: Namespace
+        default: integrations
+        pattern: "^[a-z][a-z0-9-]*$"
+      namespacePerEnv:
+        type: boolean
+        title: Namespace per environment
+        default: false
+      registry:
+        type: string
+        title: Registry
+        description: Comes from deploy.yaml's registry.
+      imageNamespace:
+        type: string
+        title: Image namespace
+        description: The path segment between the registry and the image name. Customers differ — some use the customer slug, some "integrations".
+        default: integrations
+      replicas:
+        type: integer
+        title: Replicas
+        default: 1
+      sourceDir:
+        type: string
+        title: Source directory
+        description: The block's directory in the source repository, used for component.yaml sourcePaths. Empty when no scaffold record was found.
+        default: ""
+  values:
+    imageRepo: "{{ .registry }}/{{ .imageNamespace }}/{{ .name }}"
+    # Never a real tag. `intropy deploy` writes the digest; a tag here would let
+    # what runs change without a deployment, which is the whole thing this
+    # toolchain exists to prevent.
+    imageTag: "unpinned"
+
+  files:
+    - path: base/cronjob.yaml.tmpl
+      when: '{{ eq .workload "cronjob" }}'
+    - path: base/deployment.yaml.tmpl
+      when: '{{ eq .workload "deployment" }}'

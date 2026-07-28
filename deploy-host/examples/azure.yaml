@@ -1,0 +1,9 @@
+# Azure: Service Bus topics, and credentials out of Key Vault rather than a
+# committed Secret — so base/secrets/ is not rendered at all.
+domain: sales
+system: ordersync
+namespace: acme-integrations
+namespacePerEnv: true
+pubsub: servicebus
+pubsubName: pubsub
+secretStore: azure-keyvault

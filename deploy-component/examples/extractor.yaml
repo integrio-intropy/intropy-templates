@@ -1,0 +1,10 @@
+# An extractor is scheduled, so this renders a CronJob rather than a Deployment.
+name: order-extract
+domain: sales
+system: ordersync
+appId: int201
+kind: extractor
+workload: cronjob
+registry: harbor.intropy.io
+imageNamespace: fluxia
+sourceDir: order-extract

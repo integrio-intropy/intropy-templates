@@ -1,0 +1,23 @@
+schemaVersion: 1
+name: {{ .name }}
+{{- if .sourceDir }}
+
+# Paths in the *source* repository that make up this component. `intropy deploy`
+# refuses to run with uncommitted changes under them, because CI builds the
+# pushed commit and local edits would mean deploying something other than what
+# was tested. Add the shared contracts project here if the Dockerfile passes it
+# in as a build context.
+sourcePaths:
+  - {{ .sourceDir }}/
+{{- else }}
+
+# No scaffold record was found for this block, so its source paths could not be
+# derived. Add them: without any, the cleanliness check has nothing to scope to.
+# sourcePaths:
+#   - REPLACE-ME-SOURCE-PATH/
+{{- end }}
+
+images:
+  - name: {{ .imageRepo }}
+
+environments: [{{ range $i, $e := .gitops.environments }}{{ if $i }}, {{ end }}{{ $e }}{{ end }}]

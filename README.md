@@ -14,6 +14,18 @@ One manifest format. One skeleton tree per template.
   and skeleton conventions.
 - **`transactional/`** — a transactional integration component template.
 
+Rendered by `intropy deploy init` rather than `intropy int create`, into a
+GitOps repository rather than a working project:
+
+- **`deploy-host/`** — a system's shared Dapr components, secret store and
+  secret placeholders, owned by one ArgoCD Application.
+- **`deploy-component/`** — one block's workload (`CronJob` for an extractor,
+  `Deployment` otherwise) and its per-environment overlays.
+
+Those two are the only templates that use `spec.files` to decide which files
+exist at all. See [`CLAUDE.md`](./CLAUDE.md) for the rule — and for why no
+older template may adopt it yet.
+
 ## Template layout
 
 ```

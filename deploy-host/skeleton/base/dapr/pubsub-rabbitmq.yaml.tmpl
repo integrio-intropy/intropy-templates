@@ -1,0 +1,31 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .pubsubName }}
+spec:
+  type: pubsub.rabbitmq
+  version: v1
+  metadata:
+    - name: connectionString
+      secretKeyRef:
+        name: {{ .secretName }}
+        key: rabbitmq-connection
+    - name: durable
+      value: "true"
+    - name: deliveryMode
+      value: "2"
+# Resolved through the system's secret store, not necessarily a Kubernetes
+# Secret: with kubernetes that is the rendered secrets/secrets.yaml, and with
+# Key Vault or Vault the key is looked up there instead.
+auth:
+  secretStore: {{ .system }}-secretstore
+
+# Exactly the app-ids the topology says publish to or subscribe from this
+# broker's topics. The Component is namespace-scoped and this directory is its
+# only owner, so scopes is what limits who may use it.
+scopes:
+{{- range .topology.pubsubs }}
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,8 @@
+# Self-hosted platform: RabbitMQ in cluster, credentials as Secret objects.
+domain: sales
+system: ordersync
+namespace: integrations
+namespacePerEnv: false
+pubsub: rabbitmq
+pubsubName: pubsub
+secretStore: kubernetes

@@ -1,0 +1,53 @@
+# One Dapr binding per connector the topology declares, as a multi-document file.
+#
+# Multi-doc rather than a file each: kustomize reads it natively, and adding a
+# connector stays a one-file diff. The topology carries the transport type and
+# direction but never an address or a credential — those are the placeholders.
+{{- range .topology.connectors }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+spec:
+{{- if eq .transport "sftp" }}
+  type: bindings.sftp
+  version: v1
+  metadata:
+    - name: rootPath
+      value: REPLACE-ME-SFTP-ROOT-PATH
+    - name: address
+      value: REPLACE-ME-SFTP-ADDRESS
+    - name: username
+      value: REPLACE-ME-SFTP-USERNAME
+    - name: password
+      secretKeyRef:
+        name: {{ $.secretName }}
+        key: {{ .name }}-password
+{{- else if eq .transport "http" }}
+  type: bindings.http
+  version: v1
+  metadata:
+    - name: url
+      value: REPLACE-ME-HTTP-URL
+{{- else if eq .transport "file" }}
+  type: bindings.localstorage
+  version: v1
+  metadata:
+    - name: rootPath
+      value: REPLACE-ME-FILE-ROOT-PATH
+{{- else }}
+  # The topology reported transport {{ .transport | quote }}, which this template
+  # has no mapping for. Replace this block with the right Dapr binding.
+  type: REPLACE-ME-BINDING-TYPE
+  version: v1
+{{- end }}
+{{- if eq .transport "sftp" }}
+auth:
+  secretStore: {{ $.system }}-secretstore
+{{- end }}
+scopes:
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
