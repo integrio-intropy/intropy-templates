@@ -236,6 +236,33 @@ The facts in `AGENTS.md` must match the skeleton (component YAML `metadata.name`
 and rootPaths, `Constants.cs` values, Taskfile vars, `.http` ports). When you
 change one, change the others in the same commit.
 
+## Writing style for descriptions
+
+Descriptions are CLI output, not documentation. `intropy template show`
+prints `metadata.description` verbatim under the title and each parameter's
+`description` indented under its name; the interactive prompter appends it
+to the prompt label as `Title (description): `. Write for a narrow terminal:
+the intropy-cli `AGENTS.md` writing style is the house style, and the parts
+that apply here are:
+
+- **`metadata.description`:** one sentence. What the scaffolded thing is and
+  does, nothing else. Environment facts (CronJob in production, Deployment,
+  how `sys create` assembles around it) belong in the template's README.md.
+- **Parameter `title`:** a terse noun phrase, no trailing period (`Pub/sub
+  broker`, `Contract type`). It is concatenated with the description, so
+  never repeat the title's words in the description's opening.
+- **Parameter `description`:** one full sentence with a trailing period,
+  ~25 words. A second sentence is allowed only for the consequence of the
+  choice ("Only "kubernetes" commits a Secret stub; the others resolve out
+  of cluster."). Rename burdens, migration caveats, and codegen internals
+  belong in the template's README.md.
+- **Explain why, never narrate history.** No PR or issue references, no
+  "used to", "now", "previously", no "customers differ" stories. State the
+  invariant ("An extractor is scheduled and exits; everything else stays
+  resident.") and let git keep the archaeology.
+- **`spec.values` comments follow the same rule:** state what must hold
+  ("Must match the CLI's pascalCase(name)"), not the saga of what breaks.
+
 ## Adding a new template
 
 1. Create the directory: `mkdir -p <name>/skeleton <name>/examples`.

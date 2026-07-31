@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: loader
   title: Loader Integration
-  description: Long-running ASP.NET loader that subscribes to a Dapr pub/sub topic over HTTP delivery, runs each delivered message through the Intropy loader pipeline, and writes the result through a local destination folder binding. Runs as a Deployment in production.
+  description: Long-running ASP.NET loader that subscribes to a Dapr pub/sub topic over HTTP delivery, runs each delivered message through the Intropy loader pipeline, and writes the result through a local destination folder binding.
   tags:
     - example
     - dotnet
@@ -41,7 +41,7 @@ spec:
       contract:
         type: string
         title: Contract type
-        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic and the scaffolded Contracts project use Order; a different value means renaming the record in Contracts (and the sample pipeline code, unless empty=true) to match.
+        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
         pattern: "^[A-Z][A-Za-z0-9]*$"
       empty:
         type: boolean

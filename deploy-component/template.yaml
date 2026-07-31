@@ -28,7 +28,7 @@ spec:
       appId:
         type: string
         title: Dapr app-id
-        description: What the sidecar registers as, and what a Component's scopes list.
+        description: The identity the sidecar registers as, and what a Component's scopes list.
       kind:
         type: string
         title: Block kind
@@ -52,11 +52,11 @@ spec:
       registry:
         type: string
         title: Registry
-        description: Comes from deploy.yaml's registry.
+        description: The registry from deploy.yaml.
       imageNamespace:
         type: string
         title: Image namespace
-        description: The path segment between the registry and the image name. Customers differ — some use the customer slug, some "integrations".
+        description: The path segment between the registry and the image name. Must match what CI pushes; the README explains why there is no safe default.
         default: integrations
       replicas:
         type: integer

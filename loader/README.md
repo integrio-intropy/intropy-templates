@@ -39,6 +39,11 @@ it is left untouched. The loader's csproj references it as
 local to the component. The name is plain `Contracts` because the project is
 scoped by the system directory it lives in.
 
+The sample logic and the scaffolded Contracts project use `Order` as the
+contract record. Passing a different `contract` value renames the record the
+topic is typed with, so rename the record in Contracts (and the sample
+pipeline code, unless `empty=true`) to match.
+
 ## Parameters
 
 | Name           | Required | Description                                                                                          |
@@ -46,6 +51,7 @@ scoped by the system directory it lives in.
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderLoader`).                |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
 | `topic`        | yes      | Pub/sub topic the loader subscribes to (kebab-case); the publishing extractor uses the same.          |
+| `contract`     | yes      | PascalCase shared-contracts record the topic carries; the sample uses `Order` (see above).            |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; no idempotency lambdas).     |
 
 ## Render

@@ -25,7 +25,7 @@ spec:
       namespace:
         type: string
         title: Namespace
-        description: Kubernetes namespace the system's blocks run in. With namespacePerEnv the environment is prefixed to it.
+        description: The Kubernetes namespace the system's blocks run in. With namespacePerEnv the environment is prefixed to it.
         default: integrations
         pattern: "^[a-z][a-z0-9-]*$"
       namespacePerEnv:
@@ -36,7 +36,7 @@ spec:
       pubsub:
         type: string
         title: Pub/sub broker
-        description: Which Dapr pub/sub building block to declare. Comes from deploy.yaml platform.pubsub.
+        description: The Dapr pub/sub building block to declare, from deploy.yaml platform.pubsub.
         enum: [in-memory, rabbitmq, servicebus]
         default: rabbitmq
       pubsubName:

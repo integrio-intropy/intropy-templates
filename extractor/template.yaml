@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: extractor
   title: Extractor Integration
-  description: Run-to-completion .NET extractor that sweeps a local source folder once per run, runs each file through the Intropy extractor pipeline, and publishes the result as a CloudEvent to a Dapr pub/sub topic. Scheduling is external (a Kubernetes CronJob in production).
+  description: Run-to-completion .NET extractor that sweeps a local source folder once per run, runs each file through the Intropy extractor pipeline, and publishes the result as a CloudEvent to a Dapr pub/sub topic.
   tags:
     - example
     - dotnet
@@ -36,12 +36,12 @@ spec:
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the extractor publishes to. This is the extractor's half of the system contract — scaffold the consuming loader with the same value.
+        description: The pub/sub topic the extractor publishes to. The extractor's half of the system contract — scaffold the consuming loader with the same value.
         pattern: "^[a-z][a-z0-9-]*$"
       contract:
         type: string
         title: Contract type
-        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic and the scaffolded Contracts project use Order; a different value means renaming the record in Contracts (and the sample pipeline code, unless empty=true) to match.
+        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
         pattern: "^[A-Z][A-Za-z0-9]*$"
       empty:
         type: boolean
