@@ -23,7 +23,7 @@ public class BootSmokeTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var subscription = payload.RootElement[0];
-        Assert.Equal(Constants.PubSubName, subscription.GetProperty("pubsubname").GetString());
+        Assert.Equal(Constants.PubSubName, subscription.GetProperty("pubsubName").GetString());
         Assert.Equal(Constants.TopicName, subscription.GetProperty("topic").GetString());
     }
 }
