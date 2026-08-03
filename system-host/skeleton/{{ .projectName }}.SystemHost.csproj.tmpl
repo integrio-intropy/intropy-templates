@@ -16,12 +16,12 @@
     <ItemGroup>
         <PackageReference Include="Aspire.Hosting.AppHost" Version="13.4.6" />
         <!-- The Intropy.Topology packages must be resolvable from your NuGet feed.
-             0.3.0 is the floor: it is the first version with the deployed-transport
-             connector API and development definitions (Transport.Sftp,
-             IDevelopmentDefinition). Earlier versions cannot compile this
-             scaffold's placeholders. -->
-        <PackageReference Include="Intropy.Topology.Aspire" Version="0.3.0" />
-        <PackageReference Include="Intropy.Topology.Generation" Version="0.3.0" />
+             0.3.1 is the floor: it is the first version with Transport.Default
+             (placeholder transport for scaffolded connectors), IDevelopmentDefinition,
+             and the deployed-transport connector API (Transport.Sftp).
+             Earlier versions cannot compile this scaffold's placeholders. -->
+        <PackageReference Include="Intropy.Topology.Aspire" Version="0.3.1" />
+        <PackageReference Include="Intropy.Topology.Generation" Version="0.3.1" />
     </ItemGroup>
 
     <!-- `intropy sys create` inserts a ProjectReference to the workspace's

@@ -32,6 +32,9 @@ declaration — an Aspire run backend and a generation backend.
   declares only its deployed transport shape (e.g. `Transport.Sftp()`), value-free:
   addresses and credentials are environment-owned deployment configuration, and
   local runs resolve the connector through the development definition instead.
+  A freshly scaffolded connector starts with `Transport.Default()` — a placeholder
+  that compiles but `task check` rejects; replace it with a concrete transport
+  (e.g. `Transport.Sftp()`) before deployment.
 - `{{ .projectName }}Development.cs` — the `IDevelopmentDefinition` (at most one per
   assembly): local substitutions for the outside world. Same
   placeholder-then-regenerated lifecycle. `Mock(...).FromOpenApi(...)` stands in an

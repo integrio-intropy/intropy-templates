@@ -25,8 +25,9 @@ contracts project (the `shared-library` scaffold, typically `Contracts/`), and
 `sys create` inserts that `ProjectReference` into the rendered csproj itself —
 templates never hardcode cross-project references. `Apis.cs` codegen is
 deferred; today's codegen owns the placeholder files. Connectors declare only
-their deployed transport shape (`Transport.Sftp()` — value-free; connection
-values are environment-owned deployment configuration). The local-run picture
+their deployed transport shape (starting as `Transport.Default()` placeholder;
+replace with e.g. `Transport.Sftp()` — value-free; connection values are
+environment-owned deployment configuration). The local-run picture
 lives in `<Project>Development.cs` (`IDevelopmentDefinition`): OpenAPI-backed
 mocks for the platform services (`Services.cs` + `mocks/`, served by Microcks)
 and a file resolution per connector (a drop folder under `test/`), so a fully
@@ -69,7 +70,8 @@ cd ~/dev/intropy/tooling/intropy-topology
 dotnet pack -p:Version=0.3.0 -o ~/dev/intropy/local-nuget
 ```
 
-Do not lower the pin below 0.3.0. That is the first version with the
-deployed-transport connector API and development definitions
+Do not lower the pin below 0.3.1. That is the first version with
+`Transport.Default` (placeholder transport for scaffolded connectors), the
+deployed-transport connector API, and development definitions
 (`Transport.Sftp`, `IDevelopmentDefinition`); earlier versions cannot compile
 this skeleton's placeholders.
