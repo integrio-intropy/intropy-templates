@@ -4,33 +4,31 @@ This project is a .NET loader integration built on the Intropy framework.
 An ASP.NET service holds a Dapr subscription on a pub/sub topic; the sidecar
 POSTs each delivered message to the subscription endpoint, where it is rebuilt
 into a CloudEvent, run through the Intropy loader pipeline, and written as
-`{orderId}.json` through a local Dapr destination binding.
+`{orderId}.json` through a Dapr destination binding.
 
 ## Project overview
 
 - Framework: .NET 10
 - App type: ASP.NET Dapr subscriber service (long-running; a Deployment in
   production)
-- App port: 5001 under `task run` (Taskfile `APP_PORT`; the sidecar's
-  `--app-port` and the app's `--urls` must agree)
+- App port: assigned by the system host in development; 8080 in the
+  container image
 - Subscription endpoint: `POST /events/{{ .topic }}`
   (`src/Endpoints/LoaderEndpoints.cs`), announced to the sidecar via
   `GET /dapr/subscribe`; the ack is the response body's `status` field
   (SUCCESS / RETRY)
 - Health endpoint: `GET /healthz`
 - App id: `{{ .appId }}`
-- Pub/sub component: `pubsub` (in-memory — it lives inside this integration's
-  own sidecar, so publish to it via
-  `dapr publish --publish-app-id {{ .appId }} ...`)
+- Pub/sub component: `pubsub` — provided by the system host; messages are
+  published from there
 - Topic: `{{ .topic }}` — the loader's half of the system contract; the
   publishing extractor uses the same topic
-- Destination binding: `binding.{{ .connector }}` (Dapr local storage, rootPath
-  `./local/storage/{{ .connector }}`) — named after the destination connector so
-  the system host's generated binding replaces it in the staged overlay
+- Destination binding: `binding.{{ .connector }}` — named after the
+  destination connector; the system host generates the binding and resolves
+  it to a local folder in development
 - Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
-  (locally an `HTTPEndpoint` component pointing at `http://127.0.0.1:8080`)
 - Business Incident Service: reached via Dapr service invocation, app id
-  `business-incident-service` (locally an `HTTPEndpoint` at `http://127.0.0.1:8081`)
+  `business-incident-service`
 - Shared contracts: the consumed contract (`Order`, `OrderLine`) lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
@@ -40,7 +38,7 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
 
 ## Important files
 
-- `Taskfile.yml` - local-dev tasks; `task run` is the canonical way to run the loader.
+- `Taskfile.yml` - build and test tasks (`task build`, `task test`).
 - `Dockerfile` - multi-stage image build on the chiseled ASP.NET runtime,
   listening on port 8080 in the container
   (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
@@ -55,30 +53,23 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
   keyed-adapter key, and the CloudEvent context keys the idempotency step reads.
 - `src/Process/` - the loader pipeline steps and the `LoaderBuilder` wiring
   (`ServiceCollectionExtensions.cs`).
-- `test/` - xUnit tests for the pipeline steps (`task test`).
-- `local/dapr-components/` - the loader's local Dapr components (pub/sub,
-  destination binding, HTTPEndpoints for the platform services).
-- `local/platform-services/` - Docker Compose + Dapr components for the local
-  Idempotency Service and Business Incident Service (included by `docker-compose.yml`).
+- `test/` - xUnit tests: pipeline steps plus the boot smoke test (`task test`).
 
-## Build and run
+## Build and test
 
-`task run` is the canonical run path. It starts the local stack
-(grafana/otel-lgtm plus the Idempotency Service and Business Incident Service
-with their backing stores) and runs the app under Dapr with OTLP export
-configured, listening on port 5001 with the sidecar delivering to it. The app
-keeps running until you stop it with Ctrl+C. Verify it by publishing through
-the loader's own sidecar: `task publish` (or the equivalent raw
-`dapr publish --publish-app-id {{ .appId }} ...` — see `README.md`).
+Components do not run standalone — this loader runs via its system host,
+which provides every Dapr component (pub/sub, destination binding, platform
+services) and carries the sample data used to publish a message. The
+component-level loop is build and test:
 
 ```bash
-task run
+task build
+task test
 ```
 
-Other tasks: `task build` (dotnet build), `task test` (dotnet test),
-`task publish` (send the sample order), `task clean` (stop the Dapr app and
-remove `./local/storage`), `task services:down` (stop the local stack). See
-`Taskfile.yml` for ports and flags.
+`task test` runs the pipeline unit tests (steps faked at the adapter seam)
+and a boot smoke test that builds the whole host without a sidecar and
+asserts `/dapr/subscribe` announces the subscription.
 
 ## Development notes
 

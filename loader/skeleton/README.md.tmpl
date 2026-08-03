@@ -1,63 +1,23 @@
 # {{ .name }}
 
 .NET loader integration. An ASP.NET service subscribes to the `{{ .topic }}`
-topic of the in-memory pub/sub: the Dapr sidecar POSTs each delivered message
-to the subscription endpoint, which runs it through the Intropy loader
-pipeline and writes the result as `{orderId}.json` through the `destination`
-folder binding. The loader is a long-running service (a Deployment in
-production) and keeps running until you stop it.
+topic of the Dapr pub/sub: the sidecar POSTs each delivered message to the
+subscription endpoint, which runs it through the Intropy loader pipeline and
+writes the result as `{orderId}.json` through the destination binding. The
+loader is a long-running service (a Deployment in production).
 
-## Run
-
-```bash
-task run
-```
-
-This starts the local stack (grafana/otel-lgtm observability plus the Intropy
-Idempotency Service and Business Incident Service — see
-`local/platform-services/`) and runs the app under Dapr, listening on port
-5001. At startup the sidecar calls `GET /dapr/subscribe`, discovers the
-subscription endpoint, and from then on POSTs every delivery to it. Check the
-service is up:
+## Build and test
 
 ```bash
-curl http://localhost:5001/healthz
+task build
+task test
 ```
 
-A subscriber alone has nothing publishing to it. The in-memory pub/sub lives
-inside this integration's own sidecar, so a standalone loader is verified by
-publishing through that sidecar — which is exactly what `--publish-app-id`
-does. In a second terminal:
-
-```bash
-dapr publish --publish-app-id {{ .appId }} --pubsub pubsub --topic {{ .topic }} \
-  --data '{"orderId":"ORD-2001","customerId":"CUST-42","orderDate":"2026-07-24T09:30:00Z","lines":[{"sku":"SKU-AAA","quantity":1,"unitPrice":12.50}]}'
-```
-
-(`task publish` runs the same command.) The loader picks it up:
-
-```
-== APP == info: {{ .name }}.Pipeline[0]
-== APP ==       Loaded ORD-2001 from topic {{ .topic }} (pubsub)
-```
-
-and writes the destination file:
-
-```bash
-cat local/storage/{{ .connector }}/ORD-2001.json
-```
-
-{{- if not .empty }}
-
-Publish the same order again and the pipeline cancels at the idempotency
-check instead of loading twice — the log shows
-`Cancelled ORD-2001 as a duplicate (idempotency check)` and no file is
-rewritten.
-{{- end }}
-
-Other tasks: `task build`, `task test`, `task clean` (remove
-`./local/storage`), and `task services:down` (stop the local stack). See
-`Taskfile.yml`.
+The loader does not run standalone. It runs via its system host, which
+provides the pub/sub, destination binding, and platform services, and
+carries the sample data used to publish a message to the topic. `task test`
+covers the component-level loop: pipeline unit tests plus a boot smoke test
+proving the host builds and announces its subscription without a sidecar.
 
 ## Shared contracts
 
@@ -89,7 +49,7 @@ envelope into a CloudEvent and drives this):
 2. `Validator` enforces business rules.
 3. Idempotency check — cancels duplicates.
 4. `Transformer` maps `Order` → `Out`.
-5. `Sender` writes `Out` through the `destination` binding.
+5. `Sender` writes `Out` through the destination binding.
 
 Every step body throws `NotImplementedException` — this project was scaffolded
 with empty bodies for a migration agent to fill in. The idempotency and
@@ -111,7 +71,7 @@ business fields in your `Deserializer` (see `AGENTS.md`).
 4. `Transformer` maps the canonical order to the load record `Out`
    (`LoadedAt` = now, `Status` = `"Loaded"`).
 5. `Sender` serializes `Out` with default System.Text.Json (PascalCase) and
-   writes `{orderId}.json` through the `destination` binding.
+   writes `{orderId}.json` through the destination binding.
 
 Success, an idempotent duplicate, and a routed business incident all
 acknowledge the message (`status: SUCCESS` in the response body); a technical

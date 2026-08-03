@@ -10,25 +10,21 @@ the loader runs as a Deployment (unlike the run-to-completion `extractor`).
 The loader is the consuming half of a system contract — scaffold the
 publishing extractor with the same `topic` value.
 
-The rendered project is an ASP.NET service with a Taskfile (`task run` starts
-the local observability + platform-services stack and runs the app under
-Dapr — app port 5001, HTTP delivery — until Ctrl+C; `task publish` sends a
-sample order through the loader's own sidecar), a `/healthz` endpoint, xUnit
-tests for the pipeline steps, a Dockerfile on the chiseled ASP.NET runtime,
-and an `AGENTS.md` describing the component to coding agents. The
-subscription lives in `src/Endpoints/LoaderEndpoints.cs` (`Dapr.AspNetCore`'s
-`.WithTopic` + `MapSubscribeHandler`).
+The rendered project is an ASP.NET service with a Taskfile (`task build`,
+`task test` — the component-level loop), a `/healthz` endpoint, xUnit tests
+for the pipeline steps plus a boot smoke test that builds the whole host
+without a sidecar and asserts `/dapr/subscribe`, a Dockerfile on the
+chiseled ASP.NET runtime, and an `AGENTS.md` describing the component to
+coding agents. The subscription lives in `src/Endpoints/LoaderEndpoints.cs`
+(`Dapr.AspNetCore`'s `.WithTopic` + `MapSubscribeHandler`).
 
-The pipeline wires idempotency and business incidents (the loader block
-requires both), so the local compose stack includes the Intropy Idempotency
-Service and Business Incident Service alongside grafana/otel-lgtm. Loader
-idempotency keys off CloudEvent Subject/Time; the sample `Deserializer`
-stamps both from the order's business identity (a `dapr publish` envelope
-carries no subject and a wall-clock time).
-
-There is no sample-data seeding: a subscriber is verified by publishing
-through its own sidecar (`dapr publish --publish-app-id ...`), because the
-in-memory pub/sub lives inside the integration's sidecar.
+Components do not run standalone: the loader runs via its system host, which
+provides every Dapr component (pub/sub, destination binding, platform
+services — including the Intropy Idempotency Service and Business Incident
+Service the pipeline wires in) and carries the sample data used to publish a
+message. Loader idempotency keys off CloudEvent Subject/Time; the sample
+`Deserializer` stamps both from the order's business identity (a
+`dapr publish` envelope carries no subject and a wall-clock time).
 
 The template declares a `spec.dependencies` entry on `shared-contracts`: the
 render also scaffolds a sibling `Contracts` class library holding the consumed

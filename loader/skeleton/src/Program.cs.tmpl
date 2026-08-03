@@ -48,3 +48,7 @@ app.MapSubscribeHandler();
 app.MapHealthChecks("/healthz");
 
 app.Run();
+
+// Makes the top-level Program visible to the test project (WebApplicationFactory<Program>).
+public partial class Program;
+
