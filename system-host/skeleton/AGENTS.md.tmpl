@@ -56,6 +56,21 @@ Other tasks: `task check` (validate the topology — do this after editing
 edges), `task graph` (print the SystemTopology JSON), `task generate` (write
 Dapr YAML + per-component runtime config to `./out`), `task build`.
 
+## Triggering components
+
+Components never run standalone — this host is the only run path, and triggers
+originate here too:
+
+- **Extractors**: `task seed` drops `sample-data/sample-order.json` into the
+  connector folder (override with `task seed CONNECTOR_DIR=./test/<connector>`
+  — the folder must match the `Files(...).RootPath(...)` resolution in the
+  development definition). A scheduled extractor sweeps it on the next tick,
+  or immediately via the dashboard's "Run now".
+- **Loaders**: `task publish` publishes the sample order to the topic through
+  a running component's sidecar (override `PUBLISH_APP_ID`, `TOPIC`, and
+  `DAPR_HTTP_PORT` — the host assigns sidecar ports, so check the dashboard
+  when the default 3500 doesn't answer).
+
 ## Development notes
 
 - The declaration files ship as compilable empty placeholders. An empty system
@@ -66,10 +81,9 @@ Dapr YAML + per-component runtime config to `./out`), `task build`.
   create ...`), then add its `builder.Add<Kind>("<name>")` call and any new
   refs by hand — `Define()` is plain C#, and `task check` verifies the result.
 - Component Dapr resolution under this host is a staged overlay in
-  `obj/dapr-components/<component>/`: the component's own `local/dapr-components/`
-  files pass through, and generated components with the same `metadata.name`
-  replace them. The staged files are regenerated on every start — change the
-  declaration, not the artifacts.
+  `obj/dapr-components/<component>/`, generated from the declaration on every
+  start — components ship no Dapr YAML of their own. Change the declaration,
+  not the artifacts.
 - Component lifecycles differ. Extractors are run-to-completion jobs: declare
   `.WithSchedule("<cron>")` on the block in `Define()` (five-field cron or a
   `@daily`-style macro; invalid syntax fails `task check` with ITP210) and the
