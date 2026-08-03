@@ -9,16 +9,17 @@ Kubernetes CronJob in production. The extractor is the publishing half of a
 system contract — scaffold the consuming loader with the same `topic` value.
 
 The rendered project is a one-shot console job (same shape as `transactional`)
-with a Taskfile (`task run` seeds sample data, starts the local observability
-+ platform-services stack, and runs the app once under Dapr), xUnit tests for
-the pipeline steps, a Dockerfile on the chiseled runtime, and an `AGENTS.md`
-describing the component to coding agents. The framework does not yet ship an
-extractor host, so the skeleton carries its own `ExtractorRunner` (sidecar
-lifecycle + one-shot sweep), modeled on `TransactionalIntegrationRunner`.
+with a Taskfile (`task build`, `task test` — the component-level loop), xUnit
+tests for the pipeline steps plus a composition smoke test that builds the
+whole DI graph without a sidecar, a Dockerfile on the chiseled runtime, and an
+`AGENTS.md` describing the component to coding agents. The framework does not
+yet ship an extractor host, so the skeleton carries its own `ExtractorRunner`
+(sidecar lifecycle + one-shot sweep), modeled on `TransactionalIntegrationRunner`.
 
-The pipeline wires idempotency and business incidents (the extractor block
-requires both), so the local compose stack includes the Intropy Idempotency
-Service and Business Incident Service alongside grafana/otel-lgtm.
+Components do not run standalone: the extractor runs via its system host,
+which schedules the job and provides every Dapr component (source binding,
+pub/sub, platform services — including the Intropy Idempotency Service and
+Business Incident Service the pipeline wires in).
 
 The template declares a `spec.dependencies` entry on `shared-contracts`: the
 render also scaffolds a sibling `Contracts` class library holding the published

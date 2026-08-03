@@ -1,0 +1,33 @@
+using {{ .name }}.Configuration;
+using Intropy.Framework.Adapters.File;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ .name }}.Test;
+
+/// <summary>
+/// Composition smoke test: the DI graph the system host will run must build
+/// without a Dapr sidecar. Registrations are lazy — a missing registration
+/// (framework upgrade, renamed builder) fails here, not at system-host time.
+/// </summary>
+public class CompositionTests
+{
+    [Fact]
+    public void Composition_ResolvesExtractorRunner()
+    {
+        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+
+        var runner = provider.GetRequiredService<ExtractorRunner>();
+
+        Assert.NotNull(runner);
+    }
+
+    [Fact]
+    public void Composition_ResolvesSourceFileAdapterUnderItsKey()
+    {
+        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+
+        var adapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourceFileAdapterKey);
+
+        Assert.NotNull(adapter);
+    }
+}

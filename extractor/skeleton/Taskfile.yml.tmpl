@@ -1,22 +1,8 @@
 version: "3"
 
-# Local-dev tasks for {{ .name }} — a .NET extractor integration.
-# One run = one sweep of the inbound folder: each swept file goes through
-# the extract pipeline and is published as a CloudEvent to the pub/sub topic,
-# then the source file is deleted. Scheduling lives outside the block — the
-# system host locally, a Kubernetes CronJob in production.
-#
-# This is a console one-shot job (no web endpoints): `run` deliberately omits
-# --app-port so `dapr run` follows the app down once it completes and exits.
-
-vars:
-  APP_ID: {{ .appId }}
-  DAPR_HTTP_PORT: '{{ "{{" }}.DAPR_HTTP_PORT | default "3500"}}'
-  DAPR_GRPC_PORT: '{{ "{{" }}.DAPR_GRPC_PORT | default "50001"}}'
-  LOG_LEVEL: '{{ "{{" }}.LOG_LEVEL | default "info"}}'
-  # Working folder the local-storage binding reads from.
-  # Keep in sync with local/dapr-components/inbound.yaml.
-  INBOUND_DIR: ./local/storage/{{ .connector }}
+# Build and test tasks for {{ .name }} — a .NET extractor integration.
+# The extractor runs via its system host (the host schedules it; the Aspire
+# dashboard offers "Run now"); these tasks are the component-level loop.
 
 tasks:
   # ── .NET build ────────────────────────────────────────────────────
@@ -26,65 +12,9 @@ tasks:
     cmds:
       - dotnet build ./src
 
-  # ── Local data seeding ────────────────────────────────────────────
-  seed:
-    desc: Create the inbound folder and drop the sample order into it
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    cmds:
-      - mkdir -p {{ "{{" }}.INBOUND_DIR}}
-      - cp local/sample-data/sample-order.json {{ "{{" }}.INBOUND_DIR}}/
-      - echo "Seeded {{ "{{" }}.INBOUND_DIR}} with sample-order.json"
-
   # ── Tests ─────────────────────────────────────────────────────────
   test:
-    desc: Run the unit tests
+    desc: Run the tests
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     cmds:
       - dotnet test ./test
-
-  # ── Component runner ──────────────────────────────────────────────
-  run:
-    desc: Run the extractor once via Dapr (in-memory pub/sub) and exit
-    deps: [seed, services:up]
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    env:
-      DOTNET_ENVIRONMENT: Development
-      # Export OTLP to the local grafana/otel-lgtm stack (see `task services:up`).
-      # If nothing is listening the exporter just logs a warning — it won't crash the app.
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
-    cmds:
-      # No --app-port: a console job exits on completion and `dapr run` follows it down.
-      - >-
-        dapr run
-        --app-id {{ "{{" }}.APP_ID}}
-        --dapr-http-port {{ "{{" }}.DAPR_HTTP_PORT}}
-        --dapr-grpc-port {{ "{{" }}.DAPR_GRPC_PORT}}
-        --resources-path ./local/dapr-components
-        --placement-host-address=""
-        --scheduler-host-address=""
-        --log-level {{ "{{" }}.LOG_LEVEL}}
-        --
-        dotnet run --project ./src
-
-  # ── Local services (observability + platform services) ───────────
-  services:up:
-    desc: Start the local stack — grafana/otel-lgtm, Idempotency Service, Business Incident Service
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    cmds:
-      - docker compose up -d --wait
-      - echo "Grafana UI → http://localhost:3000  (OTLP gRPC on :4317)"
-      - echo "Idempotency Service → http://localhost:8080, Business Incident Service → http://localhost:8081"
-
-  services:down:
-    desc: Stop and remove the local stack
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    cmds:
-      - docker compose down
-
-  # ── Teardown ──────────────────────────────────────────────────────
-  clean:
-    desc: Stop the Dapr app and remove the local working folders
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    cmds:
-      - dapr stop --app-id {{ "{{" }}.APP_ID}} 2>/dev/null || true
-      - rm -rf ./local/storage

@@ -1,0 +1,60 @@
+using Dapr.Client;
+using {{ .name }}.Process;
+using Intropy.BusinessIncidentService.Client;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Core.Configuration;
+using Intropy.IdempotencyService.Client;
+using Intropy.Telemetry.ConsoleApp;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Configuration;
+
+/// <summary>
+/// The component's service registrations, shared by the entrypoint
+/// (<c>Program.cs</c>) and the composition smoke test. Everything the runner
+/// needs — telemetry, Dapr clients, the source file adapter, the extract
+/// pipeline — is registered here so the test can prove the whole graph
+/// builds without a sidecar.
+/// </summary>
+public static class Composition
+{
+    /// <summary>Registers every service the extractor needs.</summary>
+    public static IServiceCollection ConfigureServices(IServiceCollection services)
+    {
+        var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+
+        services.AddLogging(builder => builder.AddConsole());
+
+        services.AddOpenTelemetry(conf =>
+        {
+            conf.ServiceNamespace = Constants.Organization;
+            conf.ServiceName = Constants.ComponentName;
+            conf.Environment = environment;
+        });
+
+        services.AddSingleton(_ => new DaprClientBuilder().Build());
+
+        // Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
+        // contributes its own DaprClient registration (camelCase JSON + string enums),
+        // and the last registration wins for GetRequiredService<DaprClient>().
+        services.AddIdempotencyServiceClient();      // Dapr app id / HTTPEndpoint name: idempotency-service
+        services.AddBusinessIncidentServiceClient(); // Dapr app id / HTTPEndpoint name: business-incident-service
+
+        services.AddIntropyFramework(x =>
+        {
+            x.ComponentName = Constants.ComponentName;
+            x.ServiceNamespace = Constants.Organization;
+        });
+
+        services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
+            new LocalFileAdapter(
+                sp.GetRequiredService<DaprClient>(),
+                new FileAdapterOptions(Constants.InboundBindingName)));
+
+        services.AddProcessPipeline();
+        services.AddSingleton<ExtractorRunner>();
+
+        return services;
+    }
+}

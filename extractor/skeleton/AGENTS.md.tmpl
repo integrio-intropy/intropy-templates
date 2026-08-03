@@ -1,10 +1,10 @@
 # Agent Instructions
 
 This project is a .NET extractor integration built on the Intropy framework.
-One run = one sweep of a local Dapr file binding; each swept file goes
-through the Intropy extractor pipeline and is published as a CloudEvent to a
-Dapr pub/sub topic, then the source file is deleted. Scheduling lives outside
-the block — the system host locally, a Kubernetes CronJob in production.
+One run = one sweep of the inbound folder; each swept file goes through the
+Intropy extractor pipeline and is published as a CloudEvent to a Dapr pub/sub
+topic, then the source file is deleted. Scheduling lives outside the block —
+the system host locally, a Kubernetes CronJob in production.
 
 ## Project overview
 
@@ -14,17 +14,16 @@ the block — the system host locally, a Kubernetes CronJob in production.
 - Runner: `{{ .name }}.ExtractorRunner` (skeleton code — the framework does not
   yet ship an extractor host)
 - App id: `{{ .appId }}`
-- Source binding: `binding.{{ .connector }}` (Dapr local storage, rootPath
-  `./local/storage/{{ .connector }}`) — named after the source connector so the
-  system host's generated binding replaces it in the staged overlay
-- Pub/sub component: `pubsub` (in-memory)
+- Source binding: `binding.{{ .connector }}` — named after the source
+  connector; the system host generates the binding and resolves it to a local
+  folder in development
+- Pub/sub component: `pubsub`
 - Topic: `{{ .topic }}` — the extractor's half of the system contract; the
   consuming loader subscribes to the same topic
 - CloudEvent envelope: source `urn:{{ .organization }}:{{ .name | kebabcase }}`, type `{{ .organization | lower }}.{{ .topic }}.extracted`
 - Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
-  (locally an `HTTPEndpoint` component pointing at `http://127.0.0.1:8080`)
 - Business Incident Service: reached via Dapr service invocation, app id
-  `business-incident-service` (locally an `HTTPEndpoint` at `http://127.0.0.1:8081`)
+  `business-incident-service`
 - Shared contracts: the published contract (`Order`, `OrderLine`) lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
@@ -34,42 +33,39 @@ the block — the system host locally, a Kubernetes CronJob in production.
 
 ## Important files
 
-- `Taskfile.yml` - local-dev tasks; `task run` is the canonical way to run the extractor.
+- `Taskfile.yml` - build and test tasks (`task build`, `task test`).
 - `Dockerfile` - multi-stage image build on the .NET chiseled runtime
   (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
   the shared contracts sibling enters as a named context); the image contains
   only the app — the Dapr sidecar and components come from the deployment
   environment.
-- `src/Program.cs` - DI wiring and entrypoint that runs the `ExtractorRunner`.
+- `src/Program.cs` - entrypoint: builds the service provider via `Composition`
+  and runs the `ExtractorRunner`.
+- `src/Configuration/Composition.cs` - every service registration, shared by
+  the entrypoint and the composition smoke test.
 - `src/ExtractorRunner.cs` - sidecar lifecycle and the one-shot sweep: list
   inbound, run the pipeline per file, delete on success.
 - `src/Configuration/Constants.cs` - component/topic names, keyed-adapter key,
   CloudEvent envelope values.
 - `src/Process/` - the extractor pipeline steps and the `ExtractorBuilder` wiring
   (`ServiceCollectionExtensions.cs`).
-- `test/` - xUnit tests for the pipeline steps (`task test`).
-- `local/dapr-components/` - the extractor's local Dapr components (source
-  binding, pub/sub, HTTPEndpoints for the platform services).
-- `local/platform-services/` - Docker Compose + Dapr components for the local
-  Idempotency Service and Business Incident Service (included by `docker-compose.yml`).
-- `local/sample-data/sample-order.json` - sample input seeded into the inbound folder.
+- `test/` - xUnit tests: pipeline steps plus the composition smoke test
+  (`task test`).
 
-## Build and run
+## Build and test
 
-`task run` is the canonical run path. It seeds the inbound folder with the
-sample order, starts the local stack (grafana/otel-lgtm plus the Idempotency
-Service and Business Incident Service with their backing stores), and runs the
-app under Dapr with OTLP export configured. The app runs once and exits: it
-sweeps the seeded file, publishes it, and deletes the source. Exit code 1
-means at least one file failed and was left in place.
+Components do not run standalone — this extractor runs via its system host,
+which schedules it (the Aspire dashboard offers "Run now") and provides every
+Dapr component (source binding, pub/sub, platform services). The
+component-level loop is build and test:
 
 ```bash
-task run
+task build
+task test
 ```
 
-Other tasks: `task build` (dotnet build), `task test` (dotnet test), `task clean`
-(stop the Dapr app and remove `./local/storage`), `task services:down` (stop the
-local stack). See `Taskfile.yml` for ports and flags.
+`task test` runs the pipeline unit tests (steps faked at the adapter seam) and
+a composition smoke test that builds the whole DI graph without a sidecar.
 
 ## Development notes
 
