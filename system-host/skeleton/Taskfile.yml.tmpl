@@ -37,22 +37,18 @@ tasks:
     desc: Publish the sample order to a topic via a component's sidecar (needs the host running)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     vars:
-      # The app-id of any running component whose sidecar should publish.
+      # The app-id of any running component whose sidecar should publish —
+      # the dapr CLI resolves the sidecar from the app-id.
       PUBLISH_APP_ID: '{{ "{{" }}.PUBLISH_APP_ID | default "order-extractor"}}'
       PUBSUB: '{{ "{{" }}.PUBSUB | default "{{ .pubsub }}"}}'
       TOPIC: '{{ "{{" }}.TOPIC | default "orders"}}'
-      # The sidecar's HTTP port. The host assigns sidecar ports at run time —
-      # check the Aspire dashboard and override when it differs:
-      #   task publish DAPR_HTTP_PORT=<port>
-      DAPR_HTTP_PORT: '{{ "{{" }}.DAPR_HTTP_PORT | default "3500"}}'
     cmds:
       - >-
         dapr publish
         --publish-app-id {{ "{{" }}.PUBLISH_APP_ID}}
-        --dapr-http-port {{ "{{" }}.DAPR_HTTP_PORT}}
         --pubsub {{ "{{" }}.PUBSUB}}
         --topic {{ "{{" }}.TOPIC}}
-        --data "$(cat ./sample-data/sample-order.json)"
+        --data-file ./sample-data/sample-order.json
 
   # ── Generation backend ────────────────────────────────────────────
   check:

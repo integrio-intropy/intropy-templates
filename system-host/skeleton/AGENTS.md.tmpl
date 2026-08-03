@@ -67,9 +67,8 @@ originate here too:
   development definition). A scheduled extractor sweeps it on the next tick,
   or immediately via the dashboard's "Run now".
 - **Loaders**: `task publish` publishes the sample order to the topic through
-  a running component's sidecar (override `PUBLISH_APP_ID`, `TOPIC`, and
-  `DAPR_HTTP_PORT` — the host assigns sidecar ports, so check the dashboard
-  when the default 3500 doesn't answer).
+  a running component's sidecar (override `PUBLISH_APP_ID` and `TOPIC`; the
+  dapr CLI resolves the sidecar from the app-id).
 
 ## Development notes
 
