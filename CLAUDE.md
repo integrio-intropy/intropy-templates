@@ -214,27 +214,31 @@ it the same context. Keep it one line; never put content in it.
 Rules for authoring `AGENTS.md.tmpl`:
 
 - **Facts only, no teaching.** State what the component is, its component /
-  topic / binding names (with rootPaths and ports), app id, and the key-file
-  map. Do not restate framework conventions (naming-sync rules, builder
-  usage, DI patterns) — those belong to the skills and duplicating them here
-  drifts.
-- **One canonical run path.** If the skeleton ships a `Taskfile.yml`,
-  `task run` is canonical: `AGENTS.md` points at it and briefly says what it
-  does; it never duplicates the underlying `dapr run` command. If there is no
-  Taskfile, the raw `dapr run` command lives in `AGENTS.md` (and `README.md`
-  must agree with it — same ports, same flags).
+  topic / binding names, app id, and the key-file map. Do not restate
+  framework conventions (naming-sync rules, builder usage, DI patterns) —
+  those belong to the skills and duplicating them here drifts.
+- **System blocks never ship a run path.** A block component (extractor,
+  loader, transactional) runs via its system host — the host owns the run
+  path (`task run` under Aspire), the trigger tasks, and every Dapr
+  component. A block skeleton's Taskfile carries only `build`/`test`, and
+  its AGENTS.md says the component runs via the system host in a "Build and
+  test" section. The system-host skeleton is the one place a run path is
+  documented. The single exception is `hello-world`: the intro example uses
+  no framework blocks and intentionally keeps a standalone `dapr run`
+  command in its AGENTS.md/README (no Taskfile) — when it has a Taskfile,
+  the command must not be duplicated between the two.
 - **Project-specific deviations are facts.** Deliberate departures from
   framework defaults (e.g. "idempotency omitted in this sample; add
   `.WithIdempotency(...)` in …") belong in a short Development notes section.
 - **One skills pointer.** End with a single "Framework guidance" line
   pointing at the skills collection — no per-skill routing table.
 - **Section structure:** title + one-liner, Project overview, Important
-  files, Build and run, optional Development notes / Testing, Framework
-  guidance.
+  files, Build and test (Build and run for the system host only), optional
+  Development notes / Testing, Framework guidance.
 
-The facts in `AGENTS.md` must match the skeleton (component YAML `metadata.name`
-and rootPaths, `Constants.cs` values, Taskfile vars, `.http` ports). When you
-change one, change the others in the same commit.
+The facts in `AGENTS.md` must match the skeleton (`Constants.cs` values,
+Taskfile tasks, `.http` ports). When you change one, change the others in
+the same commit.
 
 ## Writing style for descriptions
 
