@@ -17,17 +17,22 @@ The renderer and the CLI's codegen own different files:
 
 | Owner | Files |
 |---|---|
-| this skeleton | `Program.cs`, `<Project>.SystemHost.csproj`, `Taskfile.yml`, `Properties/launchSettings.json`, `AGENTS.md`, `README.md`, `.gitignore` |
-| this skeleton, as compilable placeholders that codegen overwrites | `<Project>System.cs`, `Topics.cs`, `Connectors.cs` |
+| this skeleton | `Program.cs`, `<Project>.SystemHost.csproj`, `Taskfile.yml`, `Properties/launchSettings.json`, `Services.cs`, `mocks/`, `AGENTS.md`, `README.md`, `.gitignore` |
+| this skeleton, as compilable placeholders that codegen overwrites | `<Project>System.cs`, `Topics.cs`, `Connectors.cs`, `<Project>Development.cs` |
 
 Contract types are not generated: the host references the workspace's shared
 contracts project (the `shared-library` scaffold, typically `Contracts/`), and
 `sys create` inserts that `ProjectReference` into the rendered csproj itself —
 templates never hardcode cross-project references. `Apis.cs` codegen is
-deferred; today's codegen owns the three placeholder files. Connectors are
-resolved to local file transports rooted in the host's `test/` folder (one
-drop folder per connector, created by `sys create`), so a freshly assembled
-system runs end-to-end with zero external configuration.
+deferred; today's codegen owns the placeholder files. Connectors declare only
+their deployed transport shape (`Transport.Sftp()` — value-free; connection
+values are environment-owned deployment configuration). The local-run picture
+lives in `<Project>Development.cs` (`IDevelopmentDefinition`): OpenAPI-backed
+mocks for the platform services (`Services.cs` + `mocks/`, served by Microcks)
+and a file resolution per connector (a drop folder under `test/`), so a fully
+assembled system runs end-to-end with zero external configuration. Every
+connector the topology uses must have such a resolution — `check` fails
+otherwise.
 
 An empty system compiles, and `dotnet run -- check` reports **ITP002** ("a
 system must declare at least one component") until `Define()` declares
@@ -42,9 +47,10 @@ components — for a fresh render that error is correct behavior.
 `sys create` renders with only `name` and `--no-input`, so no other parameter
 may ever be required. The derived `projectName`/`systemClass` values
 (`order-flow` → `OrderFlow` / `OrderFlowSystem`) must keep matching the CLI's
-`pascalCase` derivation: codegen overwrites `<projectName>System.cs`, and a
-disagreement would add a second `ISystemDefinition` beside the placeholder
-instead of replacing it (discovery then fails at runtime).
+`pascalCase` derivation: codegen overwrites `<projectName>System.cs` and
+`<projectName>Development.cs`, and a disagreement would add a second
+`ISystemDefinition` / `IDevelopmentDefinition` beside the placeholder instead
+of replacing it (discovery then fails at runtime).
 
 ## Rendering locally
 
@@ -54,15 +60,16 @@ intropy int create system-host -o /tmp/system-host-out \
 ```
 
 Building the render requires the `Intropy.Topology.Aspire` /
-`Intropy.Topology.Generation` packages (0.2.6) to be resolvable from a NuGet
+`Intropy.Topology.Generation` packages (0.3.0) to be resolvable from a NuGet
 feed; until they are published, pack the intropy-topology repo to a local
 folder feed:
 
 ```bash
 cd ~/dev/intropy/tooling/intropy-topology
-dotnet pack -p:Version=0.2.6 -o ~/dev/intropy/local-nuget
+dotnet pack -p:Version=0.3.0 -o ~/dev/intropy/local-nuget
 ```
 
-Do not lower the pin below 0.2.5. That is the first version whose `graph` verb
-emits the `topology.intropy.io/v1` record `intropy dashboard` decodes; earlier
-versions emit a pre-v1 shape the CLI rejects, so the flow view comes up empty.
+Do not lower the pin below 0.3.0. That is the first version with the
+deployed-transport connector API and development definitions
+(`Transport.Sftp`, `IDevelopmentDefinition`); earlier versions cannot compile
+this skeleton's placeholders.

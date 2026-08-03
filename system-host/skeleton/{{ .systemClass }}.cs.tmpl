@@ -20,11 +20,15 @@ public sealed class {{ .systemClass }} : ISystemDefinition
         //   builder.AddExtractor("order-extractor")
         //       .From(Connectors.OrderExtractorSource)
         //       .Publishes(Topics.Orders)
+        //       .Uses(Services.Idempotency)
+        //       .Uses(Services.BusinessIncidents)
         //       .WithSchedule("*/5 * * * *");  // optional, extractors only: re-run on a cron
         //                                      // tick; without it the extractor runs once at
         //                                      // host start
         //   builder.AddLoader("order-loader")
         //       .Subscribes(Topics.Orders)
-        //       .To(Connectors.OrderLoaderDestination);
+        //       .To(Connectors.OrderLoaderDestination)
+        //       .Uses(Services.Idempotency)
+        //       .Uses(Services.BusinessIncidents);
     }
 }

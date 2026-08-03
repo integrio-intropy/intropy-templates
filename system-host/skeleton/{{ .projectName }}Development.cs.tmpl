@@ -1,0 +1,25 @@
+using Intropy.Topology.Generation;
+
+// The system's local development substitutions — what stands in for the outside world
+// when the host runs on a laptop. Two kinds: OpenAPI-backed platform-service mocks
+// (served by Microcks during `task run`) and connector file resolutions (a folder under
+// this project per connector). At most one IDevelopmentDefinition may exist in the
+// assembly, and every connector the topology uses must have a `Files(...).RootPath(...)`
+// resolution — `dotnet run -- check` validates both.
+//
+// `intropy sys create` regenerates this file from the sibling components' scaffold
+// records; it is yours to edit afterwards.
+public sealed class {{ .projectName }}Development : IDevelopmentDefinition
+{
+    /// <inheritdoc />
+    public void Define(DevelopmentBuilder development)
+    {
+        // TODO(intropy): nothing to substitute yet. `Mock` and `Files` reject services
+        // and connectors the topology does not use, so declarations follow the system
+        // definition, e.g.:
+        //
+        //   development.Mock(Services.Idempotency).FromOpenApi("mocks/idempotency-service.openapi.yaml");
+        //   development.Mock(Services.BusinessIncidents).FromOpenApi("mocks/business-incident-service.openapi.yaml");
+        //   development.Files(Connectors.OrderExtractorSource).RootPath("./test/order-extractor-source");
+    }
+}

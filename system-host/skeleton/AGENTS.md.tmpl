@@ -28,10 +28,20 @@ declaration — an Aspire run backend and a generation backend.
   static fields. Same placeholder-then-regenerated lifecycle. `Apis.cs` appears
   the same way once components declare APIs.
 - `Connectors.cs` — the system's connectors as refs (`ConnectorRef`), declared as
-  static fields. Same placeholder-then-regenerated lifecycle. `intropy sys create`
-  resolves each connector to a local file transport rooted in `test/<connector>/`
-  under this project, so the system runs end-to-end with zero external
-  configuration; point connectors at real external systems afterwards.
+  static fields. Same placeholder-then-regenerated lifecycle. Each connector
+  declares only its deployed transport shape (e.g. `Transport.Sftp()`), value-free:
+  addresses and credentials are environment-owned deployment configuration, and
+  local runs resolve the connector through the development definition instead.
+- `{{ .projectName }}Development.cs` — the `IDevelopmentDefinition` (at most one per
+  assembly): local substitutions for the outside world. Same
+  placeholder-then-regenerated lifecycle. `Mock(...).FromOpenApi(...)` stands in an
+  OpenAPI-backed mock for a platform service; `Files(...).RootPath(...)` resolves a
+  connector to a folder under this project (conventionally `test/<connector>/`), so
+  the system runs end-to-end with zero external configuration.
+- `Services.cs` — the platform services as refs (`ServiceRef`), declared as static
+  fields; blocks attach them in `Define()` via `.Uses(...)`.
+- `mocks/` — the OpenAPI 3.0.x documents backing the platform-service mocks,
+  served by Microcks during `task run`.
 - `../{{ .projectName }}.Contracts/Contracts.cs` — the contract records carried on
   topics and APIs, shared by this host and every component project.
 
@@ -53,8 +63,10 @@ task run
 ```
 
 Other tasks: `task check` (validate the topology — do this after editing
-edges), `task graph` (print the SystemTopology JSON), `task generate` (write
-Dapr YAML + per-component runtime config to `./out`), `task build`.
+edges), `task graph` (print the SystemTopology JSON; add `--development` via
+`dotnet run -- graph --development` to include the mocks and connector file
+resolutions), `task generate` (write Dapr YAML + per-component runtime config
+to `./out`), `task build`.
 
 ## Triggering components
 
@@ -79,6 +91,14 @@ originate here too:
 - Adding a component later: scaffold it as a sibling folder (`intropy int
   create ...`), then add its `builder.Add<Kind>("<name>")` call and any new
   refs by hand — `Define()` is plain C#, and `task check` verifies the result.
+- Every connector the topology uses must have a `Files(...).RootPath(...)`
+  resolution in the development definition — `task check` fails with "no local
+  file resolution" otherwise. The root path must stay inside this project
+  directory. Mocks are per-service optional, but `Mock(...)` and `Files(...)`
+  reject services and connectors the topology does not use.
+- Mocked platform services run under a single Microcks container
+  (localhost:8585) in the Aspire run; their OpenAPI documents live in `mocks/`
+  and must be self-contained OpenAPI 3.0.x (no external `$ref`).
 - Component Dapr resolution under this host is a staged overlay in
   `obj/dapr-components/<component>/`, generated from the declaration on every
   start — components ship no Dapr YAML of their own. Change the declaration,
