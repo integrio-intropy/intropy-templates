@@ -47,6 +47,9 @@ Generated\ Files/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
+# coverlet / dotnet test code-coverage collector output (`task coverage`)
+[Tt]est[Rr]esults/
+
 # NUnit
 *.VisualState.xml
 TestResult.xml

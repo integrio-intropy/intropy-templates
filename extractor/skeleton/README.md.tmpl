@@ -18,8 +18,66 @@ The extractor does not run standalone. It runs via its system host, which
 schedules the job (the Aspire dashboard offers "Run now"), provides the
 source binding, pub/sub, and platform services, and carries the sample data
 used to seed a run. `task test` covers the component-level loop: pipeline
-unit tests plus a composition smoke test proving the DI graph builds without
-a sidecar.
+unit tests plus integration tests proving the whole DI graph and the sweep
+behave without a sidecar. `task coverage` runs the integration suite with
+branch coverage (Cobertura report under the integration project's
+`TestResults/`).
+
+## Testing strategy
+
+The integration suite runs against `Intropy.Framework.Testing` fakes — no
+Dapr sidecar, no Testcontainers, no live platform services. The one principle
+throughout: **build the pipeline exactly as production composition does, fake
+only the edges, assert on fake state.** NSubstitute appears only where the
+testing library deliberately leaves a seam open: the `DaprClient` publish
+capture in `PublishIntegrationTests`, and the sweep/sidecar stubs in
+`ExtractorRunnerTests`.
+
+### Layers
+
+| Layer | Project / files | What it pins |
+|---|---|---|
+| Step unit tests | `test/{{ .name }}.Test.Unit/Process/*Tests.cs` | Each pipeline step's own contract: `Deserializer` (valid JSON, `order_id` stamped into the context), `Validator` (all four branches), `Transformer` (line-content fidelity), `Serializer` (Subject/Time/DataContentType). |
+| Sweep integration | `test/{{ .name }}.Test.Integration/SweepTests.cs` | The full pipeline (deserialize → validate → idempotency → transform → serialize → publish) over one inbound sweep, with `FakeTopic` at the publish edge. Pins the sweep's consumption contract: published, duplicate-cancelled, and incident-routed files are all deleted; technical failures stay and are counted. |
+| Composition / publish | `test/{{ .name }}.Test.Integration/PublishIntegrationTests.cs`, `CompositionTests.cs` | The real DI graph from `Composition` with only the externals faked. Proves the DI graph builds without a sidecar and that `DaprTopicPublisher` wires pubsub name, topic, and structured-mode CloudEvent encoding correctly (captured via `PublishedMessageCapture`). |
+| Runner | `test/{{ .name }}.Test.Integration/ExtractorRunnerTests.cs` | Sidecar lifecycle and exit-code mapping; the sweep itself is stubbed. |
+
+### The edges and their fakes
+
+- **Inbound files** — `InMemoryFileAdapter`. Stateful (List → GetContent →
+  Delete behaves consistently), with fault injection: `AddUnreadableFile`
+  (per-file read throws), `SetDeleteException` (publish-succeeds-but-delete-
+  fails), `ReadException`/`WriteException` (dead source/destination).
+- **Topic** — `FakeTopic<Context>`, plugged in via `Composition.BuildPipeline`
+  with `WithSender` in place of `WithDaprTopicPublisher`. `Count`/`Events`
+  expose exactly what the real publisher would have encoded; `SendException`
+  simulates a dead broker.
+- **Platform services** — `FakeIdempotencyServiceClient` and
+  `FakeBusinessIncidentServiceClient`. Tests assert on recorded state
+  (`Committed`, `Incidents.Single().Data.Description`) directly.
+- **DaprClient publish** — the one seam the library doesn't fake. A minimal
+  NSubstitute stub forwards `PublishByteEventAsync` into
+  `PublishedMessageCapture`; `DecodeCloudEvent()` decodes the structured-mode
+  envelope.
+
+### Behaviors pinned
+
+- **Never retry a poison file.** Invalid input routes a business incident and
+  consumes the file; a business failure does **not** commit idempotency (a
+  corrected redelivery must not cancel as seen-before).
+- **Exactly-once survives a delete failure.** Publish succeeds, delete throws
+  → next run re-processes, idempotency cancels the duplicate, no double-publish.
+- **One bad file never blocks the batch.** Per-file failures (read throws,
+  broker down mid-batch) are isolated; remaining files still process, `failed`
+  counts only the failed ones.
+- **A stuck file fails loudly.** A listed-but-unreadable file is counted and
+  kept so the CronJob exits 1, not silently skipped.
+
+### What is deliberately not tested
+
+No Testcontainers or real Dapr sidecar: `PublishIntegrationTests` already
+proves the wiring at near-zero cost. Revisit only if the real sidecar's
+structured-mode or metadata behavior is ever suspected of diverging.
 
 ## Shared contracts
 
@@ -42,7 +100,8 @@ come from the deployment environment.
 
 ## Pipeline
 
-Per swept file (`src/ExtractorRunner.cs` drives this once per run):
+Per swept file (`src/Sweep.cs` drives this once per run, under
+`src/ExtractorRunner.cs`'s sidecar lifecycle):
 {{- if .empty }}
 
 1. `Deserializer` parses the JSON into `In`.

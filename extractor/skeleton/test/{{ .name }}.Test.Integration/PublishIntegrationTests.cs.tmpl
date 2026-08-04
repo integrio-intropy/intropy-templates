@@ -1,0 +1,75 @@
+using Dapr.Client;
+using {{ .name }}.Configuration;
+using Intropy.Framework.Testing.Dapr;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The real DI graph from <see cref="Composition"/> with the three externals
+/// faked (the two platform-service clients, and the <see cref="DaprClient"/>
+/// publish seam via NSubstitute — the one place in the suite a mocking
+/// framework appears, because the testing library deliberately leaves the
+/// DaprClient seam open). Proves <c>DaprTopicPublisher</c> wires the pubsub
+/// name, topic, and structured-mode CloudEvent encoding correctly.
+/// </summary>
+public class PublishIntegrationTests
+{
+{{- if .empty }}
+    [Fact(Skip = "Scaffolded with empty step bodies — implement the steps, then write real tests.")]
+    public void Placeholder()
+    {
+    }
+{{- else }}
+    [Fact]
+    public async Task Execute_WithValidOrder_PublishesStructuredCloudEventToConfiguredTopic()
+    {
+        // Arrange: the substitute forwards publish calls into the capture; the
+        // testing library owns decoding the structured-mode envelope.
+        var daprClient = Substitute.For<DaprClient>();
+        var capture = new PublishedMessageCapture();
+        daprClient
+            .PublishByteEventAsync(
+                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ReadOnlyMemory<byte>>(),
+                Arg.Any<string>(), Arg.Any<Dictionary<string, string>?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask)
+            .AndDoes(ci => capture.Capture(
+                ci.ArgAt<string>(0), ci.ArgAt<string>(1), ci.ArgAt<ReadOnlyMemory<byte>>(2),
+                ci.ArgAt<string>(3)));
+
+        var services = Composition.ConfigureServices(new ServiceCollection());
+        // Last registration wins: the real platform-service clients would try
+        // to reach their sidecar endpoints and fail.
+        services.AddSingleton(daprClient);
+        services.AddSingleton<Intropy.Contracts.IdempotencyService.IIdempotencyServiceClient>(
+            new Intropy.Framework.Testing.Services.FakeIdempotencyServiceClient());
+        services.AddSingleton<Intropy.Contracts.BusinessIncidentService.IBusinessIncidentServiceClient>(
+            new Intropy.Framework.Testing.Services.FakeBusinessIncidentServiceClient());
+        var provider = services.BuildServiceProvider();
+
+        // Production sender wiring: no configureSender override.
+        var pipeline = Composition.BuildPipeline(provider);
+        var context = new Intropy.Framework.Blocks.Shared.Context(new Dictionary<string, string>());
+        var json = """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+        // Act
+        var (result, _) = await pipeline.Execute(json, context, CancellationToken.None);
+
+        // Assert
+        Assert.True(result is Intropy.Framework.Core.Pipeline.Abstractions.Results.StepResult<CloudNative.CloudEvents.CloudEvent>.Success,
+            result is Intropy.Framework.Core.Pipeline.Abstractions.Results.StepResult<CloudNative.CloudEvents.CloudEvent>.TechnicalFailure failure
+                ? $"Expected a successful publish, got a technical failure: {failure.Value.Exception}"
+                : $"Expected a successful publish, got {result.GetType().Name}");
+        var message = capture.Messages.Single();
+        Assert.Equal(Constants.PubSubName, message.PubSubName);
+        Assert.Equal(Constants.TopicName, message.TopicName);
+        Assert.Equal("application/cloudevents+json", message.ContentType);
+
+        var cloudEvent = message.DecodeCloudEvent();
+        Assert.Equal("ORD-1001", cloudEvent.Subject);
+        Assert.Equal(new Uri(Constants.EventSource), cloudEvent.Source);
+        Assert.Equal(Constants.EventType, cloudEvent.Type);
+    }
+{{- end }}
+}

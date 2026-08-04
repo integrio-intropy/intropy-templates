@@ -10,11 +10,17 @@ tasks:
     desc: Build the application
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     cmds:
-      - dotnet build ./src
+      - dotnet build
 
   # ── Tests ─────────────────────────────────────────────────────────
   test:
-    desc: Run the tests
+    desc: Run the tests (unit + integration)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     cmds:
-      - dotnet test ./test
+      - dotnet test
+
+  coverage:
+    desc: Run the integration suite with branch coverage (Cobertura report in test/{{ .name }}.Test.Integration/TestResults)
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet test ./test/{{ .name }}.Test.Integration --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura

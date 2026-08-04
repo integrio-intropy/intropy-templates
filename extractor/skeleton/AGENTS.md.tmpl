@@ -11,8 +11,9 @@ the system host locally, a Kubernetes CronJob in production.
 - Framework: .NET 10
 - App type: Run-to-completion console job (no web endpoints; one sweep per run,
   then exit — exit code 1 when any file failed and was left in place)
-- Runner: `{{ .name }}.ExtractorRunner` (skeleton code — the framework does not
-  yet ship an extractor host)
+- Runner: `{{ .name }}.ExtractorRunner` (sidecar lifecycle + exit codes) and
+  `{{ .name }}.Sweep` (the sidecar-free one-shot sweep) — skeleton code, the
+  framework does not yet ship an extractor host
 - App id: `{{ .appId }}`
 - Source binding: `binding.{{ .connector }}` — named after the source
   connector; the system host generates the binding and resolves it to a local
@@ -41,16 +42,24 @@ the system host locally, a Kubernetes CronJob in production.
   environment.
 - `src/Program.cs` - entrypoint: builds the service provider via `Composition`
   and runs the `ExtractorRunner`.
-- `src/Configuration/Composition.cs` - every service registration, shared by
-  the entrypoint and the composition smoke test.
-- `src/ExtractorRunner.cs` - sidecar lifecycle and the one-shot sweep: list
-  inbound, run the pipeline per file, delete on success.
+- `src/Configuration/Composition.cs` - every service registration, plus
+  `BuildPipeline(provider, configureSender)` — the single pipeline composition
+  entrypoint. Production wires the Dapr topic publisher; tests pass
+  `builder => builder.WithSender(fakeTopic)`.
+- `src/ExtractorRunner.cs` - sidecar lifecycle (wait, shutdown) and the
+  exit-code mapping around the sweep.
+- `src/Sweep.cs` - the one-shot sweep: list inbound, run the pipeline per
+  file, delete on success. Sidecar-free on purpose: the integration suite
+  constructs it directly against the framework's testing fakes.
 - `src/Configuration/Constants.cs` - component/topic names, keyed-adapter key,
   CloudEvent envelope values.
 - `src/Process/` - the extractor pipeline steps and the `ExtractorBuilder` wiring
   (`ServiceCollectionExtensions.cs`).
-- `test/` - xUnit tests: pipeline steps plus the composition smoke test
-  (`task test`).
+- `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (pure xUnit; no
+  fakes, no Dapr).
+- `test/{{ .name }}.Test.Integration/` - sweep, publish-wiring, composition,
+  and runner tests against `Intropy.Framework.Testing` fakes (`task test` runs
+  both projects; `task coverage` reports branch coverage).
 
 ## Build and test
 
@@ -64,8 +73,15 @@ task build
 task test
 ```
 
-`task test` runs the pipeline unit tests (steps faked at the adapter seam) and
-a composition smoke test that builds the whole DI graph without a sidecar.
+`task test` runs both test projects: the unit suite pins each pipeline step's
+own contract; the integration suite builds the pipeline exactly as production
+composition does, fakes only the edges (`InMemoryFileAdapter`, `FakeTopic`,
+`FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` — from
+`Intropy.Framework.Testing`), and asserts on fake state. NSubstitute appears
+only for the `DaprClient` publish seam the testing library deliberately
+leaves open (`PublishIntegrationTests`) and for stubbing the sweep/sidecar in
+`ExtractorRunnerTests`. `task coverage` runs the integration suite with branch
+coverage (Cobertura report under the integration project's `TestResults/`).
 
 ## Development notes
 
@@ -76,7 +92,7 @@ a composition smoke test that builds the whole DI graph without a sidecar.
   scheduled run; the idempotency check makes the retry safe. Duplicates cancel
   as a traceable no-op and the file is removed.
 - Additional enrichment steps go into the builder chain in
-  `src/Process/ServiceCollectionExtensions.cs` via `.WithExtractor(...)` —
+  `src/Configuration/Composition.cs` (`BuildPipeline`) via `.WithExtractor(...)` —
   the extractor pipeline supports any number of them, executed in order.
 {{- if .empty }}
 - The step bodies are scaffolded empty (`NotImplementedException`). The
