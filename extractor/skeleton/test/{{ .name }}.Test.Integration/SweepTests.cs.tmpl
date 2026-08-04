@@ -1,0 +1,183 @@
+using {{ .name }}.Configuration;
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Framework.Testing.Adapters;
+using Intropy.Framework.Testing.Services;
+using Intropy.Framework.Testing.Topics;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Shared;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Intropy.Contracts.IdempotencyService;
+using Action = Intropy.Contracts.IdempotencyService.Action;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The full pipeline (deserialize → validate → idempotency → transform →
+/// serialize → publish) over one inbound sweep, with <see cref="FakeTopic{TCtx}"/>
+/// at the publish edge. The pipeline is built exactly as production composition
+/// does — only the three externals are faked — and assertions read fake state
+/// directly. These tests pin the sweep's consumption contract: published,
+/// duplicate-cancelled, and incident-routed files are all deleted; technical
+/// failures stay and are counted.
+/// </summary>
+public class SweepTests
+{
+{{- if .empty }}
+    // The steps throw NotImplementedException until implemented; write the
+    // real sweep tests against the framework fakes as the steps land (see
+    // README.md → Testing strategy for the contract this suite pins).
+    [Fact(Skip = "Scaffolded with empty step bodies — implement the steps, then write real tests.")]
+    public void Placeholder()
+    {
+    }
+{{- else }}
+    private const string ValidOrderJson =
+        """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    [Fact]
+    public async Task SweepAsync_WithValidFile_PublishesAndDeletesSourceFile()
+    {
+        // Arrange
+        var (sweep, files, topic, idempotency, _) = CreateSut();
+        files.AddFile("order-1.json", ValidOrderJson);
+
+        // Act
+        var failed = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Equal(0, failed);
+        var published = Assert.Single(topic.Events);
+        Assert.Equal("ORD-1001", published.Subject);
+        Assert.Empty(files.Files);
+        Assert.Single(idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task SweepAsync_WithDuplicate_CancelsAndDeletesWithoutPublishing()
+    {
+        // Arrange: the idempotency service has already seen this order.
+        var (sweep, files, topic, idempotency, _) = CreateSut();
+        files.AddFile("order-1.json", ValidOrderJson);
+        idempotency.NextStatus = new StatusResponse(Action.Ignore, Reason.SameData);
+
+        // Act
+        var failed = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert: cancelled as a traceable no-op — file consumed, nothing
+        // published, no new commit.
+        Assert.Equal(0, failed);
+        Assert.Equal(0, topic.Count);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task SweepAsync_WithBusinessFailure_RoutesIncidentAndConsumesFileWithoutCommit()
+    {
+        // Arrange: no lines — the Validator's "Order must contain at least one
+        // line" branch. A business failure never retries the poison file, and
+        // never commits idempotency (a corrected redelivery must not cancel as
+        // seen-before).
+        var (sweep, files, topic, idempotency, incidents) = CreateSut();
+        files.AddFile("order-1.json",
+            """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""");
+
+        // Act
+        var failed = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Equal(0, failed);
+        Assert.Equal(0, topic.Count);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+        var incident = Assert.Single(incidents.Incidents);
+        Assert.Equal("Order must contain at least one line", incident.Data.Description);
+    }
+
+    [Fact]
+    public async Task SweepAsync_WhenBrokerIsDown_KeepsFileAndCountsIt()
+    {
+        // Arrange: SendException surfaces as a technical failure, matching a
+        // dead broker in production.
+        var (sweep, files, topic, _, _) = CreateSut();
+        files.AddFile("order-1.json", ValidOrderJson);
+        topic.SendException = new InvalidOperationException("Broker unreachable");
+
+        // Act
+        var failed = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert: one bad file fails loudly; it stays for the next run.
+        Assert.Equal(1, failed);
+        Assert.True(files.Files.ContainsKey("order-1.json"));
+    }
+
+    [Fact]
+    public async Task SweepAsync_WhenDeleteFails_KeepsFileAndIdempotencyCatchesTheRedelivery()
+    {
+        // Arrange: publish succeeds but the delete fails — the file is
+        // re-processed on the next run and idempotency must cancel the
+        // duplicate, so exactly-once survives a delete failure.
+        var (sweep, files, topic, idempotency, _) = CreateSut();
+        files.AddFile("order-1.json", ValidOrderJson);
+        files.SetDeleteException("order-1.json", new InvalidOperationException("Source refuses deletes"));
+
+        // Act — first run: published, but the delete threw.
+        var firstFailed = await sweep.SweepAsync(CancellationToken.None);
+
+        // Arrange — second run: the idempotency service now has the commit from
+        // run one, so the redelivery checks out as a duplicate.
+        idempotency.NextStatus = new StatusResponse(Action.Ignore, Reason.SameData);
+        files.SetDeleteException("order-1.json", null);
+
+        // Act — second run: cancelled, deleted, no double-publish.
+        var secondFailed = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Equal(1, firstFailed);
+        Assert.Equal(0, secondFailed);
+        Assert.Single(topic.Events); // no double-publish
+        Assert.Empty(files.Files);
+    }
+
+    [Fact]
+    public async Task SweepAsync_WithUnreadableFile_FailsLoudlyAndNeverBlocksTheBatch()
+    {
+        // Arrange: a listed-but-unreadable file is a stuck file — counted and
+        // kept so the run exits 1, while the remaining file still processes.
+        var (sweep, files, topic, _, _) = CreateSut();
+        files.AddUnreadableFile("corrupt.json");
+        files.AddFile("order-1.json", ValidOrderJson);
+
+        // Act
+        var failed = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Equal(1, failed);
+        Assert.Single(topic.Events);
+        Assert.False(files.Files.ContainsKey("order-1.json"),
+            "one bad file never blocks the batch");
+        // The corrupt file is still listed — it stays in the inbound folder.
+        Assert.Contains("corrupt.json", (await files.ListAsync()).Select(f => f.FileName));
+    }
+
+    /// <summary>
+    /// Builds the sweep against the real DI graph with only the three externals
+    /// faked (see <see cref="FakeEdges"/>): the keyed source adapter
+    /// (<see cref="InMemoryFileAdapter"/>), the two platform-service clients,
+    /// and the publish edge (a <see cref="FakeTopic{TCtx}"/> plugged in via
+    /// <c>WithSender</c> through <see cref="Composition.BuildPipeline"/>).
+    /// </summary>
+    private static (Sweep Sweep, InMemoryFileAdapter Files, FakeTopic<Context> Topic,
+        FakeIdempotencyServiceClient Idempotency, FakeBusinessIncidentServiceClient Incidents)
+        CreateSut()
+    {
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = edges.BuildPipeline(provider);
+        var sweep = new Sweep(edges.Files, pipeline, NullLoggerFactory.Instance);
+
+        return (sweep, edges.Files, edges.Topic, edges.Idempotency, edges.Incidents);
+    }
+{{- end }}
+}

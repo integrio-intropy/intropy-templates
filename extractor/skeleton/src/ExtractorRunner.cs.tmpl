@@ -1,34 +1,21 @@
-using System.Text;
-using CloudNative.CloudEvents;
 using Dapr.Client;
-using {{ .contracts }};
-using {{ .name }}.Configuration;
-using {{ .name }}.Model;
-using Intropy.Framework.Adapters.File;
-using Intropy.Framework.Blocks.Extractor;
-using Intropy.Framework.Blocks.Shared;
-using Intropy.Framework.Core.Pipeline.Abstractions.Results;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace {{ .name }};
 
 /// <summary>
-/// Runs the extractor as a run-to-completion job: one sweep of the inbound
-/// folder, then exit. Each swept file goes through the extract pipeline and
-/// the source file is deleted once its content has been published (or
-/// cancelled as a duplicate). Failed files stay in the folder for the next
-/// scheduled run — the idempotency check makes the retry safe. Scheduling
-/// lives outside the block: the system host locally, a Kubernetes CronJob
-/// in production.
+/// Runs the extractor as a run-to-completion job: waits for the Dapr sidecar,
+/// sweeps the inbound folder once via <see cref="Sweep"/>, shuts the sidecar
+/// down, and exits. Scheduling lives outside the block: the system host
+/// locally, a Kubernetes CronJob in production.
 /// </summary>
 public class ExtractorRunner(
     DaprClient daprClient,
-    [FromKeyedServices(Constants.SourceFileAdapterKey)] IFileAdapter fileAdapter,
-    Extractor<In, Order, Context> pipeline,
+    Sweep sweep,
     ILoggerFactory loggerFactory)
 {
     private const int SidecarTimeoutSeconds = 30;
+    private const int SidecarShutdownTimeoutSeconds = 10;
 
     private readonly ILogger _logger = loggerFactory.CreateLogger("{{ .name }}.Pipeline");
 
@@ -52,7 +39,7 @@ public class ExtractorRunner(
 
         try
         {
-            var failed = await SweepAsync(ct);
+            var failed = await sweep.SweepAsync(ct);
             return failed == 0 ? 0 : 1;
         }
         catch (OperationCanceledException)
@@ -70,66 +57,17 @@ public class ExtractorRunner(
         {
             try
             {
-                await daprClient.ShutdownSidecarAsync();
+                // Bounded on purpose: a wedged sidecar must not hang the job
+                // after a successful sweep — the scheduler would record a
+                // failed run despite 0 failed files.
+                using var shutdownCts = new CancellationTokenSource(
+                    TimeSpan.FromSeconds(SidecarShutdownTimeoutSeconds));
+                await daprClient.ShutdownSidecarAsync(shutdownCts.Token);
             }
             catch (Exception e)
             {
                 _logger.LogWarning(e, "Failed to shut down Dapr sidecar");
             }
         }
-    }
-
-    /// <returns>The number of files that failed and were left in place.</returns>
-    private async Task<int> SweepAsync(CancellationToken ct)
-    {
-        var files = await fileAdapter.ListAsync();
-        if (files.Count == 0)
-        {
-            _logger.LogInformation("Inbound is empty; nothing to do");
-            return 0;
-        }
-
-        _logger.LogInformation("Swept {Count} file(s) from inbound", files.Count);
-
-        var failed = 0;
-
-        foreach (var file in files)
-        {
-            var content = await fileAdapter.GetContentAsync(file.FileName, Encoding.UTF8);
-            if (content is null)
-                continue;
-
-            var context = new Context(new Dictionary<string, string>
-            {
-                [Constants.ContextKeyFileName] = file.FileName
-            });
-
-            var (result, _) = await pipeline.Execute(content, context, ct);
-
-            switch (result)
-            {
-                case StepResult<CloudEvent>.Success success:
-                    await fileAdapter.DeleteAsync(file.FileName);
-                    _logger.LogInformation("Published {Subject} to topic {Topic} ({PubSub})",
-                        success.Value.Subject, Constants.TopicName, Constants.PubSubName);
-                    break;
-                case StepResult<CloudEvent>.Cancelled:
-                    await fileAdapter.DeleteAsync(file.FileName);
-                    _logger.LogInformation("Cancelled {FileName} as a duplicate (idempotency check)",
-                        file.FileName);
-                    break;
-                default:
-                    _logger.LogWarning("Processing {FileName} failed ({ResultType}); leaving it for the next scheduled run",
-                        file.FileName, result.GetType().Name);
-                    failed++;
-                    break;
-            }
-        }
-
-        if (failed > 0)
-            _logger.LogWarning("{Failed} of {Total} file(s) failed; exiting 1 so the scheduler records a failed run",
-                failed, files.Count);
-
-        return failed;
     }
 }

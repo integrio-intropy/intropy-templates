@@ -9,12 +9,24 @@ Kubernetes CronJob in production. The extractor is the publishing half of a
 system contract — scaffold the consuming loader with the same `topic` value.
 
 The rendered project is a one-shot console job (same shape as `transactional`)
-with a Taskfile (`task build`, `task test` — the component-level loop), xUnit
-tests for the pipeline steps plus a composition smoke test that builds the
-whole DI graph without a sidecar, a Dockerfile on the chiseled runtime, and an
-`AGENTS.md` describing the component to coding agents. The framework does not
-yet ship an extractor host, so the skeleton carries its own `ExtractorRunner`
-(sidecar lifecycle + one-shot sweep), modeled on `TransactionalIntegrationRunner`.
+with a Taskfile (`task build`, `task test`, `task coverage` — the
+component-level loop), two test projects, a Dockerfile on the chiseled
+runtime, and an `AGENTS.md` describing the component to coding agents. The
+framework does not yet ship an extractor host, so the skeleton carries its own
+`ExtractorRunner` (sidecar lifecycle + exit codes) delegating to a
+sidecar-free `Sweep` (list inbound, pipeline per file, delete on success) —
+split so the integration suite can construct the sweep directly.
+
+Tests split into `<name>.Test.Unit` (pipeline step contracts, pure xUnit) and
+`<name>.Test.Integration` (sweep, publish-wiring, composition, runner) built
+on the `Intropy.Framework.Testing` fakes: `InMemoryFileAdapter` at the keyed
+source-adapter seam, `FakeTopic` plugged in via `WithSender`, the two
+platform-service clients overridden in DI (last registration wins), and
+`PublishedMessageCapture` for the single NSubstitute `DaprClient` seam. The
+pipeline is built exactly as production composition does — both
+`Composition.BuildPipeline(provider)` (production/`AddProcessPipeline`) and
+the test's `Composition.BuildPipeline(provider, b => b.WithSender(topic))`
+go through the same builder chain. No sidecar, no Testcontainers.
 
 Components do not run standalone: the extractor runs via its system host,
 which schedules the job and provides every Dapr component (source binding,
