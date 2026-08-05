@@ -70,4 +70,5 @@ spec:
       output: '{{ .contracts }}'
       values:
         name: '{{ .contracts }}'
+        contract: '{{ .contract }}'
         empty: '{{ .empty }}'

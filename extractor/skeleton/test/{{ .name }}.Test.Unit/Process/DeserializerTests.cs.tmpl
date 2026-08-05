@@ -1,4 +1,3 @@
-using {{ .name }}.Configuration;
 using {{ .name }}.Process;
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Shared;
@@ -28,7 +27,7 @@ public class DeserializerTests
         var (result, _) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
 
         // Assert
-        var success = Assert.IsType<BusinessStepResult<In>.Success>(result);
+        var success = Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Single(success.Value.Lines);
     }

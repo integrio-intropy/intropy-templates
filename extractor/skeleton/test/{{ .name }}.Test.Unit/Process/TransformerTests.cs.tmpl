@@ -17,7 +17,7 @@ public class TransformerTests
         // Arrange
         var transformer = new Transformer();
         var orderDate = new DateTimeOffset(2026, 1, 15, 9, 30, 0, TimeSpan.Zero);
-        var order = new In(
+        var order = new Source{{ .contract }}(
             OrderId: "ORD-1001",
             CustomerId: "CUST-42",
             OrderDate: orderDate,
@@ -28,7 +28,7 @@ public class TransformerTests
             order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var success = Assert.IsType<TechnicalStepResult<Order>.Success>(result);
+        var success = Assert.IsType<TechnicalStepResult<{{ .contract }}>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Equal("CUST-42", success.Value.CustomerId);
         Assert.Equal(orderDate, success.Value.OrderDate);

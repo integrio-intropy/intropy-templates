@@ -2,7 +2,7 @@
 
 Shared contracts class library for the integration system. Sibling components
 reference it via `ProjectReference` and exchange these contract types over
-pub/sub — the extractor publishes `Order`, the consuming loader deserializes
+pub/sub — the extractor publishes `{{ .contract }}`, the consuming loader deserializes
 the same record.
 
 This project was scaffolded automatically as a dependency of the first

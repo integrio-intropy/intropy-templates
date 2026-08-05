@@ -1,5 +1,4 @@
 using Dapr.Client;
-using {{ .name }}.Configuration;
 using Intropy.Framework.Testing.Dapr;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
@@ -13,6 +12,8 @@ namespace {{ .name }}.Test.Integration;
 /// framework appears, because the testing library deliberately leaves the
 /// DaprClient seam open). Proves <c>DaprTopicPublisher</c> wires the pubsub
 /// name, topic, and structured-mode CloudEvent encoding correctly.
+/// The sender itself is the production <c>DaprTopicPublisher</c>, re-registered
+/// against the substituted <see cref="DaprClient"/>.
 /// </summary>
 public class PublishIntegrationTests
 {
@@ -38,7 +39,7 @@ public class PublishIntegrationTests
                 ci.ArgAt<string>(0), ci.ArgAt<string>(1), ci.ArgAt<ReadOnlyMemory<byte>>(2),
                 ci.ArgAt<string>(3)));
 
-        var services = Composition.ConfigureServices(new ServiceCollection());
+        var services = Composition.Composition.ConfigureServices(new ServiceCollection());
         // Last registration wins: the real platform-service clients would try
         // to reach their sidecar endpoints and fail.
         services.AddSingleton(daprClient);
@@ -46,10 +47,19 @@ public class PublishIntegrationTests
             new Intropy.Framework.Testing.Services.FakeIdempotencyServiceClient());
         services.AddSingleton<Intropy.Contracts.BusinessIncidentService.IBusinessIncidentServiceClient>(
             new Intropy.Framework.Testing.Services.FakeBusinessIncidentServiceClient());
+        // Re-register the production sender against the substituted DaprClient:
+        // the default registration would capture the real one.
+        services.AddSingleton<Intropy.Framework.Blocks.Extractor.Steps.SendStep<Intropy.Framework.Blocks.Shared.Context>>(
+            sp => new Intropy.Framework.Blocks.Extractor.Steps.DaprTopicPublisher<Intropy.Framework.Blocks.Shared.Context>(
+                sp.GetRequiredService<DaprClient>(),
+                Constants.PubSubName,
+                Constants.TopicName,
+                new Uri(Constants.EventSource),
+                Constants.EventType));
         var provider = services.BuildServiceProvider();
 
-        // Production sender wiring: no configureSender override.
-        var pipeline = Composition.BuildPipeline(provider);
+        // Production sender wiring: resolved from DI like any other external.
+        var pipeline = Composition.Composition.BuildPipeline(provider);
         var context = new Intropy.Framework.Blocks.Shared.Context(new Dictionary<string, string>());
         var json = """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 

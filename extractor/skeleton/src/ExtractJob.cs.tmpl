@@ -1,0 +1,17 @@
+using Intropy.Framework.Hosting.RunToCompletion;
+
+namespace {{ .name }};
+
+/// <summary>
+/// Adapts the sidecar-free <see cref="Sweep"/> to the framework's run-to-completion
+/// job contract. The runner (<c>RunToCompletionRunner</c>) owns the Dapr sidecar
+/// lifecycle, tracing, and exit-code mapping; this job only reports what the sweep
+/// did as a <see cref="JobRunSummary"/>.
+/// </summary>
+public class ExtractJob(Sweep sweep) : IRunToCompletionJob
+{
+    /// <summary>Runs one sweep and returns its outcome breakdown. Failed files are left
+    /// in the inbound folder for the next scheduled run; the runner maps <c>Failed &gt; 0</c>
+    /// to a job-failure exit code and tags all three counts on the trace activity.</summary>
+    public Task<JobRunSummary> ExecuteAsync(CancellationToken ct) => sweep.SweepAsync(ct);
+}

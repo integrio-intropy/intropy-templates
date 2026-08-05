@@ -23,8 +23,14 @@ spec:
         title: Project name
         description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed. Component templates conventionally pass plain "Contracts" — the project is scoped by the system directory it lives in, so it needs no organization prefix.
         pattern: "^[A-Z][A-Za-z0-9]*(\\.[A-Z][A-Za-z0-9]*)*$"
+      contract:
+        type: string
+        title: Contract type
+        description: PascalCase name of the canonical contract record the system's topics carry — the record this library is scaffolded around. Component templates pass their own contract parameter down.
+        pattern: "^[A-Z][A-Za-z0-9]*$"
+        default: Order
       empty:
         type: boolean
         title: Empty bodies
-        description: When true, strip the sample contract fields. The library still compiles (the Order record stays as an empty shell for pipeline generics) so a migration agent can fill in the real contract.
+        description: When true, strip the sample contract fields. The library still compiles (the contract record stays as an empty shell for pipeline generics) so a migration agent can fill in the real contract.
         default: false

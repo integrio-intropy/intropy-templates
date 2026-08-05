@@ -1,4 +1,3 @@
-using {{ .name }}.Configuration;
 using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Framework.Testing.Adapters;
 using Intropy.Framework.Testing.Services;
@@ -16,7 +15,7 @@ namespace {{ .name }}.Test.Integration;
 /// The full pipeline (deserialize → validate → idempotency → transform →
 /// serialize → publish) over one inbound sweep, with <see cref="FakeTopic{TCtx}"/>
 /// at the publish edge. The pipeline is built exactly as production composition
-/// does — only the three externals are faked — and assertions read fake state
+/// does — only the four externals are faked — and assertions read fake state
 /// directly. These tests pin the sweep's consumption contract: published,
 /// duplicate-cancelled, and incident-routed files are all deleted; technical
 /// failures stay and are counted.
@@ -43,10 +42,12 @@ public class SweepTests
         files.AddFile("order-1.json", ValidOrderJson);
 
         // Act
-        var failed = await sweep.SweepAsync(CancellationToken.None);
+        var summary = await sweep.SweepAsync(CancellationToken.None);
 
         // Assert
-        Assert.Equal(0, failed);
+        Assert.Equal(0, summary.Failed);
+        Assert.Equal(1, summary.Processed);
+        Assert.Equal(0, summary.Cancelled);
         var published = Assert.Single(topic.Events);
         Assert.Equal("ORD-1001", published.Subject);
         Assert.Empty(files.Files);
@@ -62,11 +63,13 @@ public class SweepTests
         idempotency.NextStatus = new StatusResponse(Action.Ignore, Reason.SameData);
 
         // Act
-        var failed = await sweep.SweepAsync(CancellationToken.None);
+        var summary = await sweep.SweepAsync(CancellationToken.None);
 
         // Assert: cancelled as a traceable no-op — file consumed, nothing
         // published, no new commit.
-        Assert.Equal(0, failed);
+        Assert.Equal(0, summary.Failed);
+        Assert.Equal(0, summary.Processed);
+        Assert.Equal(1, summary.Cancelled);
         Assert.Equal(0, topic.Count);
         Assert.Empty(files.Files);
         Assert.Empty(idempotency.Committed);
@@ -84,10 +87,12 @@ public class SweepTests
             """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""");
 
         // Act
-        var failed = await sweep.SweepAsync(CancellationToken.None);
+        var summary = await sweep.SweepAsync(CancellationToken.None);
 
-        // Assert
-        Assert.Equal(0, failed);
+        // Assert: incident-routed files are consumed, so they count as processed.
+        Assert.Equal(0, summary.Failed);
+        Assert.Equal(1, summary.Processed);
+        Assert.Equal(0, summary.Cancelled);
         Assert.Equal(0, topic.Count);
         Assert.Empty(files.Files);
         Assert.Empty(idempotency.Committed);
@@ -105,10 +110,10 @@ public class SweepTests
         topic.SendException = new InvalidOperationException("Broker unreachable");
 
         // Act
-        var failed = await sweep.SweepAsync(CancellationToken.None);
+        var summary = await sweep.SweepAsync(CancellationToken.None);
 
         // Assert: one bad file fails loudly; it stays for the next run.
-        Assert.Equal(1, failed);
+        Assert.Equal(1, summary.Failed);
         Assert.True(files.Files.ContainsKey("order-1.json"));
     }
 
@@ -123,7 +128,7 @@ public class SweepTests
         files.SetDeleteException("order-1.json", new InvalidOperationException("Source refuses deletes"));
 
         // Act — first run: published, but the delete threw.
-        var firstFailed = await sweep.SweepAsync(CancellationToken.None);
+        var first = await sweep.SweepAsync(CancellationToken.None);
 
         // Arrange — second run: the idempotency service now has the commit from
         // run one, so the redelivery checks out as a duplicate.
@@ -131,11 +136,11 @@ public class SweepTests
         files.SetDeleteException("order-1.json", null);
 
         // Act — second run: cancelled, deleted, no double-publish.
-        var secondFailed = await sweep.SweepAsync(CancellationToken.None);
+        var second = await sweep.SweepAsync(CancellationToken.None);
 
         // Assert
-        Assert.Equal(1, firstFailed);
-        Assert.Equal(0, secondFailed);
+        Assert.Equal(1, first.Failed);
+        Assert.Equal(0, second.Failed);
         Assert.Single(topic.Events); // no double-publish
         Assert.Empty(files.Files);
     }
@@ -150,10 +155,10 @@ public class SweepTests
         files.AddFile("order-1.json", ValidOrderJson);
 
         // Act
-        var failed = await sweep.SweepAsync(CancellationToken.None);
+        var summary = await sweep.SweepAsync(CancellationToken.None);
 
         // Assert
-        Assert.Equal(1, failed);
+        Assert.Equal(1, summary.Failed);
         Assert.Single(topic.Events);
         Assert.False(files.Files.ContainsKey("order-1.json"),
             "one bad file never blocks the batch");
@@ -162,11 +167,11 @@ public class SweepTests
     }
 
     /// <summary>
-    /// Builds the sweep against the real DI graph with only the three externals
+    /// Builds the sweep against the real DI graph with only the four externals
     /// faked (see <see cref="FakeEdges"/>): the keyed source adapter
     /// (<see cref="InMemoryFileAdapter"/>), the two platform-service clients,
-    /// and the publish edge (a <see cref="FakeTopic{TCtx}"/> plugged in via
-    /// <c>WithSender</c> through <see cref="Composition.BuildPipeline"/>).
+    /// and the publish edge (a <see cref="FakeTopic{TCtx}"/> registered in DI
+    /// in place of the production <c>SendStep&lt;Context&gt;</c>).
     /// </summary>
     private static (Sweep Sweep, InMemoryFileAdapter Files, FakeTopic<Context> Topic,
         FakeIdempotencyServiceClient Idempotency, FakeBusinessIncidentServiceClient Incidents)

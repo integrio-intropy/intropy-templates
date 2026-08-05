@@ -12,21 +12,25 @@ The rendered project is a one-shot console job (same shape as `transactional`)
 with a Taskfile (`task build`, `task test`, `task coverage` — the
 component-level loop), two test projects, a Dockerfile on the chiseled
 runtime, and an `AGENTS.md` describing the component to coding agents. The
-framework does not yet ship an extractor host, so the skeleton carries its own
-`ExtractorRunner` (sidecar lifecycle + exit codes) delegating to a
-sidecar-free `Sweep` (list inbound, pipeline per file, delete on success) —
-split so the integration suite can construct the sweep directly.
+component is hosted by the framework's `RunToCompletionRunner` (in
+`Intropy.Framework.Hosting`) — sidecar lifecycle, tracing, and the 0/1/2
+exit-code contract — via a thin `ExtractJob` adapter over the sidecar-free
+`Sweep` (list inbound, pipeline per file, delete on success), split so the
+integration suite can construct the sweep directly. The sender is a
+DI-registered `SendStep<Context>` (a `DaprTopicPublisher` in production),
+swapped in tests like any other external.
 
 Tests split into `<name>.Test.Unit` (pipeline step contracts, pure xUnit) and
-`<name>.Test.Integration` (sweep, publish-wiring, composition, runner) built
-on the `Intropy.Framework.Testing` fakes: `InMemoryFileAdapter` at the keyed
-source-adapter seam, `FakeTopic` plugged in via `WithSender`, the two
-platform-service clients overridden in DI (last registration wins), and
-`PublishedMessageCapture` for the single NSubstitute `DaprClient` seam. The
-pipeline is built exactly as production composition does — both
-`Composition.BuildPipeline(provider)` (production/`AddProcessPipeline`) and
-the test's `Composition.BuildPipeline(provider, b => b.WithSender(topic))`
-go through the same builder chain. No sidecar, no Testcontainers.
+`<name>.Test.Integration` (sweep, publish-wiring, composition) built on the
+`Intropy.Framework.Testing` fakes: `InMemoryFileAdapter` at the keyed
+source-adapter seam, `FakeTopic` swapped in via `RemoveAll<SendStep<Context>>()`
++ `AddSingleton<SendStep<Context>>(topic)` exactly like the other externals,
+the two platform-service clients swapped the same way, and
+`PublishedMessageCapture` for the single NSubstitute `DaprClient` seam (the
+test re-registers the production `DaprTopicPublisher` against the substituted
+client). The pipeline is always built exactly as production composition does —
+`Composition.Composition.BuildPipeline(provider)` — with every edge resolved
+from DI. No sidecar, no Testcontainers.
 
 Components do not run standalone: the extractor runs via its system host,
 which schedules the job and provides every Dapr component (source binding,
@@ -35,16 +39,20 @@ Business Incident Service the pipeline wires in).
 
 The template declares a `spec.dependencies` entry on `shared-contracts`: the
 render also scaffolds a sibling `Contracts` class library holding the published
-contract (`Order`, `OrderLine`) — unless that sibling already exists
-(scaffolded by an earlier component), in which case it is left untouched. The
-extractor's csproj references it as `../../Contracts/Contracts.csproj`; only the
-inbound file shape (`In`) stays local to the component. The name is plain
+contract (the `contract` parameter — `Order` by convention — plus `OrderLine`)
+— unless that sibling already exists (scaffolded by an earlier component), in
+which case it is left untouched. The extractor's csproj references it as
+`../../Contracts/Contracts.csproj`; only the inbound file shape
+(`Source<Contract>`) stays local to the component. The name is plain
 `Contracts` because the project is scoped by the system directory it lives in.
+The `contract` parameter is threaded through to `shared-contracts`, which
+renames its canonical record to match.
 
-The sample logic and the scaffolded Contracts project use `Order` as the
-contract record. Passing a different `contract` value renames the record the
-topic is typed with, so rename the record in Contracts (and the sample
-pipeline code, unless `empty=true`) to match.
+The skeleton's `nuget.config` points at a local feed with the
+`Intropy.Framework.*` integration builds the csproj references
+(`0.0.0-int.<timestamp>` placeholders, packed from the framework repo).
+Replace both with the published versions once a framework release carries the
+run-to-completion host and the extractor builder additions.
 
 ## Parameters
 
@@ -53,7 +61,7 @@ pipeline code, unless `empty=true`) to match.
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderExtractor`).            |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
 | `topic`        | yes      | Pub/sub topic the extractor publishes to (kebab-case); the consuming loader subscribes to the same.   |
-| `contract`     | yes      | PascalCase shared-contracts record the topic carries; the sample uses `Order` (see above).            |
+| `contract`     | yes      | PascalCase shared-contracts record the topic carries; the sample uses `Order`. Threaded to the `shared-contracts` dependency, which names its canonical record after it. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; extractor lambdas throw).    |
 
 ## Render

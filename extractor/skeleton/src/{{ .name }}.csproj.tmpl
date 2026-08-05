@@ -11,8 +11,11 @@
     <PackageReference Include="Dapr.Client" Version="1.17.9" />
     <PackageReference Include="Intropy.BusinessIncidentService.Client" Version="0.1.1" />
     <PackageReference Include="Intropy.Contracts" Version="0.1.0" />
-    <PackageReference Include="Intropy.Framework.Adapters" Version="0.2.3" />
-    <PackageReference Include="Intropy.Framework.Blocks" Version="0.2.3" />
+    <!-- Local integration builds (see nuget.config); replace with the
+         published versions once a framework release carries them. -->
+    <PackageReference Include="Intropy.Framework.Adapters" Version="0.0.0-int.20260805064606" />
+    <PackageReference Include="Intropy.Framework.Blocks" Version="0.0.0-int.20260805064606" />
+    <PackageReference Include="Intropy.Framework.Hosting" Version="0.0.0-int.20260805064606" />
     <PackageReference Include="Intropy.IdempotencyService.Client" Version="0.1.0" />
     <PackageReference Include="Intropy.Telemetry.ConsoleApp" Version="0.1.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.8" />

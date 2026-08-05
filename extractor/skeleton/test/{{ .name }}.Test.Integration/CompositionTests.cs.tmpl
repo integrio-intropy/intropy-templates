@@ -1,5 +1,5 @@
-using {{ .name }}.Configuration;
 using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Hosting.RunToCompletion;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace {{ .name }}.Test.Integration;
@@ -12,11 +12,11 @@ namespace {{ .name }}.Test.Integration;
 public class CompositionTests
 {
     [Fact]
-    public void Composition_ResolvesExtractorRunner()
+    public void Composition_ResolvesRunToCompletionRunner()
     {
-        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+        var provider = Composition.Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
 
-        var runner = provider.GetRequiredService<ExtractorRunner>();
+        var runner = provider.GetRequiredService<RunToCompletionRunner>();
 
         Assert.NotNull(runner);
     }
@@ -24,7 +24,7 @@ public class CompositionTests
     [Fact]
     public void Composition_ResolvesSourceFileAdapterUnderItsKey()
     {
-        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+        var provider = Composition.Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
 
         var adapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourceFileAdapterKey);
 

@@ -3,3 +3,4 @@
 # scaffolds it as a sibling when missing.
 #   intropy int create shared-contracts -o /tmp/shared-contracts-out -f shared-contracts/examples/minimal.yaml --version main --no-input
 name: Contracts
+contract: Order
