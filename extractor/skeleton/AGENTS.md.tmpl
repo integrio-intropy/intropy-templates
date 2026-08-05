@@ -120,11 +120,14 @@ coverage (Cobertura report under the integration project's `TestResults/`).
 - The test suite is real and fails out of the box by design — `task test` is
   red until the steps and the extractor lambdas land (only `CompositionTests`
   starts green). The pinned behaviors flip green one by one as the
-  implementation progresses; no test edits are needed to get there. Two sweep
-  tests are deliberately not scaffolded (duplicate-cancel and
-  delete-failure-redelivery — both need the duplicate simulation the
-  idempotency extractors enable); add them when the extractors are
-  implemented, copying the full sample suite's versions.
+  implementation progresses; no test edits are needed to get there. Three
+  sweep tests from the full sample suite are deliberately not scaffolded:
+  business-failure incident routing (which input fails validation is the
+  Validator's to define; scaffolded now its assertions would hold vacuously),
+  duplicate-cancel, and delete-failure-redelivery (both need the duplicate
+  simulation the idempotency extractors enable). Add them as the
+  corresponding implementation lands, copying the full sample suite's
+  versions.
 {{- else }}
 - The pipeline checks idempotency before transforming: the id is the order's
   `OrderId` and the timestamp its `OrderDate`, so a redelivered unchanged order

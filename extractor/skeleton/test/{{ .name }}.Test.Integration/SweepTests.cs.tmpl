@@ -32,13 +32,18 @@ public class SweepTests
 
     // Every test in this suite fails from the start: the pipeline reaches the
     // throwing Deserializer on its first step. Each failure flips green as the
-    // steps are implemented — no test edits needed. Two tests from the full
+    // steps are implemented — no test edits needed. Three tests from the full
     // sample suite are deliberately not scaffolded in empty mode:
+    // SweepAsync_WithBusinessFailure_RoutesIncidentAndConsumesFileWithoutCommit
+    // (which input fails validation is decided by the Validator implementation,
+    // and with an unimplemented pipeline its assertions hold vacuously — it
+    // cannot prove the incident routing it exists to pin),
     // SweepAsync_WithDuplicate_CancelsAndDeletesWithoutPublishing and
-    // SweepAsync_WhenDeleteFails_KeepsFileAndIdempotencyCatchesTheRedelivery.
-    // Both simulate a duplicate via idempotency.NextStatus, which only takes
+    // SweepAsync_WhenDeleteFails_KeepsFileAndIdempotencyCatchesTheRedelivery
+    // (both simulate a duplicate via idempotency.NextStatus, which only takes
     // effect once the idempotency extractor lambdas in
-    // Composition.BuildPipeline are implemented — add them then.
+    // Composition.BuildPipeline are implemented). Add them as the
+    // corresponding implementation lands.
 
     [Fact]
     public async Task SweepAsync_WithValidFile_PublishesAndDeletesSourceFile()
@@ -57,31 +62,6 @@ public class SweepTests
         Assert.Single(topic.Events);
         Assert.Empty(files.Files);
         Assert.Single(idempotency.Committed);
-    }
-
-    [Fact]
-    public async Task SweepAsync_WithBusinessFailure_RoutesIncidentAndConsumesFileWithoutCommit()
-    {
-        // Arrange: a business failure never retries the poison file, and never
-        // commits idempotency (a corrected redelivery must not cancel as
-        // seen-before). Which input fails validation is decided by the
-        // Validator implementation; this test stands in for the first
-        // business-rule branch.
-        var (sweep, files, topic, idempotency, incidents) = CreateSut();
-        files.AddFile("record-1.json",
-            """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[]}""");
-
-        // Act
-        var summary = await sweep.SweepAsync(CancellationToken.None);
-
-        // Assert: incident-routed files are consumed, so they count as processed.
-        Assert.Equal(0, summary.Failed);
-        Assert.Equal(1, summary.Processed);
-        Assert.Equal(0, summary.Cancelled);
-        Assert.Equal(0, topic.Count);
-        Assert.Empty(files.Files);
-        Assert.Empty(idempotency.Committed);
-        Assert.Single(incidents.Incidents);
     }
 
     [Fact]

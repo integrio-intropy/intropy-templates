@@ -69,11 +69,15 @@ public class PublishIntegrationTests
         // Act
         var (result, _) = await pipeline.Execute(json, context, CancellationToken.None);
 
-        // Assert
+        // Assert: until the steps and the serialize extractors are implemented,
+        // this fails here — the technical failure carries the
+        // NotImplementedException from the throwing lambda.
         Assert.True(result is Intropy.Framework.Core.Pipeline.Abstractions.Results.StepResult<CloudNative.CloudEvents.CloudEvent>.Success,
             result is Intropy.Framework.Core.Pipeline.Abstractions.Results.StepResult<CloudNative.CloudEvents.CloudEvent>.TechnicalFailure failure
                 ? $"Expected a successful publish, got a technical failure: {failure.Value.Exception}"
                 : $"Expected a successful publish, got {result.GetType().Name}");
+        // Unreachable until the pipeline succeeds end to end; then these prove
+        // the publish edge in one go.
         var message = capture.Messages.Single();
         Assert.Equal(Constants.PubSubName, message.PubSubName);
         Assert.Equal(Constants.TopicName, message.TopicName);
