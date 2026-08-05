@@ -6,10 +6,10 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Validator : ValidateStep<In, Context>
+public class Validator : ValidateStep<Source{{ .contract }}, Context>
 {
-    public override Task<(BusinessStepResult<In> Result, Context Context)> ExecuteAsync(
-        In input, Context context, CancellationToken ct)
+    public override Task<(BusinessStepResult<Source{{ .contract }}> Result, Context Context)> ExecuteAsync(
+        Source{{ .contract }} input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();
@@ -25,17 +25,17 @@ public class Validator : ValidateStep<In, Context>
                     { "orderId", input.OrderId }
                 }
             };
-            return Task.FromResult<(BusinessStepResult<In>, Context)>(
-                (new BusinessStepResult<In>.Failure(incident), context));
+            return Task.FromResult<(BusinessStepResult<Source{{ .contract }}>, Context)>(
+                (new BusinessStepResult<Source{{ .contract }}>.Failure(incident), context));
         }
 
-        return Task.FromResult<(BusinessStepResult<In>, Context)>(
-            (new BusinessStepResult<In>.Success(input), context));
+        return Task.FromResult<(BusinessStepResult<Source{{ .contract }}>, Context)>(
+            (new BusinessStepResult<Source{{ .contract }}>.Success(input), context));
 {{- end }}
     }
 {{- if not .empty }}
 
-    private static string? Validate(In order)
+    private static string? Validate(Source{{ .contract }} order)
     {
         if (string.IsNullOrWhiteSpace(order.OrderId))
             return "OrderId is required";

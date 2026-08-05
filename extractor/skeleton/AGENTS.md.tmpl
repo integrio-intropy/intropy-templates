@@ -10,10 +10,14 @@ the system host locally, a Kubernetes CronJob in production.
 
 - Framework: .NET 10
 - App type: Run-to-completion console job (no web endpoints; one sweep per run,
-  then exit — exit code 1 when any file failed and was left in place)
-- Runner: `{{ .name }}.ExtractorRunner` (sidecar lifecycle + exit codes) and
-  `{{ .name }}.Sweep` (the sidecar-free one-shot sweep) — skeleton code, the
-  framework does not yet ship an extractor host
+  then exit). Hosted by the framework's `RunToCompletionRunner`, which owns the
+  Dapr sidecar lifecycle, tracing, and the exit-code contract: `0` success /
+  no-op / cancelled, `1` job failure (a file failed and was left in place), `2`
+  infrastructure failure (sidecar unavailable).
+- Runner: the framework's `RunToCompletionRunner` (in `Intropy.Framework.Hosting`),
+  driven by `{{ .name }}.ExtractJob` — an `IRunToCompletionJob` that adapts
+  `{{ .name }}.Sweep` (the sidecar-free one-shot sweep) and reports a
+  `JobRunSummary`.
 - App id: `{{ .appId }}`
 - Source binding: `binding.{{ .connector }}` — named after the source
   connector; the system host generates the binding and resolves it to a local
@@ -25,36 +29,47 @@ the system host locally, a Kubernetes CronJob in production.
 - Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
 - Business Incident Service: reached via Dapr service invocation, app id
   `business-incident-service`
-- Shared contracts: the published contract (`Order`, `OrderLine`) lives in the
+- Shared contracts: the published contract (`{{ .contract }}`, `OrderLine`) lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
   dependency declaration; when it already exists (another component created
-  it) the scaffold leaves it untouched. `In` (the source file shape) stays
+  it) the scaffold leaves it untouched. `Source{{ .contract }}` (the source file shape) stays
   local in `src/Model/`.
 
 ## Important files
 
 - `Taskfile.yml` - build and test tasks (`task build`, `task test`).
+- `nuget.config` - adds the local feed carrying the `Intropy.Framework.*`
+  integration builds the csproj references; remove it with the version
+  placeholders once a published framework release carries them.
 - `Dockerfile` - multi-stage image build on the .NET chiseled runtime
   (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
   the shared contracts sibling enters as a named context); the image contains
   only the app — the Dapr sidecar and components come from the deployment
   environment.
 - `src/Program.cs` - entrypoint: builds the service provider via `Composition`
-  and runs the `ExtractorRunner`.
-- `src/Configuration/Composition.cs` - every service registration, plus
-  `BuildPipeline(provider, configureSender)` — the single pipeline composition
-  entrypoint. Production wires the Dapr topic publisher; tests pass
-  `builder => builder.WithSender(fakeTopic)`.
-- `src/ExtractorRunner.cs` - sidecar lifecycle (wait, shutdown) and the
-  exit-code mapping around the sweep.
+  and runs the framework `RunToCompletionRunner`.
+- `src/Composition/Composition.cs` - every service registration (including
+  the pipeline and the publish edge: the sender is a DI-registered
+  `SendStep<Context>` — a `DaprTopicPublisher` in production — resolved by
+  `BuildPipeline(provider)` like any other external). The idempotency key
+  extractors (`OrderId`/`OrderDate`) are inlined in `BuildPipeline`. Note the
+  namespace/type collision: `{{ .name }}.Composition` is both namespace and
+  class, so call sites inside nested namespaces use the fully qualified
+  `Composition.Composition.BuildPipeline(...)`.
+- `src/ExtractJob.cs` - adapts `Sweep` to the framework's `IRunToCompletionJob`;
+  a thin pass-through returning the sweep's `JobRunSummary`
+  (Processed/Failed/Cancelled). `Failed > 0` drives the job-failure exit code;
+  a delete-failure-after-publish counts as `Failed` (the file stays).
 - `src/Sweep.cs` - the one-shot sweep: list inbound, run the pipeline per
   file, delete on success. Sidecar-free on purpose: the integration suite
   constructs it directly against the framework's testing fakes.
-- `src/Configuration/Constants.cs` - component/topic names, keyed-adapter key,
-  CloudEvent envelope values.
-- `src/Process/` - the extractor pipeline steps and the `ExtractorBuilder` wiring
-  (`ServiceCollectionExtensions.cs`).
+- `src/Constants.cs` - component/topic names, keyed-adapter key, CloudEvent
+  envelope values (root namespace — consumed by both `src` and the tests).
+- `src/Process/` - the extractor pipeline steps only (`Deserializer`,
+  `Validator`, `Transformer`); serialization is the framework's
+  `CloudEventSerializeStep`. All DI and `ExtractorBuilder` wiring lives in
+  `src/Composition/`.
 - `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (pure xUnit; no
   fakes, no Dapr).
 - `test/{{ .name }}.Test.Integration/` - sweep, publish-wiring, composition,
@@ -79,8 +94,7 @@ composition does, fakes only the edges (`InMemoryFileAdapter`, `FakeTopic`,
 `FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` — from
 `Intropy.Framework.Testing`), and asserts on fake state. NSubstitute appears
 only for the `DaprClient` publish seam the testing library deliberately
-leaves open (`PublishIntegrationTests`) and for stubbing the sweep/sidecar in
-`ExtractorRunnerTests`. `task coverage` runs the integration suite with branch
+leaves open (`PublishIntegrationTests`). `task coverage` runs the integration suite with branch
 coverage (Cobertura report under the integration project's `TestResults/`).
 
 ## Development notes
@@ -92,7 +106,7 @@ coverage (Cobertura report under the integration project's `TestResults/`).
   scheduled run; the idempotency check makes the retry safe. Duplicates cancel
   as a traceable no-op and the file is removed.
 - Additional enrichment steps go into the builder chain in
-  `src/Configuration/Composition.cs` (`BuildPipeline`) via `.WithExtractor(...)` —
+  `src/Composition/Composition.cs` (`BuildPipeline`) via `.WithExtractor(...)` —
   the extractor pipeline supports any number of them, executed in order.
 {{- if .empty }}
 - The step bodies are scaffolded empty (`NotImplementedException`). The
@@ -109,8 +123,9 @@ coverage (Cobertura report under the integration project's `TestResults/`).
   wall-clock time) makes the check pass everything.
 - Business failures (validation errors) are routed to the Business Incident
   Service, keyed on the order id (falling back to the source file name).
-- The `Serializer` must set `CloudEvent.Subject` and `CloudEvent.Time` — the
-  Dapr topic publisher throws if either is missing.
+- The framework's `CloudEventSerializeStep` builds the CloudEvent envelope and
+  validates `Subject`/`Time` at serialize time (the publisher keeps its checks
+  as defense-in-depth). The component supplies both as lambdas in `BuildPipeline`.
 {{- end }}
 
 ## Framework guidance

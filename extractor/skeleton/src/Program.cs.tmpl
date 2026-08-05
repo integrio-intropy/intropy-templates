@@ -1,5 +1,6 @@
 using {{ .name }};
-using {{ .name }}.Configuration;
+using {{ .name }}.Composition;
+using Intropy.Framework.Hosting.RunToCompletion;
 using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,5 +14,5 @@ Console.CancelKeyPress += (_, e) =>
     cts.Cancel();
 };
 
-var runner = serviceProvider.GetRequiredService<ExtractorRunner>();
+var runner = serviceProvider.GetRequiredService<RunToCompletionRunner>();
 return await runner.RunAsync(cts.Token);

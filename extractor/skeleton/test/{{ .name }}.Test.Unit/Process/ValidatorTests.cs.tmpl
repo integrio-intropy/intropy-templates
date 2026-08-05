@@ -22,7 +22,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<In>.Success>(result);
+        Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Success>(result);
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var failure = Assert.IsType<BusinessStepResult<In>.Failure>(result);
+        var failure = Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Failure>(result);
         Assert.Equal("OrderId is required", failure.Value.Description);
     }
 
@@ -51,7 +51,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<In>.Failure>(result);
+        Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Failure>(result);
     }
 
     [Fact]
@@ -65,11 +65,11 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var failure = Assert.IsType<BusinessStepResult<In>.Failure>(result);
+        var failure = Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Failure>(result);
         Assert.Equal("Order must contain at least one line", failure.Value.Description);
     }
 
-    private static In CreateValidOrder() => new(
+    private static Source{{ .contract }} CreateValidOrder() => new(
         OrderId: "ORD-1001",
         CustomerId: "CUST-42",
         OrderDate: DateTimeOffset.UtcNow.AddDays(-1),

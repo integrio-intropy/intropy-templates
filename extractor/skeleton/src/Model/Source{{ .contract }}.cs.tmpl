@@ -1,13 +1,13 @@
 {{- if .empty -}}
 namespace {{ .name }}.Model;
 
-public record In();
+public record Source{{ .contract }}();
 {{- else -}}
 using {{ .contracts }};
 
 namespace {{ .name }}.Model;
 
-public record In(
+public record Source{{ .contract }}(
     string OrderId,
     string CustomerId,
     DateTimeOffset OrderDate,

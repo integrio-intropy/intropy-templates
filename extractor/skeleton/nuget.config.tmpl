@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+    <!-- Local feed with the Intropy.Framework integration builds the csproj
+         references (packed from the framework repo with a version-suffix of
+         int.<timestamp>). Remove once a published release carries the
+         referenced versions. -->
+    <add key="intropy-local" value="{{ .nugetFeed }}" />
+  </packageSources>
+</configuration>

@@ -19,9 +19,9 @@ exchange exactly these shapes over pub/sub.
 
 - `{{ .name }}.csproj` - the class library project; sibling components point
   their `ProjectReference` at this file.
-- `Order.cs` - the canonical order contract the extractor publishes and the
-  loader consumes.
-- `OrderLine.cs` - the line item record embedded in `Order`.
+- `{{ .contract }}.cs` - the canonical order contract the extractor publishes and
+  the loader consumes.
+- `OrderLine.cs` - the line item record embedded in `{{ .contract }}`.
 
 ## Build
 
@@ -38,7 +38,7 @@ component's `task build` / `dotnet build`.
   compile errors in a component after editing this project mean the component
   still maps to the old shape.
 {{- if .empty }}
-- The contract was scaffolded empty (`public record Order()`); fill in the
+- The contract was scaffolded empty (`public record {{ .contract }}()`); fill in the
   real fields before implementing the component pipeline steps that map to it.
 {{- end }}
 

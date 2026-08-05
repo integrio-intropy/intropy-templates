@@ -1,7 +1,8 @@
 # shared-contracts
 
 Scaffolds the shared contracts class library of an integration system: the
-contract records (`Order`, `OrderLine`) that cross component boundaries.
+contract records (the canonical `contract` record — `Order` by convention —
+plus `OrderLine`) that cross component boundaries.
 Components reference it as a sibling `ProjectReference`
 (`../<name>/<name>.csproj`), so the folder name, csproj name, and namespace
 all come from the single `name` parameter.
@@ -15,6 +16,7 @@ dependencies:
     output: '{{ .contracts }}'        # a derived value, conventionally plain "Contracts"
     values:
       name: '{{ .contracts }}'
+      contract: '{{ .contract }}'
       empty: '{{ .empty }}'
 ```
 
@@ -29,10 +31,11 @@ record so system assembly knows this project is not a block.
 
 ## Parameters
 
-| Name    | Required | Description                                                                        |
-| ------- | -------- | ---------------------------------------------------------------------------------- |
-| `name`  | yes      | PascalCase project/namespace/assembly name (dots allowed; conventionally `Contracts`). |
-| `empty` | no       | Strip the sample contract fields (`Order` stays as an empty shell so pipeline generics compile). |
+| Name       | Required | Description                                                                                            |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `name`     | yes      | PascalCase project/namespace/assembly name (dots allowed; conventionally `Contracts`).                  |
+| `contract` | no       | PascalCase name of the canonical contract record (`Order` by default); component templates pass theirs down. |
+| `empty`    | no       | Strip the sample contract fields (the contract record stays as an empty shell so pipeline generics compile). |
 
 ## Render (standalone)
 
