@@ -38,7 +38,8 @@ the system host locally, a Kubernetes CronJob in production.
 
 ## Important files
 
-- `Taskfile.yml` - build and test tasks (`task build`, `task test`).
+- `Taskfile.yml` - build and test tasks (`task build`, `task test`; the
+  suites also run separately via `task test:unit` / `task test:integration`).
 - `nuget.config` - adds the local feed carrying the `Intropy.Framework.*`
   integration builds the csproj references; remove it with the version
   placeholders once a published framework release carries them.
@@ -71,10 +72,10 @@ the system host locally, a Kubernetes CronJob in production.
   `CloudEventSerializeStep`. All DI and `ExtractorBuilder` wiring lives in
   `src/Composition/`.
 - `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (pure xUnit; no
-  fakes, no Dapr).
+  fakes, no Dapr; `task test:unit`).
 - `test/{{ .name }}.Test.Integration/` - sweep, publish-wiring, composition,
-  and runner tests against `Intropy.Framework.Testing` fakes (`task test` runs
-  both projects; `task coverage` reports branch coverage).
+  and runner tests against `Intropy.Framework.Testing` fakes
+  (`task test:integration`; `task coverage` reports branch coverage).
 
 ## Build and test
 
@@ -88,7 +89,8 @@ task build
 task test
 ```
 
-`task test` runs both test projects: the unit suite pins each pipeline step's
+`task test` runs both test projects (`task test:unit` / `task test:integration`
+run them separately): the unit suite pins each pipeline step's
 own contract; the integration suite builds the pipeline exactly as production
 composition does, fakes only the edges (`InMemoryFileAdapter`, `FakeTopic`,
 `FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` — from
@@ -115,6 +117,14 @@ coverage (Cobertura report under the integration project's `TestResults/`).
   implement the steps, point them at a stable business identifier and business
   timestamp; a per-delivery value (fresh GUID, wall-clock time) makes the
   check pass everything.
+- The test suite is real and fails out of the box by design — `task test` is
+  red until the steps and the extractor lambdas land (only `CompositionTests`
+  starts green). The pinned behaviors flip green one by one as the
+  implementation progresses; no test edits are needed to get there. Two sweep
+  tests are deliberately not scaffolded (duplicate-cancel and
+  delete-failure-redelivery — both need the duplicate simulation the
+  idempotency extractors enable); add them when the extractors are
+  implemented, copying the full sample suite's versions.
 {{- else }}
 - The pipeline checks idempotency before transforming: the id is the order's
   `OrderId` and the timestamp its `OrderDate`, so a redelivered unchanged order

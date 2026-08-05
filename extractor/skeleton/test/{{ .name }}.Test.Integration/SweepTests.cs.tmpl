@@ -23,12 +23,103 @@ namespace {{ .name }}.Test.Integration;
 public class SweepTests
 {
 {{- if .empty }}
-    // The steps throw NotImplementedException until implemented; write the
-    // real sweep tests against the framework fakes as the steps land (see
-    // README.md → Testing strategy for the contract this suite pins).
-    [Fact(Skip = "Scaffolded with empty step bodies — implement the steps, then write real tests.")]
-    public void Placeholder()
+    // Test-owned valid input: the scaffold's source shape is an empty record
+    // shell until the real contract is defined, so this file deliberately uses
+    // its own field names instead of guessing the eventual shape. Replace it
+    // with real source samples as the steps land.
+    private const string ValidRecordJson =
+        """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    // Every test in this suite fails from the start: the pipeline reaches the
+    // throwing Deserializer on its first step. Each failure flips green as the
+    // steps are implemented — no test edits needed. Two tests from the full
+    // sample suite are deliberately not scaffolded in empty mode:
+    // SweepAsync_WithDuplicate_CancelsAndDeletesWithoutPublishing and
+    // SweepAsync_WhenDeleteFails_KeepsFileAndIdempotencyCatchesTheRedelivery.
+    // Both simulate a duplicate via idempotency.NextStatus, which only takes
+    // effect once the idempotency extractor lambdas in
+    // Composition.BuildPipeline are implemented — add them then.
+
+    [Fact]
+    public async Task SweepAsync_WithValidFile_PublishesAndDeletesSourceFile()
     {
+        // Arrange
+        var (sweep, files, topic, idempotency, _) = CreateSut();
+        files.AddFile("record-1.json", ValidRecordJson);
+
+        // Act
+        var summary = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Equal(0, summary.Failed);
+        Assert.Equal(1, summary.Processed);
+        Assert.Equal(0, summary.Cancelled);
+        Assert.Single(topic.Events);
+        Assert.Empty(files.Files);
+        Assert.Single(idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task SweepAsync_WithBusinessFailure_RoutesIncidentAndConsumesFileWithoutCommit()
+    {
+        // Arrange: a business failure never retries the poison file, and never
+        // commits idempotency (a corrected redelivery must not cancel as
+        // seen-before). Which input fails validation is decided by the
+        // Validator implementation; this test stands in for the first
+        // business-rule branch.
+        var (sweep, files, topic, idempotency, incidents) = CreateSut();
+        files.AddFile("record-1.json",
+            """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[]}""");
+
+        // Act
+        var summary = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert: incident-routed files are consumed, so they count as processed.
+        Assert.Equal(0, summary.Failed);
+        Assert.Equal(1, summary.Processed);
+        Assert.Equal(0, summary.Cancelled);
+        Assert.Equal(0, topic.Count);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+        Assert.Single(incidents.Incidents);
+    }
+
+    [Fact]
+    public async Task SweepAsync_WhenBrokerIsDown_KeepsFileAndCountsIt()
+    {
+        // Arrange: SendException surfaces as a technical failure, matching a
+        // dead broker in production.
+        var (sweep, files, topic, _, _) = CreateSut();
+        files.AddFile("record-1.json", ValidRecordJson);
+        topic.SendException = new InvalidOperationException("Broker unreachable");
+
+        // Act
+        var summary = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert: one bad file fails loudly; it stays for the next run.
+        Assert.Equal(1, summary.Failed);
+        Assert.True(files.Files.ContainsKey("record-1.json"));
+    }
+
+    [Fact]
+    public async Task SweepAsync_WithUnreadableFile_FailsLoudlyAndNeverBlocksTheBatch()
+    {
+        // Arrange: a listed-but-unreadable file is a stuck file — counted and
+        // kept so the run exits 1, while the remaining file still processes.
+        var (sweep, files, topic, _, _) = CreateSut();
+        files.AddUnreadableFile("corrupt.json");
+        files.AddFile("record-1.json", ValidRecordJson);
+
+        // Act
+        var summary = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Equal(1, summary.Failed);
+        Assert.Single(topic.Events);
+        Assert.False(files.Files.ContainsKey("record-1.json"),
+            "one bad file never blocks the batch");
+        // The corrupt file is still listed — it stays in the inbound folder.
+        Assert.Contains("corrupt.json", (await files.ListAsync()).Select(f => f.FileName));
     }
 {{- else }}
     private const string ValidOrderJson =

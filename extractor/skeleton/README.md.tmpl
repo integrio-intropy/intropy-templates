@@ -19,7 +19,8 @@ schedules the job (the Aspire dashboard offers "Run now"), provides the
 source binding, pub/sub, and platform services, and carries the sample data
 used to seed a run. `task test` covers the component-level loop: pipeline
 unit tests plus integration tests proving the whole DI graph and the sweep
-behave without a sidecar. `task coverage` runs the integration suite with
+behave without a sidecar (`task test:unit` / `task test:integration` run the
+suites separately). `task coverage` runs the integration suite with
 branch coverage (Cobertura report under the integration project's
 `TestResults/`).
 
@@ -38,7 +39,7 @@ capture in `PublishIntegrationTests`.
 |---|---|---|
 | Step unit tests | `test/{{ .name }}.Test.Unit/Process/*Tests.cs` | Each pipeline step's own contract: `Deserializer` (valid JSON, `order_id` stamped into the context), `Validator` (all four branches), `Transformer` (line-content fidelity). (Serialization is the framework's
 `CloudEventSerializeStep`, tested in the framework.) |
-| Sweep integration | `test/{{ .name }}.Test.Integration/SweepTests.cs` | The full pipeline (deserialize → validate → idempotency → transform → serialize → publish) over one inbound sweep, with `FakeTopic` at the publish edge. Pins the sweep's consumption contract: published, duplicate-cancelled, and incident-routed files are all deleted; technical failures stay and are counted. |
+| Sweep integration | `test/{{ .name }}.Test.Integration/SweepTests.cs` | The full pipeline (deserialize → validate → idempotency → transform → serialize → publish) over one inbound sweep, with `FakeTopic` at the publish edge. Pins the sweep's consumption contract: published, duplicate-cancelled, and incident-routed files are all deleted; technical failures stay and are counted.{{- if .empty }} In this empty-bodies scaffold the duplicate-cancel and delete-failure-redelivery tests are not included — they need the duplicate simulation the idempotency extractor lambdas enable; add them when the extractors are implemented.{{- end }} |
 | Composition / publish | `test/{{ .name }}.Test.Integration/PublishIntegrationTests.cs`, `CompositionTests.cs` | The real DI graph from `Composition` with only the externals faked. Proves the DI graph builds without a sidecar and that the DI-registered `DaprTopicPublisher` wires pubsub name, topic, and structured-mode CloudEvent encoding correctly (captured via `PublishedMessageCapture`). |
 
 ### The edges and their fakes
@@ -117,6 +118,11 @@ Every step body throws `NotImplementedException` — this project was scaffolded
 with empty bodies for a migration agent to fill in. The idempotency and
 business-incident wiring is already in place; point the idempotency extractors
 at stable business fields when you implement the steps (see `AGENTS.md`).
+
+The test suite is real and fails out of the box by design: every test drives
+the pipeline into a throwing step or extractor lambda (only `CompositionTests`
+starts green). The suite flips green piece by piece as the steps are
+implemented — the failing tests are the to-do list.
 {{- else }}
 
 1. `Deserializer` parses the JSON into `Source{{ .contract }}` and stamps `order_id` into the

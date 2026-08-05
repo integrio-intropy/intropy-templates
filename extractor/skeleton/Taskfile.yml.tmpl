@@ -13,11 +13,24 @@ tasks:
       - dotnet build
 
   # ── Tests ─────────────────────────────────────────────────────────
-  test:
-    desc: Run the tests (unit + integration)
+  # `test` stays as the umbrella alias; the split tasks let you run the fast
+  # unit suite on its own while the steps are being implemented.
+  test:unit:
+    desc: Run the unit tests (pipeline steps; no fakes, no Dapr)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     cmds:
-      - dotnet test
+      - dotnet test ./test/{{ .name }}.Test.Unit
+
+  test:integration:
+    desc: Run the integration tests (sweep, publish wiring, composition — Intropy.Framework.Testing fakes)
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet test ./test/{{ .name }}.Test.Integration
+
+  test:
+    desc: Run all tests (unit + integration)
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    deps: [test:unit, test:integration]
 
   coverage:
     desc: Run the integration suite with branch coverage (Cobertura report in test/{{ .name }}.Test.Integration/TestResults)

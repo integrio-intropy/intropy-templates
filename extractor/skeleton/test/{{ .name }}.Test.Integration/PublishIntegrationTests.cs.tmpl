@@ -18,13 +18,14 @@ namespace {{ .name }}.Test.Integration;
 public class PublishIntegrationTests
 {
 {{- if .empty }}
-    [Fact(Skip = "Scaffolded with empty step bodies — implement the steps, then write real tests.")]
-    public void Placeholder()
-    {
-    }
-{{- else }}
+    // Fails from the start by design: the pipeline reaches the framework's
+    // CloudEventSerializeStep, which evaluates the throwing subject/time
+    // extractor lambdas in Composition.BuildPipeline — a technical failure
+    // before any publish call. Once the steps and those lambdas are
+    // implemented, this test flips green and proves the whole publish edge
+    // (pubsub name, topic, structured-mode encoding, source/type) in one go.
     [Fact]
-    public async Task Execute_WithValidOrder_PublishesStructuredCloudEventToConfiguredTopic()
+    public async Task Execute_WithValidRecord_PublishesStructuredCloudEventToConfiguredTopic()
     {
         // Arrange: the substitute forwards publish calls into the capture; the
         // testing library owns decoding the structured-mode envelope.
@@ -61,7 +62,13 @@ public class PublishIntegrationTests
         // Production sender wiring: resolved from DI like any other external.
         var pipeline = Composition.Composition.BuildPipeline(provider);
         var context = new Intropy.Framework.Blocks.Shared.Context(new Dictionary<string, string>());
+{{- if .empty }}
+        // Test-owned input (see SweepTests): replace with a real source sample
+        // when the contract shape is defined.
+        var json = """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+{{- else }}
         var json = """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+{{- end }}
 
         // Act
         var (result, _) = await pipeline.Execute(json, context, CancellationToken.None);
@@ -77,7 +84,12 @@ public class PublishIntegrationTests
         Assert.Equal("application/cloudevents+json", message.ContentType);
 
         var cloudEvent = message.DecodeCloudEvent();
+{{- if .empty }}
+        // The Subject assertion lands with the implemented contract shape and
+        // the subject extractor in Composition.BuildPipeline.
+{{- else }}
         Assert.Equal("ORD-1001", cloudEvent.Subject);
+{{- end }}
         Assert.Equal(new Uri(Constants.EventSource), cloudEvent.Source);
         Assert.Equal(Constants.EventType, cloudEvent.Type);
     }
