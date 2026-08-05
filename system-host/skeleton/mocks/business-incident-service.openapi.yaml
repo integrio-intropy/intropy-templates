@@ -11,6 +11,16 @@ paths:
           application/cloudevents+json:
             schema:
               type: object
+            examples:
+              accepted:
+                value:
+                  specversion: '1.0'
+                  id: example-incident
+                  source: urn:intropy:mock
+                  type: intropy.business-incident
+                  data: {}
       responses:
         '202':
           description: Event accepted.
+          x-microcks-refs:
+            - accepted

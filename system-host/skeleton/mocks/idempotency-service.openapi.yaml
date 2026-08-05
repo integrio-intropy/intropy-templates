@@ -2,9 +2,40 @@ openapi: 3.0.3
 info:
   title: Idempotency Service
   version: 1.0.0
+# Schemas are inlined (no $ref): the development-definition validation requires
+# a self-contained document, and topology 0.3.0 misreads quoted internal $refs
+# as external ones.
 paths:
   /status:
     post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - component
+                - id
+                - hash
+                - timestamp
+              properties:
+                component:
+                  type: string
+                id:
+                  type: string
+                hash:
+                  type: string
+                timestamp:
+                  type: string
+                  format: date-time
+            examples:
+              proceed:
+                value:
+                  component: order-extractor
+                  id: ORD-1001
+                  hash: example-hash
+                  timestamp: '2026-05-13T09:30:00Z'
       responses:
         '200':
           description: Processing may proceed.
@@ -12,11 +43,59 @@ paths:
             application/json:
               schema:
                 type: object
-              example:
-                action: Proceed
-                reason: NoPreviousData
+                required:
+                  - action
+                  - reason
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - Proceed
+                      - Ignore
+                  reason:
+                    type: string
+                    enum:
+                      - NewerData
+                      - SameData
+                      - StaleData
+                      - NoPreviousData
+              examples:
+                proceed:
+                  value:
+                    action: Proceed
+                    reason: NoPreviousData
   /commit:
     post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - component
+                - id
+                - hash
+                - timestamp
+              properties:
+                component:
+                  type: string
+                id:
+                  type: string
+                hash:
+                  type: string
+                timestamp:
+                  type: string
+                  format: date-time
+            examples:
+              committed:
+                value:
+                  component: order-extractor
+                  id: ORD-1001
+                  hash: example-hash
+                  timestamp: '2026-05-13T09:30:00Z'
       responses:
         '200':
           description: Committed.
+          x-microcks-refs:
+            - committed
