@@ -26,8 +26,8 @@ tasks:
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     vars:
       # Folder the connector resolves to — must match the Files(...).RootPath(...)
-      # resolution in the development definition.
-      CONNECTOR_DIR: '{{ "{{" }}.CONNECTOR_DIR | default "./test/orders-in"}}'
+      # resolution in the development definition (conventionally test/<connector-name>).
+      CONNECTOR_DIR: '{{ "{{" }}.CONNECTOR_DIR | default "./test/order-extractor-source"}}'
     cmds:
       - mkdir -p {{ "{{" }}.CONNECTOR_DIR}}
       - cp ./sample-data/sample-order.json {{ "{{" }}.CONNECTOR_DIR}}/
@@ -51,20 +51,26 @@ tasks:
         --data-file ./sample-data/sample-order.json
 
   # ── Generation backend ────────────────────────────────────────────
+  # The generation backend is a plain CLI — `--no-launch-profile` keeps the Aspire
+  # dashboard environment from launchSettings.json out of it, and `--no-build`
+  # reuses the `build` dependency's output instead of rebuilding.
   check:
     desc: Build and validate the topology without starting anything
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    deps: [build]
     cmds:
-      - dotnet run -- check
+      - dotnet run --no-build --no-launch-profile -- check
 
   graph:
     desc: Print the SystemTopology JSON
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    deps: [build]
     cmds:
-      - dotnet run -- graph
+      - dotnet run --no-build --no-launch-profile -- graph
 
   generate:
     desc: Write Dapr YAML + per-component runtime config to ./out
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    deps: [build]
     cmds:
-      - dotnet run -- generate ./out
+      - dotnet run --no-build --no-launch-profile -- generate ./out

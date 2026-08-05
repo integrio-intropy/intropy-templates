@@ -79,7 +79,8 @@ originate here too:
 - **Extractors**: `task seed` drops `sample-data/sample-order.json` into the
   connector folder (override with `task seed CONNECTOR_DIR=./test/<connector>`
   — the folder must match the `Files(...).RootPath(...)` resolution in the
-  development definition). A scheduled extractor sweeps it on the next tick,
+  development definition, conventionally `test/<connector-name>`; the default
+  targets `test/order-extractor-source`). A scheduled extractor sweeps it on the next tick,
   or immediately via the dashboard's "Run now".
 - **Loaders**: `task publish` publishes the sample order to the topic through
   a running component's sidecar (override `PUBLISH_APP_ID` and `TOPIC`; the
