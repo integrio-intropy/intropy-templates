@@ -30,9 +30,11 @@ public class SweepTests
     private const string ValidRecordJson =
         """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
-    // Every test in this suite fails from the start: the pipeline reaches the
-    // throwing Deserializer on its first step. Each failure flips green as the
-    // steps are implemented — no test edits needed. Three tests from the full
+    // Every test in this suite fails from the start: the framework's
+    // BusinessStep wrapper routes the throwing Deserializer as a business
+    // incident, so each file is consumed with nothing published — the exact
+    // opposite of the published/kept outcomes these tests pin. Each failure
+    // flips green as the steps are implemented — no test edits needed. Three tests from the full
     // sample suite are deliberately not scaffolded in empty mode:
     // SweepAsync_WithBusinessFailure_RoutesIncidentAndConsumesFileWithoutCommit
     // (which input fails validation is decided by the Validator implementation,

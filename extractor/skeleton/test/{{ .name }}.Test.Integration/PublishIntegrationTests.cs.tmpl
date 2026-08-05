@@ -18,12 +18,12 @@ namespace {{ .name }}.Test.Integration;
 public class PublishIntegrationTests
 {
 {{- if .empty }}
-    // Fails from the start by design: the pipeline reaches the framework's
-    // CloudEventSerializeStep, which evaluates the throwing subject/time
-    // extractor lambdas in Composition.BuildPipeline — a technical failure
-    // before any publish call. Once the steps and those lambdas are
-    // implemented, this test flips green and proves the whole publish edge
-    // (pubsub name, topic, structured-mode encoding, source/type) in one go.
+    // Fails from the start by design: the framework's BusinessStep wrapper
+    // routes the throwing Deserializer as a business incident, so the pipeline
+    // consumes the input without ever publishing — and the capture below stays
+    // empty. Once the steps are implemented the pipeline publishes for real and
+    // this test flips green, proving the whole publish edge (pubsub name,
+    // topic, structured-mode encoding, source/type) in one go.
     [Fact]
     public async Task Execute_WithValidRecord_PublishesStructuredCloudEventToConfiguredTopic()
     {
@@ -69,15 +69,13 @@ public class PublishIntegrationTests
         // Act
         var (result, _) = await pipeline.Execute(json, context, CancellationToken.None);
 
-        // Assert: until the steps and the serialize extractors are implemented,
-        // this fails here — the technical failure carries the
-        // NotImplementedException from the throwing lambda.
+        // Assert: with unimplemented steps the input is incident-routed, so
+        // the pipeline result is a Success with nothing published — this passes
+        // vacuously and the capture assertion below carries the red signal.
         Assert.True(result is Intropy.Framework.Core.Pipeline.Abstractions.Results.StepResult<CloudNative.CloudEvents.CloudEvent>.Success,
             result is Intropy.Framework.Core.Pipeline.Abstractions.Results.StepResult<CloudNative.CloudEvents.CloudEvent>.TechnicalFailure failure
                 ? $"Expected a successful publish, got a technical failure: {failure.Value.Exception}"
                 : $"Expected a successful publish, got {result.GetType().Name}");
-        // Unreachable until the pipeline succeeds end to end; then these prove
-        // the publish edge in one go.
         var message = capture.Messages.Single();
         Assert.Equal(Constants.PubSubName, message.PubSubName);
         Assert.Equal(Constants.TopicName, message.TopicName);
