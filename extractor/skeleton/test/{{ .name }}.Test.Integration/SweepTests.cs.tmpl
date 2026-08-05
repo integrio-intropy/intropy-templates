@@ -256,6 +256,7 @@ public class SweepTests
         // The corrupt file is still listed — it stays in the inbound folder.
         Assert.Contains("corrupt.json", (await files.ListAsync()).Select(f => f.FileName));
     }
+{{- end }}
 
     /// <summary>
     /// Builds the sweep against the real DI graph with only the four externals
@@ -275,5 +276,4 @@ public class SweepTests
 
         return (sweep, edges.Files, edges.Topic, edges.Idempotency, edges.Incidents);
     }
-{{- end }}
 }
