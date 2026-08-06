@@ -54,14 +54,6 @@ spec:
       sharedContracts:
         type: object
         additionalProperties: true
-      # The cron every generated extractor starts with: once every minute.
-      # Extractors are run-to-completion jobs, so the host re-runs them on
-      # this schedule (CronJob emulation locally, a real CronJob in
-      # production). The generated file is the user's after `sys create` —
-      # edit the cron in place.
-      extractorSchedule:
-        type: string
-        default: "* * * * *"
   values:
     # Must match the CLI's pascalCase(name): the CLI's payload assembly
     # derives the same project name for its result summary, and a

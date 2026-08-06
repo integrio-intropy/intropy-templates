@@ -11,12 +11,11 @@ task run        # the whole system under the Aspire dashboard; Ctrl+C to stop
 ```
 
 Extractors are run-to-completion jobs: a host run executes each one once at
-startup and, when the block declares `.WithSchedule("<cron>")` in `Define()`,
-re-runs it on every cron tick — so you can drop files into inbound folders
-while the system is live. Overlapping ticks are skipped, and each scheduled
-component has a "Run now" command in the dashboard. Without a schedule, seed
-inbound folders before starting. Loaders are long-running services and stay up
-for the whole host run.
+startup, so seed inbound folders before starting — seeding into a live system
+needs a host restart to be picked up. Activation cadence lives in deployment
+configuration, not in the topology: in production the schedule is a Kubernetes
+CronJob in the GitOps repo. Loaders are long-running services and stay up for
+the whole host run.
 
 ## Trigger a component
 
@@ -46,8 +45,8 @@ and connector file resolutions) to the graph document.
 
 - `{{ .systemClass }}.cs` — the system definition (`ISystemDefinition`)
 - `Topics.cs` — the system's topics as typed refs
-- `Connectors.cs` — the system's connectors, each declaring its deployed
-  transport shape (connection values are deployment configuration)
+- `Connectors.cs` — the system's connectors (the name is the whole identity;
+  the deployed binding type and connection values are deployment configuration)
 - `{{ .projectName }}Development.cs` — the local-run substitutions: OpenAPI
   mocks for platform services and a folder under `test/` per connector
 - `Services.cs` — the platform services the blocks call via `.Uses(...)`

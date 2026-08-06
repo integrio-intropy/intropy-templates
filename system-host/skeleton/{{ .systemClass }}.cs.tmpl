@@ -15,8 +15,7 @@ public sealed class {{ .systemClass }} : ISystemDefinition
 {{- end }}
             .Publishes(Topics.{{ .topicField }})
             .Uses(Services.Idempotency)
-            .Uses(Services.BusinessIncidents)
-            .WithSchedule("{{ $.extractorSchedule }}");
+            .Uses(Services.BusinessIncidents);
 {{- else }}
         builder.AddLoader("{{ .appId }}")
             .Subscribes(Topics.{{ .topicField }})
