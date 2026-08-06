@@ -1,34 +1,31 @@
 using Intropy.Topology;
 
-// The discoverable system definition. SystemDiscovery finds this one ISystemDefinition in the
-// SystemHost assembly (exactly one per assembly), builds + validates its topology, and both
-// backends (Aspire run, generate/check) consume the result.
-//
-// `intropy sys create` regenerates this file from the sibling components' scaffold records;
-// it is yours to edit afterwards — validate changes with `dotnet run -- check`.
+/// <summary>The {{ .name }} system: what exists, and what connects it.</summary>
 public sealed class {{ .systemClass }} : ISystemDefinition
 {
     public string SystemName => "{{ .name }}";
 
     public void Define(SystemBuilder builder)
     {
-        // TODO(intropy): no components declared yet — an empty system fails `check` with ITP002.
-        // Scaffold components as sibling folders (`intropy int create ...`) and declare each one
-        // here, wiring internal edges through the refs in Topics.cs and the outside world through
-        // the refs in Connectors.cs, e.g.:
-        //
-        //   builder.AddExtractor("order-extractor")
-        //       .From(Connectors.OrderExtractorSource)
-        //       .Publishes(Topics.Orders)
-        //       .Uses(Services.Idempotency)
-        //       .Uses(Services.BusinessIncidents)
-        //       .WithSchedule("*/5 * * * *");  // optional, extractors only: re-run on a cron
-        //                                      // tick; without it the extractor runs once at
-        //                                      // host start
-        //   builder.AddLoader("order-loader")
-        //       .Subscribes(Topics.Orders)
-        //       .To(Connectors.OrderLoaderDestination)
-        //       .Uses(Services.Idempotency)
-        //       .Uses(Services.BusinessIncidents);
+{{- range .components }}
+{{- if eq .kind "extractor" }}
+        builder.AddExtractor("{{ .appId }}")
+{{- if .connectorField }}
+            .From(Connectors.{{ .connectorField }})
+{{- end }}
+            .Publishes(Topics.{{ .topicField }})
+            .Uses(Services.Idempotency)
+            .Uses(Services.BusinessIncidents)
+            .WithSchedule("{{ $.extractorSchedule }}");
+{{- else }}
+        builder.AddLoader("{{ .appId }}")
+            .Subscribes(Topics.{{ .topicField }})
+{{- if .connectorField }}
+            .To(Connectors.{{ .connectorField }})
+{{- end }}
+            .Uses(Services.Idempotency)
+            .Uses(Services.BusinessIncidents);
+{{- end }}
+{{- end }}
     }
 }

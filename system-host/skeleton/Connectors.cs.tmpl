@@ -1,20 +1,12 @@
-// The system's connectors — the named ports its edge blocks reach the outside world
-// through. Each is declared once and referenced from the system definition via
-// `.From(...)` (extractor source) or `.To(...)` (loader destination).
-//
-// A connector declares only its deployed transport shape (e.g. `Transport.Sftp()`);
-// the shape is value-free — addresses, credentials, and paths are environment-owned
-// deployment configuration. Local F5 runs never touch the deployed transport: the
-// development definition resolves each connector to a folder under this project via
-// `development.Files(...).RootPath(...)`.
-//
-// `intropy sys create` regenerates this file from the sibling components' scaffold
-// records — validate edits afterwards with `dotnet run -- check`.
+using Intropy.Topology;
+
+/// <summary>The system's connectors: the named ports its edge blocks reach the outside world through. Each declares its deployed transport; the development definition resolves it to a local folder under test/ so the system runs with zero external configuration.</summary>
 public static class Connectors
 {
-    // TODO(intropy): no connectors yet. Declare them as refs (with
-    // `using Intropy.Topology;`), e.g.:
-    //
-    //   public static readonly ConnectorRef OrderExtractorSource =
-    //       ConnectorRef.Define("order-extractor-source", Transport.Default());
+{{- range $i, $c := .connectors }}
+{{- if $i }}
+{{ end }}
+    /// <summary>Placeholder transport — replace with a concrete transport (e.g. <c>Transport.Sftp()</c>) before deployment. Locally resolved to <c>./test/{{ $c.name }}</c>.</summary>
+    public static readonly ConnectorRef {{ $c.field }} = ConnectorRef.Define("{{ $c.name }}", Transport.Default());
+{{- end }}
 }

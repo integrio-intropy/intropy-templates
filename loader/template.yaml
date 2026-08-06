@@ -50,6 +50,9 @@ spec:
         default: true
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
+    # The component's .NET project name, recorded in .intropy/scaffold.json
+    # for workspace-level tooling (e.g. solution file assembly).
+    projectName: '{{ .name }}'
     # Local feed holding the Intropy.Framework integration builds the
     # skeleton's csproj references (0.0.0-int.<timestamp> placeholders until a
     # published framework release carries them). Written into the rendered

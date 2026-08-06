@@ -1,13 +1,13 @@
-// System-internal topics, declared as static fields. Each topic is defined once — pubsub
-// component name, topic name, and the contract type its messages carry — and referenced by
-// every component that touches it. The backing pubsub resource materializes from usage.
-//
-// `intropy sys create` regenerates this file when the sibling components declare topics.
+using Intropy.Topology;
+using {{ .sharedContracts.name }};
+
+/// <summary>The system's topics, each defined once and shared by every component that touches it.</summary>
 public static class Topics
 {
-    // TODO(intropy): no topics yet. Declare them as typed refs, e.g. (with
-    // `using Intropy.Topology;` and the contract record from the workspace's
-    // shared Contracts project):
-    //
-    //   public static readonly TopicRef<Order> Orders = TopicRef<Order>.Define("{{ .pubsub }}", "orders");
+{{- range $i, $t := .topics }}
+{{- if $i }}
+{{ end }}
+    /// <summary>{{ $t.contract }} messages on topic '{{ $t.name }}' (pubsub '{{ $t.pubsub }}').</summary>
+    public static readonly TopicRef<{{ $t.contract }}> {{ $t.field }} = TopicRef<{{ $t.contract }}>.Define("{{ $t.pubsub }}", "{{ $t.name }}");
+{{- end }}
 }
