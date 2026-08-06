@@ -24,8 +24,11 @@
         <PackageReference Include="Intropy.Topology.Generation" Version="0.3.4" />
     </ItemGroup>
 
-    <!-- `intropy sys create` inserts a ProjectReference to the workspace's
-         shared contracts project (the shared-library scaffold, typically
-         ../Contracts/Contracts.csproj) here after rendering. -->
+    <ItemGroup>
+        <!-- Shared contracts project (the workspace's shared-library scaffold).
+             IsAspireProjectResource="false" keeps the Aspire AppHost from
+             treating the class library as an orchestrated resource. -->
+        <ProjectReference Include="{{ .sharedContracts.include }}" IsAspireProjectResource="false" />
+    </ItemGroup>
 
 </Project>
