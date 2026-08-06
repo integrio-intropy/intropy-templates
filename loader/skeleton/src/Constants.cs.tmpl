@@ -1,4 +1,4 @@
-namespace {{ .name }}.Configuration;
+namespace {{ .name }};
 
 public static class Constants
 {
@@ -14,6 +14,9 @@ public static class Constants
     public const string DestinationBindingName = "binding.{{ .connector }}";
 
     public const string DestinationFileAdapterKey = "destination";
+
+    // The route the sidecar delivers to; announced via GET /dapr/subscribe.
+    public const string SubscriptionRoute = "/events/{{ .topic }}";
 
     // Context keys the loader pipeline's idempotency step reads CloudEvent
     // Subject (id) and Time (date) from. The values mirror the framework's

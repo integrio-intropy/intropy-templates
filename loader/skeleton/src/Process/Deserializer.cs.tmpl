@@ -1,7 +1,6 @@
 using System.Text.Json;
 using CloudNative.CloudEvents;
 using {{ .contracts }};
-using {{ .name }}.Configuration;
 using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
@@ -9,9 +8,9 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Deserializer : DeserializeStep<Order, Context>
+public class Deserializer : DeserializeStep<{{ .contract }}, Context>
 {
-    protected override Task<(BusinessStepResult<Order> Result, Context Context)> DeserializeAsync(
+    protected override Task<(BusinessStepResult<{{ .contract }}> Result, Context Context)> DeserializeAsync(
         CloudEvent cloudEvent, Context context)
     {
 {{- if .empty }}
@@ -25,11 +24,11 @@ public class Deserializer : DeserializeStep<Order, Context>
                 Description = "CloudEvent data is null or empty",
                 Context = new Dictionary<string, string>()
             };
-            return Task.FromResult<(BusinessStepResult<Order>, Context)>(
-                (new BusinessStepResult<Order>.Failure(incident), context));
+            return Task.FromResult<(BusinessStepResult<{{ .contract }}>, Context)>(
+                (new BusinessStepResult<{{ .contract }}>.Failure(incident), context));
         }
 
-        var order = JsonSerializer.Deserialize<Order>(json,
+        var order = JsonSerializer.Deserialize<{{ .contract }}>(json,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
         context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
@@ -43,8 +42,8 @@ public class Deserializer : DeserializeStep<Order, Context>
         context.Metadata[Constants.ContextKeyCloudEventSubject] = order.OrderId;
         context.Metadata[Constants.ContextKeyCloudEventTime] = order.OrderDate.ToString("O");
 
-        return Task.FromResult<(BusinessStepResult<Order>, Context)>(
-            (new BusinessStepResult<Order>.Success(order), context));
+        return Task.FromResult<(BusinessStepResult<{{ .contract }}>, Context)>(
+            (new BusinessStepResult<{{ .contract }}>.Success(order), context));
 {{- end }}
     }
 }

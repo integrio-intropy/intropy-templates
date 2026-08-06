@@ -1,42 +1,13 @@
-using Dapr.Client;
+using {{ .name }}.Composition;
 using {{ .name }}.Endpoints;
-using {{ .name }}.Process;
-using Intropy.BusinessIncidentService.Client;
-using Intropy.Framework.Adapters.File;
-using Intropy.Framework.Core.Configuration;
-using Intropy.IdempotencyService.Client;
-using Intropy.Telemetry.AspNetCore;
-using Constants = {{ .name }}.Configuration.Constants;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenTelemetry(conf =>
-{
-    conf.ServiceNamespace = Constants.Organization;
-    conf.ServiceName = Constants.ComponentName;
-    conf.Environment = builder.Environment.EnvironmentName;
-});
+// Every service registration lives in Composition so the composition smoke
+// test builds the exact graph the host runs.
+Composition.ConfigureServices(builder.Services);
 
-builder.Services.AddSingleton(_ => new DaprClientBuilder().Build());
-
-// Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
-// contributes its own DaprClient registration (camelCase JSON + string enums),
-// and the last registration wins for GetRequiredService<DaprClient>().
-builder.Services.AddIdempotencyServiceClient();      // Dapr app id / HTTPEndpoint name: idempotency-service
-builder.Services.AddBusinessIncidentServiceClient(); // Dapr app id / HTTPEndpoint name: business-incident-service
-
-builder.Services.AddIntropyFramework(x =>
-{
-    x.ComponentName = Constants.ComponentName;
-    x.ServiceNamespace = Constants.Organization;
-});
-
-builder.Services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationFileAdapterKey, (sp, _) =>
-    new LocalFileAdapter(
-        sp.GetRequiredService<DaprClient>(),
-        new FileAdapterOptions(Constants.DestinationBindingName)));
-
-builder.Services.AddProcessPipeline();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
@@ -51,4 +22,3 @@ app.Run();
 
 // Makes the top-level Program visible to the test project (WebApplicationFactory<Program>).
 public partial class Program;
-

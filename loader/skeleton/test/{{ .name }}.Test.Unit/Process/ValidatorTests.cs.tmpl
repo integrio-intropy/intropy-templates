@@ -3,12 +3,29 @@ using {{ .name }}.Process;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
-namespace {{ .name }}.Test.Process;
+namespace {{ .name }}.Test.Unit.Process;
 
 public class ValidatorTests
 {
 {{- if .empty }}
-    // Add tests as you implement the pipeline steps.
+    // Fails from the start: the Validator body throws NotImplementedException.
+    // The assertion pins only the step's framework contract — return a
+    // BusinessStepResult — since the business rules themselves are defined
+    // with the implementation. Add branch tests (one per rule, like the full
+    // sample suite's) as the rules land.
+    [Fact]
+    public async Task ExecuteAsync_WithInput_ReturnsBusinessStepResult()
+    {
+        // Arrange
+        var validator = new Validator();
+        var input = new {{ .contract }}();
+
+        // Act
+        var (result, _) = await validator.ExecuteAsync(input, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        Assert.IsAssignableFrom<BusinessStepResult<{{ .contract }}>>(result);
+    }
 {{- else }}
     [Fact]
     public async Task ExecuteAsync_WithValidOrder_ReturnsSuccess()
@@ -21,7 +38,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<Order>.Success>(result);
+        Assert.IsType<BusinessStepResult<{{ .contract }}>.Success>(result);
     }
 
     [Fact]
@@ -35,7 +52,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var failure = Assert.IsType<BusinessStepResult<Order>.Failure>(result);
+        var failure = Assert.IsType<BusinessStepResult<{{ .contract }}>.Failure>(result);
         Assert.Equal("OrderId is required", failure.Value.Description);
     }
 
@@ -50,7 +67,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<Order>.Failure>(result);
+        Assert.IsType<BusinessStepResult<{{ .contract }}>.Failure>(result);
     }
 
     [Fact]
@@ -64,11 +81,11 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var failure = Assert.IsType<BusinessStepResult<Order>.Failure>(result);
+        var failure = Assert.IsType<BusinessStepResult<{{ .contract }}>.Failure>(result);
         Assert.Equal("Order must contain at least one line", failure.Value.Description);
     }
 
-    private static Order CreateValidOrder() => new(
+    private static {{ .contract }} CreateValidOrder() => new(
         OrderId: "ORD-1001",
         CustomerId: "CUST-42",
         OrderDate: DateTimeOffset.UtcNow.AddDays(-1),

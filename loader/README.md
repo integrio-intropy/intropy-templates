@@ -11,12 +11,25 @@ The loader is the consuming half of a system contract — scaffold the
 publishing extractor with the same `topic` value.
 
 The rendered project is an ASP.NET service with a Taskfile (`task build`,
-`task test` — the component-level loop), a `/healthz` endpoint, xUnit tests
-for the pipeline steps plus a boot smoke test that builds the whole host
-without a sidecar and asserts `/dapr/subscribe`, a Dockerfile on the
-chiseled ASP.NET runtime, and an `AGENTS.md` describing the component to
-coding agents. The subscription lives in `src/Endpoints/LoaderEndpoints.cs`
-(`Dapr.AspNetCore`'s `.WithTopic` + `MapSubscribeHandler`).
+`task test`, `task coverage` — the component-level loop), a `/healthz`
+endpoint, two test projects, a Dockerfile on the chiseled ASP.NET runtime,
+and an `AGENTS.md` describing the component to coding agents. The
+subscription lives in `src/Endpoints/LoaderEndpoints.cs` (`Dapr.AspNetCore`'s
+`.WithTopic` + `MapSubscribeHandler`). All service registration — including
+the load edge, a DI-registered `SendStep<Out, Context>` — lives in
+`src/Composition/Composition.cs`, so the pipeline is always built exactly as
+production composition does and tests swap any edge by swapping its
+registration.
+
+Tests split into `<name>.Test.Unit` (pipeline step contracts, pure xUnit —
+the Sender's `IFileAdapter` seam via NSubstitute) and
+`<name>.Test.Integration` (delivery, boot smoke, composition) built on the
+`Intropy.Framework.Testing` fakes: `InMemoryFileAdapter` at the keyed
+destination-adapter seam (its `WriteException` pins the RETRY path), the two
+platform-service clients swapped the same way, and `DaprDelivery.DeliverAsync`
+POSTing structured-mode CloudEvents to the subscription route exactly as a
+sidecar would, asserting on fake state and the delivery ack. No sidecar, no
+Testcontainers.
 
 Components do not run standalone: the loader runs via its system host, which
 provides every Dapr component (pub/sub, destination binding, platform

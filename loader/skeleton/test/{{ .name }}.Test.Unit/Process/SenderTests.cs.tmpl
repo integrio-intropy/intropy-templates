@@ -6,12 +6,33 @@ using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 using NSubstitute;
 
-namespace {{ .name }}.Test.Process;
+namespace {{ .name }}.Test.Unit.Process;
 
 public class SenderTests
 {
 {{- if .empty }}
-    // Add tests as you implement the pipeline steps.
+    // Fails from the start: the Sender body throws NotImplementedException.
+    // The assertion pins the step's framework contract — write the load
+    // record through the file adapter and return Success with the record —
+    // and flips green once the step is implemented. Pin the file naming and
+    // serialization shape once the Out record is defined.
+    [Fact]
+    public async Task ExecuteAsync_WithInput_WritesThroughAdapterAndReturnsSuccess()
+    {
+        // Arrange
+        var fileAdapter = Substitute.For<IFileAdapter>();
+        var sender = new Sender(fileAdapter);
+        var output = new Out();
+
+        // Act
+        var (result, _) = await sender.ExecuteAsync(
+            output, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        await fileAdapter.Received(1).WriteAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Encoding>());
+        Assert.IsType<TechnicalStepResult<Out>.Success>(result);
+    }
 {{- else }}
     [Fact]
     public async Task ExecuteAsync_WithOrder_WritesPascalCaseJsonToOrderNamedFile()
