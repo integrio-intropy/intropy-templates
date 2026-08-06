@@ -1,20 +1,36 @@
 using CloudNative.CloudEvents;
-using {{ .name }}.Configuration;
 using {{ .contracts }};
 using {{ .name }}.Process;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
-namespace {{ .name }}.Test.Process;
+namespace {{ .name }}.Test.Unit.Process;
 
 public class DeserializerTests
 {
 {{- if .empty }}
-    // Add tests as you implement the pipeline steps. This placeholder keeps
-    // `dotnet test` green until the first real test lands.
-    [Fact(Skip = "Scaffolded with empty step bodies — implement the steps, then write real tests.")]
-    public void Placeholder()
+    // Fails from the start: the Deserializer body throws NotImplementedException.
+    // The assertions pin the step's framework contract — parse the payload and
+    // stamp the business id into the context for the idempotency/incident
+    // wiring downstream — and flip green once the step is implemented. Add
+    // branch tests (malformed payload, missing fields) with the real shape.
+    // The input is test-owned (see DeliveryIntegrationTests); replace it with
+    // a real payload sample when the contract shape is defined.
+    [Fact]
+    public async Task ExecuteAsync_WithValidPayload_ReturnsSuccessAndStampsBusinessIdInContext()
     {
+        // Arrange: a bare envelope, like `dapr publish` produces (no Subject/Time).
+        var deserializer = new Deserializer();
+        var context = new Context(new Dictionary<string, string>());
+        var json = """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+        var cloudEvent = new CloudEvent { Id = "evt-1", Data = json };
+
+        // Act
+        var (result, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<BusinessStepResult<{{ .contract }}>.Success>(result);
+        Assert.False(string.IsNullOrWhiteSpace(resultContext.Metadata[Constants.ContextKeyOrderId]));
     }
 {{- else }}
     private const string Json =
@@ -32,7 +48,7 @@ public class DeserializerTests
         var (result, _) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
 
         // Assert
-        var success = Assert.IsType<BusinessStepResult<Order>.Success>(result);
+        var success = Assert.IsType<BusinessStepResult<{{ .contract }}>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Single(success.Value.Lines);
     }

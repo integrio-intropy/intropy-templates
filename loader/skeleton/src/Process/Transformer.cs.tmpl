@@ -6,10 +6,10 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Transformer : TransformStep<Order, Out, Context>
+public class Transformer : TransformStep<{{ .contract }}, Out, Context>
 {
     public override Task<(TechnicalStepResult<Out> Result, Context Context)> ExecuteAsync(
-        Order input, Context context, CancellationToken ct)
+        {{ .contract }} input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();

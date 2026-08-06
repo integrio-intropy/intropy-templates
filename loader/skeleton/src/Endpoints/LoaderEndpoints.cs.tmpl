@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text.Json;
 using CloudNative.CloudEvents;
 using {{ .contracts }};
-using {{ .name }}.Configuration;
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Loader;
 using Intropy.Framework.Blocks.Shared;
@@ -21,15 +20,12 @@ namespace {{ .name }}.Endpoints;
 /// </summary>
 public static class LoaderEndpoints
 {
-    // The route the sidecar delivers to; announced via GET /dapr/subscribe.
-    private const string SubscriptionRoute = "/events/{{ .topic }}";
-
     private static readonly IResult AckSuccess = Results.Ok(new { status = "SUCCESS" });
     private static readonly IResult AckRetry = Results.Ok(new { status = "RETRY" });
 
     public static IEndpointRouteBuilder MapLoaderEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost(SubscriptionRoute, HandleDeliveryAsync)
+        endpoints.MapPost(Constants.SubscriptionRoute, HandleDeliveryAsync)
             .WithTopic(Constants.PubSubName, Constants.TopicName);
 
         return endpoints;
@@ -37,7 +33,7 @@ public static class LoaderEndpoints
 
     private static async Task<IResult> HandleDeliveryAsync(
         HttpRequest request,
-        [FromServices] Loader<Order, Out, Context> pipeline,
+        [FromServices] Loader<{{ .contract }}, Out, Context> pipeline,
         [FromServices] ILoggerFactory loggerFactory,
         CancellationToken ct)
     {

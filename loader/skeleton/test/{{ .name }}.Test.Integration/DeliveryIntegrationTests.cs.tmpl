@@ -1,0 +1,207 @@
+using CloudNative.CloudEvents;
+using Intropy.Contracts.IdempotencyService;
+using Intropy.Framework.Testing.Adapters;
+using Intropy.Framework.Testing.Delivery;
+using Intropy.Framework.Testing.Services;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Action = Intropy.Contracts.IdempotencyService.Action;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// End-to-end delivery tests: a <see cref="WebApplicationFactory{TEntryPoint}"/>
+/// boots the real host — production DI graph, subscription endpoint, ack
+/// mapping — with the externals faked (destination adapter, both
+/// platform-service clients), and <see cref="DaprDelivery"/> POSTs CloudEvents
+/// to the subscription route exactly as a Dapr sidecar would. These tests pin
+/// the loader's consumption contract: loaded, duplicate, and incident-routed
+/// messages ack SUCCESS; technical failures ack RETRY and leave no trace.
+/// </summary>
+public class DeliveryIntegrationTests
+{
+{{- if .empty }}
+    // Test-owned valid input: the scaffold's contract record is an empty
+    // shell until the real shape is defined, so this file deliberately uses
+    // its own field names instead of guessing the eventual shape. Replace it
+    // with real payload samples as the steps land.
+    private const string ValidRecordJson =
+        """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    // Every test in this suite fails from the start: the framework's
+    // BusinessStep wrapper routes the throwing Deserializer as a business
+    // incident, so every delivery acks SUCCESS with nothing written — the
+    // exact opposite of the written/RETRY outcomes these tests pin. Each
+    // failure flips green as the steps are implemented — no test edits
+    // needed. Two tests from the full sample suite are deliberately not
+    // scaffolded in empty mode:
+    // DeliverAsync_WithBusinessFailure_RoutesIncidentAndAcksSuccessWithoutCommit
+    // (which input fails validation is decided by the Validator implementation,
+    // and with an unimplemented pipeline its assertions hold vacuously — it
+    // cannot prove the incident routing it exists to pin), and
+    // DeliverAsync_WithDuplicate_AcksSuccessWithoutRewritingOrCommitting (the
+    // duplicate simulation relies on the idempotency commit the implemented
+    // pipeline records — including the Deserializer stamping
+    // cloudevent.subject/time from the payload's business identity). Add them
+    // as the corresponding implementation lands, copying the full sample
+    // suite's versions.
+
+    [Fact]
+    public async Task DeliverAsync_WithValidMessage_WritesOutputAndAcksSuccess()
+    {
+        // Arrange
+        var (client, files, idempotency, _) = CreateSut();
+        var cloudEvent = NewDelivery(ValidRecordJson);
+
+        // Act
+        var ack = await client.DeliverAsync(Constants.SubscriptionRoute, cloudEvent);
+
+        // Assert
+        Assert.Equal(DeliveryAck.Success, ack);
+        Assert.Single(files.Files);
+        Assert.Single(idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task DeliverAsync_WhenDestinationIsDown_AcksRetryAndRecordsNothing()
+    {
+        // Arrange: WriteException surfaces as a technical failure through the
+        // pipeline's normal exception handling, matching a dead destination.
+        var (client, files, idempotency, incidents) = CreateSut();
+        files.WriteException = new InvalidOperationException("Destination unreachable");
+
+        // Act
+        var ack = await client.DeliverAsync(Constants.SubscriptionRoute, NewDelivery(ValidRecordJson));
+
+        // Assert: the sidecar redelivers on RETRY; nothing was written,
+        // committed, or incident-routed.
+        Assert.Equal(DeliveryAck.Retry, ack);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+        Assert.Empty(incidents.Incidents);
+    }
+{{- else }}
+    private const string ValidOrderJson =
+        """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    [Fact]
+    public async Task DeliverAsync_WithValidMessage_WritesOutputAndAcksSuccess()
+    {
+        // Arrange
+        var (client, files, idempotency, _) = CreateSut();
+        var cloudEvent = NewDelivery(ValidOrderJson);
+
+        // Act
+        var ack = await client.DeliverAsync(Constants.SubscriptionRoute, cloudEvent);
+
+        // Assert: the destination carries the load record under its
+        // order-named file, and idempotency recorded the commit.
+        Assert.Equal(DeliveryAck.Success, ack);
+        Assert.Contains("\"OrderId\":\"ORD-1001\"", files.GetString("ORD-1001.json"));
+        Assert.Single(idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task DeliverAsync_WithDuplicate_AcksSuccessWithoutRewritingOrCommitting()
+    {
+        // Arrange: the idempotency service has already seen this order.
+        var (client, files, idempotency, _) = CreateSut();
+        idempotency.NextStatus = new StatusResponse(Action.Ignore, Reason.SameData);
+
+        // Act
+        var ack = await client.DeliverAsync(Constants.SubscriptionRoute, NewDelivery(ValidOrderJson));
+
+        // Assert: acked (the duplicate is consumed) but never written or
+        // committed again.
+        Assert.Equal(DeliveryAck.Success, ack);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task DeliverAsync_WithBusinessFailure_RoutesIncidentAndAcksSuccessWithoutCommit()
+    {
+        // Arrange: no lines — the Validator's "Order must contain at least
+        // one line" branch. A business failure acks SUCCESS (redelivering a
+        // poison message would loop forever) and never commits idempotency
+        // (a corrected redelivery must not cancel as seen-before).
+        var (client, files, idempotency, incidents) = CreateSut();
+        var noLines =
+            """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
+
+        // Act
+        var ack = await client.DeliverAsync(Constants.SubscriptionRoute, NewDelivery(noLines));
+
+        // Assert
+        Assert.Equal(DeliveryAck.Success, ack);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+        var incident = Assert.Single(incidents.Incidents);
+        Assert.Equal("Order must contain at least one line", incident.Data.Description);
+    }
+
+    [Fact]
+    public async Task DeliverAsync_WhenDestinationIsDown_AcksRetryAndRecordsNothing()
+    {
+        // Arrange: WriteException surfaces as a technical failure through the
+        // pipeline's normal exception handling, matching a dead destination.
+        var (client, files, idempotency, incidents) = CreateSut();
+        files.WriteException = new InvalidOperationException("Destination unreachable");
+
+        // Act
+        var ack = await client.DeliverAsync(Constants.SubscriptionRoute, NewDelivery(ValidOrderJson));
+
+        // Assert: the sidecar redelivers on RETRY; nothing was written,
+        // committed, or incident-routed.
+        Assert.Equal(DeliveryAck.Retry, ack);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+        Assert.Empty(incidents.Incidents);
+    }
+{{- end }}
+
+    /// <summary>
+    /// A bare delivery envelope, like <c>dapr publish</c> produces: no
+    /// Subject, a wall-clock Time. The Deserializer backfills the
+    /// Subject/Time context keys from the payload's business identity.
+    /// </summary>
+    private static CloudEvent NewDelivery(string json) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        Source = new Uri("urn:test:delivery"),
+        Type = "test.delivery",
+        Time = DateTimeOffset.UtcNow,
+        DataContentType = "application/json",
+        Data = json
+    };
+
+    /// <summary>
+    /// Boots the real host with the externals faked: the keyed destination
+    /// adapter (<see cref="InMemoryFileAdapter"/>) and the two
+    /// platform-service clients. The overrides run after the app's own
+    /// registrations (<c>ConfigureTestServices</c> hooks after
+    /// <c>Program</c>'s builder), so a plain last-wins re-registration is
+    /// enough — unlike the pre-build composition graph in the delivery-free
+    /// tests, no RemoveAll is needed here.
+    /// </summary>
+    private static (HttpClient Client, InMemoryFileAdapter Files,
+        FakeIdempotencyServiceClient Idempotency, FakeBusinessIncidentServiceClient Incidents)
+        CreateSut()
+    {
+        var files = new InMemoryFileAdapter();
+        var idempotency = new FakeIdempotencyServiceClient();
+        var incidents = new FakeBusinessIncidentServiceClient();
+
+        var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            {
+                services.AddKeyedSingleton<Intropy.Framework.Adapters.File.IFileAdapter>(
+                    Constants.DestinationFileAdapterKey, (_, _) => files);
+                services.AddSingleton<IIdempotencyServiceClient>(idempotency);
+                services.AddSingleton<Intropy.Contracts.BusinessIncidentService.IBusinessIncidentServiceClient>(incidents);
+            }));
+
+        return (factory.CreateClient(), files, idempotency, incidents);
+    }
+}
