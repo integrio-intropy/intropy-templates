@@ -47,7 +47,7 @@ spec:
         type: boolean
         title: Empty bodies
         description: When true, strip sample business logic from pipeline step bodies. The resulting project compiles and starts under Dapr, but every step throws NotImplementedException so a migration agent can fill them in. The idempotency and business-incident wiring stays (the loader pipeline requires it); idempotency keys off CloudEvent Subject/Time from the context, so there are no extractor lambdas to stub.
-        default: false
+        default: true
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
     # Local feed holding the Intropy.Framework integration builds the
