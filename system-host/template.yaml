@@ -13,11 +13,6 @@ metadata:
     intropy.dev/template-role: system-host
 
 spec:
-  # The CLI that first ships the payload contract (system.Create builds the
-  # payload and renders this template with it, instead of overwriting
-  # placeholders after render).
-  minCLI: '0.9.0'
-
   # `intropy sys create` renders this template with the full value payload
   # and --no-input. The payload parameters are required so an older CLI
   # that only sets `name` fails validation loudly instead of rendering an

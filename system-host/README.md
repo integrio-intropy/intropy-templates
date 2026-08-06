@@ -47,10 +47,7 @@ rendering outside `sys create`, create them by hand.
 
 `spec.parameters` declares the payload as required: an older CLI that
 renders this release with only `name` fails validation loudly instead of
-producing an empty system. In the other direction, `spec.minCLI` names the
-first CLI release that assembles the payload — an older CLI fails the
-manifest gate before rendering (remedy: upgrade intropy, or
-`--template-version` an older template release).
+producing an empty system.
 
 The payload is **pre-joined**: the CLI resolves every reference so the
 skeleton stays a flat `range` over the lists — no lookups in templates.
