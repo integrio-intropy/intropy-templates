@@ -4,7 +4,8 @@ This project is a .NET extractor integration built on the Intropy framework.
 One run = one sweep of the inbound folder; each swept file goes through the
 Intropy extractor pipeline and is published as a CloudEvent to a Dapr pub/sub
 topic, then the source file is deleted. Scheduling lives outside the block —
-the system host locally, a Kubernetes CronJob in production.
+activation cadence is deployment configuration (a Kubernetes CronJob in
+production); locally the system host runs the block once at startup.
 
 ## Project overview
 
@@ -80,8 +81,8 @@ the system host locally, a Kubernetes CronJob in production.
 ## Build and test
 
 Components do not run standalone — this extractor runs via its system host,
-which schedules it (the Aspire dashboard offers "Run now") and provides every
-Dapr component (source binding, pub/sub, platform services). The
+which runs it once at startup and provides every Dapr component (source
+binding, pub/sub, platform services). A re-run is a host restart. The
 component-level loop is build and test:
 
 ```bash
