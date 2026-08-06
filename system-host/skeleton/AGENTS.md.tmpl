@@ -26,13 +26,12 @@ declaration — an Aspire run backend and a generation backend.
   static fields. Same regenerate-then-yours lifecycle. `Apis.cs` appears
   the same way once components declare APIs.
 - `Connectors.cs` — the system's connectors as refs (`ConnectorRef`), declared as
-  static fields. Same regenerate-then-yours lifecycle. Each connector
-  declares only its deployed transport shape (e.g. `Transport.Sftp()`), value-free:
-  addresses and credentials are environment-owned deployment configuration, and
-  local runs resolve the connector through the development definition instead.
-  A freshly scaffolded connector starts with `Transport.Default()` — a placeholder
-  that compiles but `task check` rejects; replace it with a concrete transport
-  (e.g. `Transport.Sftp()`) before deployment.
+  static fields. Same regenerate-then-yours lifecycle. The name is each
+  connector's whole identity: the Dapr binding component's name is derived
+  (`binding.<connector-name>`), and the deployed binding's type, address, and
+  credentials are environment-owned deployment configuration the topology
+  deliberately does not repeat. Local runs resolve the connector through the
+  development definition instead.
 - `{{ .projectName }}Development.cs` — the `IDevelopmentDefinition` (at most one per
   assembly): local substitutions for the outside world. Same
   regenerate-then-yours lifecycle. `Mock(...).FromOpenApi(...)` stands in an
@@ -75,12 +74,13 @@ to `./out`), `task build`.
 Components never run standalone — this host is the only run path, and triggers
 originate here too:
 
-- **Extractors**: `task seed` drops `sample-data/sample-order.json` into the
+- **Extractors**: an extractor runs once when the host starts, so seed before
+  `task run`: `task seed` drops `sample-data/sample-order.json` into the
   connector folder (override with `task seed CONNECTOR_DIR=./test/<connector>`
   — the folder must match the `Files(...).RootPath(...)` resolution in the
   development definition, conventionally `test/<connector-name>`; the default
-  targets `test/order-extractor-source`). A scheduled extractor sweeps it on the next tick,
-  or immediately via the dashboard's "Run now".
+  targets `test/order-extractor-source`). Seeding into a live system needs a
+  host restart to be picked up.
 - **Loaders**: `task publish` publishes the sample order to the topic through
   a running component's sidecar (override `PUBLISH_APP_ID` and `TOPIC`; the
   dapr CLI resolves the sidecar from the app-id).
@@ -106,19 +106,11 @@ originate here too:
   `obj/dapr-components/<component>/`, generated from the declaration on every
   start — components ship no Dapr YAML of their own. Change the declaration,
   not the artifacts.
-- Component lifecycles differ. Extractors are run-to-completion jobs: declare
-  `.WithSchedule("<cron>")` on the block in `Define()` (five-field cron or a
-  `@daily`-style macro; invalid syntax fails `task check` with ITP210) and the
-  host runs the extractor once at startup and then re-runs it on every tick —
-  CronJob emulation: a tick that lands while the previous run is still going is
-  skipped with a warning, and every scheduled component gets a "Run now"
-  command in the dashboard. Without a schedule an extractor runs once at host
-  start. In production the schedule becomes a Kubernetes CronJob. Loaders are
-  long-running ASP.NET services and stay up for the whole host run.
-- `intropy sys create` emits `.WithSchedule("* * * * *")` (once every minute)
-  on every extractor it generates — edit the cron in place afterwards; the
-  file is yours after generation. Regenerating the definition resets any
-  edited cron to that default.
+- Component lifecycles differ. Extractors are run-to-completion jobs: the
+  host runs each one once at startup, and activation cadence lives in
+  deployment configuration, not in the topology — in production the schedule
+  is a Kubernetes CronJob in the GitOps repo, its one and only home. Loaders
+  are long-running ASP.NET services and stay up for the whole host run.
 
 ## Framework guidance
 

@@ -1,8 +1,9 @@
 version: "3"
 
 # Build and test tasks for {{ .name }} — a .NET extractor integration.
-# The extractor runs via its system host (the host schedules it; the Aspire
-# dashboard offers "Run now"); these tasks are the component-level loop.
+# The extractor runs via its system host (the host runs it once at startup;
+# the schedule lives in deployment configuration); these tasks are the
+# component-level loop.
 
 tasks:
   # ── .NET build ────────────────────────────────────────────────────

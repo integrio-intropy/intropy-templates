@@ -17,9 +17,9 @@ This is not an invention: the hand-written manifests in two customer
 repositories already run their extractors as CronJobs. The topology's block kind
 is what lets the CLI derive it.
 
-The CronJob's schedule is a `REPLACE-ME-CRON-SCHEDULE` placeholder. The topology
-record carries no schedule, so the value has to come from the generated C#'s
-`.WithSchedule(...)`.
+The CronJob's schedule is a `REPLACE-ME-CRON-SCHEDULE` placeholder — and its
+one and only home. Activation cadence is deployment configuration, so the
+topology carries no schedule to copy from; fill it in here and edit it here.
 
 ## The image is never pinned here
 

@@ -3,9 +3,8 @@ kind: CronJob
 metadata:
   name: {{ .name }}
 spec:
-  # The topology declares no schedule — the host's graph verb does not carry one
-  # — so this is the developer's to supply. It is in the generated C# as
-  # .WithSchedule(...); copy that value here.
+  # The schedule's one and only home: activation cadence is deployment
+  # configuration, so the topology carries no schedule to copy from.
   schedule: "REPLACE-ME-CRON-SCHEDULE"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3

@@ -4,8 +4,9 @@
 inbound folder, runs each swept JSON order through the Intropy extractor
 pipeline, publishes the result as a CloudEvent to the `{{ .topic }}` topic on
 the Dapr pub/sub, deletes the source file, and exits. Scheduling lives
-outside the block — the system host locally, a Kubernetes CronJob in
-production.
+outside the block — activation cadence is deployment configuration (a
+Kubernetes CronJob in production); locally the system host runs the block
+once at startup.
 
 ## Build and test
 
@@ -15,9 +16,9 @@ task test
 ```
 
 The extractor does not run standalone. It runs via its system host, which
-schedules the job (the Aspire dashboard offers "Run now"), provides the
+runs it once at startup, provides the
 source binding, pub/sub, and platform services, and carries the sample data
-used to seed a run. `task test` covers the component-level loop: pipeline
+used to seed a run. A re-run is a host restart. `task test` covers the component-level loop: pipeline
 unit tests plus integration tests proving the whole DI graph and the sweep
 behave without a sidecar (`task test:unit` / `task test:integration` run the
 suites separately). `task coverage` runs the integration suite with
@@ -142,5 +143,5 @@ implemented — the failing tests are the to-do list.
 
 On success (or an idempotent duplicate) the source file is deleted; a failed
 file stays in the inbound folder and is retried on the next scheduled run,
-which the run's exit code 1 asks the scheduler to record.
+which the run's exit code 1 asks the CronJob to record as failed.
 {{- end }}

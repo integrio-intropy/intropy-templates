@@ -4,8 +4,9 @@ Scaffolds a run-to-completion .NET extractor integration: one run sweeps a
 local inbound folder binding once, runs each swept file through the Intropy
 extractor pipeline (`Intropy.Framework.Blocks.Extractor`), publishes the
 result as a CloudEvent to a pub/sub topic, deletes the source file, and
-exits. Scheduling lives outside the block — the system host locally, a
-Kubernetes CronJob in production. The extractor is the publishing half of a
+exits. Scheduling lives outside the block — activation cadence is deployment
+configuration (a Kubernetes CronJob in production); locally the system host
+runs the block once at startup. The extractor is the publishing half of a
 system contract — scaffold the consuming loader with the same `topic` value.
 
 The rendered project is a one-shot console job (same shape as `transactional`)
@@ -33,9 +34,9 @@ client). The pipeline is always built exactly as production composition does —
 from DI. No sidecar, no Testcontainers.
 
 Components do not run standalone: the extractor runs via its system host,
-which schedules the job and provides every Dapr component (source binding,
-pub/sub, platform services — including the Intropy Idempotency Service and
-Business Incident Service the pipeline wires in).
+which runs it once at startup and provides every Dapr component (source
+binding, pub/sub, platform services — including the Intropy Idempotency
+Service and Business Incident Service the pipeline wires in).
 
 The template declares a `spec.dependencies` entry on `shared-contracts`: the
 render also scaffolds a sibling `Contracts` class library holding the published
