@@ -1,13 +1,12 @@
-# The file fixture: one Dapr binding per connector recorded as `file` in
-# .intropy/deploy-values.yaml, rooted at a conventional directory in the component's
-# own container — the one fixture with no server behind it, for connectors
+# The file fixture: one Dapr binding per connector selected as `file` for this
+# render, rooted at a conventional directory in the component's own container —
+# the one fixture with no server behind it, for connectors
 # whose local fidelity is a directory drop. The path is the fixture contract
 # (see deploy-component/README.md) — a dev value, not a placeholder.
 #
-# The binding travels on the connector itself: manifest generation reads it
-# from .intropy/deploy-values.yaml and injects it per environment. The
-# $recorded fallback keeps a CLI older than that field working, reading the
-# flat bindings map it still injects under .local.
+# The binding travels on the connector itself: manifest rendering injects the
+# explicit or interactive choice for this run. The $recorded fallback keeps a
+# CLI older than that field working with the flat bindings map under .local.
 #
 # Owner, not user: this overlay renders once per component, and a
 # connector's Component may exist exactly once in the build, so the component

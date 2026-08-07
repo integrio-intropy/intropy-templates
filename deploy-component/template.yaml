@@ -73,22 +73,13 @@ spec:
         default: ""
   # The closed fixture catalog for the local development cluster: one Dapr
   # binding skeleton per fixture type in overlays/local/fixtures/, switched on
-  # the connector's recorded binding in .intropy/deploy-values.yaml.
-  # Local manifest rendering fails a release that ships a local overlay
-  # without this list, and validates configured bindings against it. Adding a
-  # fixture is a skeleton file, an entry here, and the fixture server in the k3s
-  # setup scripts — a template PR, not a CLI release.
+  # the connector's binding for this render. Local manifest rendering fails a
+  # release that ships a local overlay without this list and validates explicit
+  # or interactive choices against it. Adding a fixture is a skeleton file, an
+  # entry here, and the fixture server in the k3s setup scripts — a template PR,
+  # not a CLI release.
   local:
     fixtures: [sftp, smb, http, file]
-
-  # The closed catalog of Dapr binding types a connector may deploy as in a
-  # GitOps environment. Manifest commands validate choices from
-  # .intropy/deploy-values.yaml against this list; deploy-host's
-  # base/bindings renders spec.type from the choice. Adding a binding is an
-  # entry here and the Dapr metadata a reviewer fills in — the address and
-  # credentials stay per-system REPLACE-MEs. A release without this list falls
-  # back to placeholders.
-  bindings: [sftp, smb, http, file]
 
   values:
     imageRepo: "{{ .registry }}/{{ .imageNamespace }}/{{ .name }}"

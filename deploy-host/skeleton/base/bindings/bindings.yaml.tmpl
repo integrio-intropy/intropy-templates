@@ -2,15 +2,10 @@
 #
 # Multi-doc rather than a file each: kustomize reads it natively, and adding a
 # connector stays a one-file diff. The topology mints only the connector's name
-# and scopes; the binding type is configured in .intropy/deploy-values.yaml
-# and injected here per environment. Address and credentials stay per-system
-# REPLACE-MEs — they are secrets, never asked.
-# The name must not change: the blocks resolve the binding as
+# and scopes. Binding type, address, and credentials are environment-owned
+# GitOps configuration, so create-only onboarding leaves explicit placeholders
+# for the reviewer. The name must not change: blocks resolve the binding as
 # binding.<connector-name>.
-#
-# This file may legitimately differ between environments: the binding is an
-# environment-owned fact, and the CLI's merge guard exempts base/bindings/ for
-# exactly that reason.
 {{- range .topology.connectors }}
 ---
 apiVersion: dapr.io/v1alpha1
@@ -18,18 +13,9 @@ kind: Component
 metadata:
   name: {{ .name }}
 spec:
-{{- $b := dig "binding" "" . }}
-{{- if $b }}
-  # Configured for this environment. Fill in the metadata below; the Dapr
-  # docs for bindings.{{ $b }} list what it takes.
-  type: bindings.{{ $b }}
-{{- else }}
-  # No binding configured for this environment — pick the Dapr binding this
-  # connector deploys as (e.g. bindings.sftp, bindings.http) and fill in its
-  # metadata below. Record the same choice in .intropy/deploy-values.yaml for
-  # future inspection and rendering.
+  # Pick the Dapr binding this connector deploys as (for example,
+  # bindings.sftp or bindings.http) and fill in its metadata below.
   type: REPLACE-ME-BINDING-TYPE
-{{- end }}
   version: v1
   metadata:
     - name: REPLACE-ME-METADATA-NAME

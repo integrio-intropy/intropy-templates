@@ -84,9 +84,8 @@ Beyond the declared parameters, the CLI injects:
 - `.env` — the environment being rendered. Only meaningful under `overlays/`; the
   CLI refuses a skeleton where it changes anything else.
 - `.topology` — the derived system model: `pubsubs` (with `appIds` for `scopes:`),
-  `connectors` (name, directions, appIds, and the binding configured for the
-  selected environment; absent choices render as a `REPLACE-ME` scaffold),
-  `topics`, `components`.
+  `connectors` (name, directions and appIds), `topics`, `components`. GitOps
+  connector bindings remain `REPLACE-ME` scaffolds for reviewers to complete.
 - `.gitops` — `domain`, `system`, `component`, `host`, `registry`,
   `argocdAppNamespace`, `environments`, `platform`.
 

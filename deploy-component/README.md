@@ -66,13 +66,11 @@ any built Deployment image has no tag, as a second net.
 **The fixture bindings live here.** `overlays/local/fixtures/` carries one
 Dapr binding skeleton per fixture type — the closed catalog declared in
 `spec.local.fixtures` (`sftp`, `smb`, `http`, `file`). Each file renders one
-`Component` per topology connector whose binding for the local environment —
-recorded in the workspace's `.intropy/deploy-values.yaml` — names that
-fixture, and nothing when none do; the CLI fails the render if every catalog
-file comes out empty, because a bindingless local overlay is a template
-release bug, not a system state. Manifest commands read the choices from
-`.intropy/deploy-values.yaml` and validate them against the catalog; they never
-prompt or rewrite the file.
+`Component` per topology connector whose binding for this local render names
+that fixture, and nothing when none do. Repeat
+`--binding <connector>=<fixture>` for reproducible renders; an interactive
+terminal asks for omitted choices with a Huh selector. Choices are validated
+against the catalog and never persisted.
 
 **Dev values, not placeholders.** Every fixture skeleton points at the
 conventional fixture server the k3s setup scripts always install —
@@ -117,5 +115,5 @@ There is no path segment in the generator to match on.
 
 `.env`, `.topology`, `.gitops`, `.component` (this block's derived record),
 `.scaffold` (its `.intropy/scaffold.json` values, or `{}`) and — local
-renders only — `.local`, the configured bindings: `.local.bindings` maps
-connector name to fixture name.
+renders only — `.local`, the ephemeral bindings for this render:
+`.local.bindings` maps connector name to fixture name.

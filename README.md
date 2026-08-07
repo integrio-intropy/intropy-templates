@@ -29,7 +29,7 @@ including deploy-component's closed fixture catalog (`spec.local.fixtures`) —
 one Dapr binding skeleton per fixture type, pointing at the servers the k3s
 setup scripts always install. Each template's README documents the overlay and
 the fixture contract. Run `intropy manifests inspect` from a system workspace
-to see the topology and unresolved connector choices before rendering.
+to see the topology and available local fixtures before rendering.
 
 Those two are the only templates that use `spec.files` to decide which files
 exist at all. See [`CLAUDE.md`](./CLAUDE.md) for the rule — and for why no
