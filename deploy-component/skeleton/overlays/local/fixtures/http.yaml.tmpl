@@ -1,0 +1,33 @@
+# The http fixture: one Dapr binding per connector recorded as `http` in
+# .intropy/local.yaml, pointing at the wiremock-style HTTP stub the k3s setup
+# scripts always install. The address is the fixture contract (see
+# deploy-component/README.md) — a dev value, not a placeholder.
+#
+# dig rather than .local.bindings: deploy init injects no .local, and
+# missingkey=error would fail its render — the overlay is never referenced
+# there, but the file must stay a valid template for every caller. int local
+# fails the render if every fixture file comes out empty, so a local render
+# with no bindings never applies.
+{{- $bindings := dig "local" "bindings" dict . -}}
+{{- range .topology.connectors }}
+{{- $conn := . }}
+{{- if eq (index $bindings .name) "http" }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+  labels:
+    intropy.io/connector: {{ .name }}
+spec:
+  type: bindings.http
+  version: v1
+  metadata:
+    - name: url
+      value: http://http.fixtures.svc.cluster.local:8080
+scopes:
+{{- range $conn.appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}

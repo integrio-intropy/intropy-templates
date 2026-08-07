@@ -1,0 +1,39 @@
+# The smb fixture: one Dapr binding per connector recorded as `smb` in
+# .intropy/local.yaml, pointing at the SMB share the k3s setup scripts always
+# install. Address and credentials are the fixture contract (see
+# deploy-component/README.md) — dev values, not placeholders.
+#
+# dig rather than .local.bindings: deploy init injects no .local, and
+# missingkey=error would fail its render — the overlay is never referenced
+# there, but the file must stay a valid template for every caller. int local
+# fails the render if every fixture file comes out empty, so a local render
+# with no bindings never applies.
+{{- $bindings := dig "local" "bindings" dict . -}}
+{{- range .topology.connectors }}
+{{- $conn := . }}
+{{- if eq (index $bindings .name) "smb" }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+  labels:
+    intropy.io/connector: {{ .name }}
+spec:
+  type: bindings.smb
+  version: v1
+  metadata:
+    - name: host
+      value: smb.fixtures.svc.cluster.local:445
+    - name: username
+      value: intropy
+    - name: password
+      value: intropy
+    - name: share
+      value: share
+scopes:
+{{- range $conn.appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}

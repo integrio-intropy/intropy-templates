@@ -1,0 +1,29 @@
+# Redis pub/sub: what the local development cluster's k3s setup installs, and
+# the only broker int local ever renders with. The address is the fixture
+# contract (see deploy-host/README.md); the password is the contract's
+# conventional dev credential, inline rather than behind the secret store,
+# because there is nothing to keep secret locally.
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .pubsubName }}
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+    - name: redisHost
+      value: redis.fixtures.svc.cluster.local:6379
+    - name: redisPassword
+      value: intropy
+auth:
+  secretStore: {{ .system }}-secretstore
+
+# Exactly the app-ids the topology says publish to or subscribe from this
+# broker's topics. The Component is namespace-scoped and this directory is its
+# only owner, so scopes is what limits who may use it.
+scopes:
+{{- range .topology.pubsubs }}
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,34 @@
+# The file fixture: one Dapr binding per connector recorded as `file` in
+# .intropy/local.yaml, rooted at a conventional directory in the component's
+# own container — the one fixture with no server behind it, for connectors
+# whose local fidelity is a directory drop. The path is the fixture contract
+# (see deploy-component/README.md) — a dev value, not a placeholder.
+#
+# dig rather than .local.bindings: deploy init injects no .local, and
+# missingkey=error would fail its render — the overlay is never referenced
+# there, but the file must stay a valid template for every caller. int local
+# fails the render if every fixture file comes out empty, so a local render
+# with no bindings never applies.
+{{- $bindings := dig "local" "bindings" dict . -}}
+{{- range .topology.connectors }}
+{{- $conn := . }}
+{{- if eq (index $bindings .name) "file" }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+  labels:
+    intropy.io/connector: {{ .name }}
+spec:
+  type: bindings.localstorage
+  version: v1
+  metadata:
+    - name: rootPath
+      value: /data/{{ .name }}
+scopes:
+{{- range $conn.appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}

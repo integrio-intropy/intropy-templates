@@ -10,7 +10,10 @@ metadata:
 spec:
   parameters:
     type: object
-    required: [name, domain, system, registry]
+    # domain is absent, deliberately: it is only a GitOps path segment, no
+    # skeleton references it, and a local render has no domain to seed or
+    # answer with. deploy init always seeds it, so its callers see no change.
+    required: [name, system, registry]
     properties:
       name:
         type: string
@@ -20,6 +23,7 @@ spec:
       domain:
         type: string
         title: Domain
+        description: Only a GitOps path segment; no skeleton file references it.
         pattern: "^[a-z][a-z0-9-]*$"
       system:
         type: string
@@ -67,6 +71,16 @@ spec:
         title: Source directory
         description: The block's directory in the source repository, used for component.yaml sourcePaths. Empty when no scaffold record was found.
         default: ""
+  # The closed fixture catalog for the local development cluster: one Dapr
+  # binding skeleton per fixture type in overlays/local/fixtures/, switched on
+  # the connector's recorded binding in .intropy/local.yaml. int local fails
+  # a release that ships a local overlay without this list, and validates
+  # recorded bindings against it. Adding a fixture is a skeleton file, an
+  # entry here, and the fixture server in the k3s setup scripts — a template
+  # PR, not a CLI release.
+  local:
+    fixtures: [sftp, smb, http, file]
+
   values:
     imageRepo: "{{ .registry }}/{{ .imageNamespace }}/{{ .name }}"
     # Never a real tag. `intropy deploy` writes the digest; a tag here would let
@@ -75,7 +89,14 @@ spec:
     imageTag: "unpinned"
 
   files:
+    # The CronJob's schedule is deployment configuration that differs between
+    # the local cluster (a dev cadence, applied unreviewed) and every other
+    # environment (a REPLACE-ME a human fills in), and .env may only vary
+    # under overlays/ — so the variant is picked here, per file, and
+    # base/kustomization.yaml names the picked file. First match decides.
     - path: base/cronjob.yaml.tmpl
-      when: '{{ eq .workload "cronjob" }}'
+      when: '{{ and (eq .workload "cronjob") (ne .env "local") }}'
+    - path: base/cronjob-local.yaml.tmpl
+      when: '{{ and (eq .workload "cronjob") (eq .env "local") }}'
     - path: base/deployment.yaml.tmpl
       when: '{{ eq .workload "deployment" }}'

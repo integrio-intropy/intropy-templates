@@ -50,6 +50,34 @@ One customer repository does vary the broker per overlay (in-memory in dev,
 RabbitMQ in prod). That is a deviation, not the convention, and this template
 does not reproduce it.
 
+The local cluster is the exception, and it is no variation at all: `int local`
+always renders with `pubsub: redis`, the broker the k3s setup scripts install,
+so only `pubsub-redis.yaml` ever reaches a local render. Its address
+(`redis.fixtures.svc.cluster.local:6379`, password `intropy`) is the fixture
+contract — dev credentials, inline, with nothing behind the secret store.
+
+## The local overlay
+
+`overlays/local/` is rendered by `intropy int local`, not `deploy init`. It is
+an ordinary thin overlay: `resources: - ../../base` and no namespace line —
+the CLI's root kustomization sets the namespace, so the overlay serves any
+`--namespace` without re-rendering.
+
+What it deliberately does not carry is connector bindings. The fixture
+catalog (the local counterpart of `base/bindings/`) lives on deploy-component,
+next to the block that resolves each binding; deploy-component's README
+explains why, and declares the catalog in `spec.local.fixtures`. A local
+render passes `secretStore: kubernetes`, so the kubernetes secret store and
+the placeholder Secret still render — blocks read secrets through the store
+the same way in every environment.
+
+### ApplicationSet safety
+
+If this rendered tree ever lands in a GitOps repository, `overlays/local/`
+cannot produce an ArgoCD Application: the ApplicationSet's cluster generator
+matches only clusters registered in ArgoCD, and the local development cluster
+never is.
+
 ## Reserved values
 
 Beyond the declared parameters, the CLI injects:

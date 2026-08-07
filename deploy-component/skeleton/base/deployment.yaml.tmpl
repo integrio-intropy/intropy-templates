@@ -19,10 +19,21 @@ spec:
     spec:
       containers:
         - name: {{ .name }}
+{{- if eq .env "local" }}
+          # The pinned local reference: the bare component name, no registry
+          # prefix, no tag. int local rewrites it to <name>:dev — the image
+          # the k3s scripts build and load — through the images[] entries on
+          # the root kustomization it writes. kustomize matches on this exact
+          # string and silently ignores a miss, so the shape is part of the
+          # fixture contract; only a local render may use it (deploy init
+          # rejects an .env-varying base through mergeRendered).
+          image: {{ .name }}
+{{- else }}
           # The tag is a sentinel, not a version: `intropy deploy` replaces it
           # with a digest. It fails to pull loudly if anything deploys this
           # overlay before that happens.
           image: {{ .imageRepo }}:{{ .imageTag }}
+{{- end }}
           ports:
             - containerPort: 8080
           resources:

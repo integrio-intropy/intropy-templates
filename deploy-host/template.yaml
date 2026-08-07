@@ -10,12 +10,15 @@ metadata:
 spec:
   parameters:
     type: object
-    required: [domain, system, namespace]
+    # domain is absent, deliberately: it is only a GitOps path segment, no
+    # skeleton references it outside component.yaml (repo metadata int local
+    # never emits), and a local render has no domain to seed or answer with.
+    required: [system, namespace]
     properties:
       domain:
         type: string
         title: Domain
-        description: Business domain the system belongs to, as a GitOps path segment.
+        description: Business domain the system belongs to, as a GitOps path segment. Not required — a local render has no domain, and no skeleton references it outside component.yaml, which int local never emits.
         pattern: "^[a-z][a-z0-9-]*$"
       system:
         type: string
@@ -36,8 +39,8 @@ spec:
       pubsub:
         type: string
         title: Pub/sub broker
-        description: The Dapr pub/sub building block to declare, from deploy.yaml platform.pubsub.
-        enum: [in-memory, rabbitmq, servicebus]
+        description: The Dapr pub/sub building block to declare, from deploy.yaml platform.pubsub. redis is what the local development cluster runs; int local renders with it.
+        enum: [in-memory, rabbitmq, servicebus, redis]
         default: rabbitmq
       pubsubName:
         type: string
@@ -63,6 +66,8 @@ spec:
       when: '{{ eq .pubsub "rabbitmq" }}'
     - path: base/dapr/pubsub-servicebus.yaml.tmpl
       when: '{{ eq .pubsub "servicebus" }}'
+    - path: base/dapr/pubsub-redis.yaml.tmpl
+      when: '{{ eq .pubsub "redis" }}'
 
     - path: base/dapr/secretstore-kubernetes.yaml.tmpl
       when: '{{ eq .secretStore "kubernetes" }}'

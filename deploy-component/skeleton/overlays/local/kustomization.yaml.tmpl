@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The local overlay. Unlike the environment overlays it carries the fixture
+# bindings: every connector's Dapr binding lives next to the component that
+# uses it, switched on the recorded binding in .intropy/local.yaml
+# (spec.local.fixtures declares the catalog). It has no namespace line and no
+# image override on purpose — int local sets both on the root kustomization
+# it writes: namespace: targets every rendered resource at once, and images[]
+# rewrites the bare image reference the base renders ({{ .name }}, no registry
+# prefix or tag; pinned in the README) to <name>:dev.
+resources:
+  - ../../base
+  - fixtures/sftp.yaml
+  - fixtures/smb.yaml
+  - fixtures/http.yaml
+  - fixtures/file.yaml

@@ -1,0 +1,37 @@
+# The sftp fixture: one Dapr binding per connector recorded as `sftp` in
+# .intropy/local.yaml, pointing at the SFTP server the k3s setup scripts
+# always install. Address and credentials are the fixture contract (see
+# deploy-component/README.md) — dev values, not placeholders.
+#
+# dig rather than .local.bindings: deploy init injects no .local, and
+# missingkey=error would fail its render — the overlay is never referenced
+# there, but the file must stay a valid template for every caller. int local
+# fails the render if every fixture file comes out empty, so a local render
+# with no bindings never applies.
+{{- $bindings := dig "local" "bindings" dict . -}}
+{{- range .topology.connectors }}
+{{- $conn := . }}
+{{- if eq (index $bindings .name) "sftp" }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+  labels:
+    intropy.io/connector: {{ .name }}
+spec:
+  type: bindings.sftp
+  version: v1
+  metadata:
+    - name: address
+      value: sftp.fixtures.svc.cluster.local:22
+    - name: username
+      value: intropy
+    - name: password
+      value: intropy
+scopes:
+{{- range $conn.appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
