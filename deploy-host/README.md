@@ -51,10 +51,13 @@ RabbitMQ in prod). That is a deviation, not the convention, and this template
 does not reproduce it.
 
 The local cluster is the exception, and it is no variation at all: `int local`
-always renders with `pubsub: redis`, the broker the k3s setup scripts install,
-so only `pubsub-redis.yaml` ever reaches a local render. Its address
-(`redis.fixtures.svc.cluster.local:6379`, password `intropy`) is the fixture
-contract — dev credentials, inline, with nothing behind the secret store.
+always renders with `pubsub: rabbitmq`, the broker the k3s setup scripts
+install, so only `pubsub-rabbitmq.yaml` ever reaches a local render. Its
+address (`rabbitmq.fixtures.svc.cluster.local:5672`, credentials
+`guest:guest`) is the fixture contract — dev credentials, inline in the
+Component, with nothing behind the secret store. So the local render also
+skips the `auth:` block and the `rabbitmq-connection` placeholder in
+`base/secrets/`: neither has a consumer there.
 
 ## The local overlay
 

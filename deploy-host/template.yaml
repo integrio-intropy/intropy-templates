@@ -39,8 +39,8 @@ spec:
       pubsub:
         type: string
         title: Pub/sub broker
-        description: The Dapr pub/sub building block to declare, from deploy.yaml platform.pubsub. redis is what the local development cluster runs; int local renders with it.
-        enum: [in-memory, rabbitmq, servicebus, redis]
+        description: The Dapr pub/sub building block to declare, from deploy.yaml platform.pubsub. rabbitmq is what the local development cluster runs; int local renders with it.
+        enum: [in-memory, rabbitmq, servicebus]
         default: rabbitmq
       pubsubName:
         type: string
@@ -66,8 +66,6 @@ spec:
       when: '{{ eq .pubsub "rabbitmq" }}'
     - path: base/dapr/pubsub-servicebus.yaml.tmpl
       when: '{{ eq .pubsub "servicebus" }}'
-    - path: base/dapr/pubsub-redis.yaml.tmpl
-      when: '{{ eq .pubsub "redis" }}'
 
     # The generic environment overlay never renders for the local environment:
     # it would set a namespace line, while the local overlay stays
