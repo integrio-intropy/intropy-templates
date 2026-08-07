@@ -6,7 +6,7 @@ kind: Kustomization
 resources:
   - dapr/pubsub-{{ .pubsub }}.yaml
   - dapr/secretstore-{{ .secretStore }}.yaml
-{{- if gt (len .topology.connectors) 0 }}
+{{- if and (gt (len .topology.connectors) 0) (ne .env "local") }}
   - bindings/bindings.yaml
 {{- end }}
 {{- if eq .secretStore "kubernetes" }}

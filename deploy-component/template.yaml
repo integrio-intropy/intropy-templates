@@ -100,3 +100,11 @@ spec:
       when: '{{ and (eq .workload "cronjob") (eq .env "local") }}'
     - path: base/deployment.yaml.tmpl
       when: '{{ eq .workload "deployment" }}'
+
+    # The generic environment overlay never renders for the local environment:
+    # it and overlays/local/ would both land at overlays/local/, and the walk
+    # order ("local" sorts before "{{ .env }}") means the thin overlay would
+    # silently overwrite the fixture-carrying one. local is reserved for the
+    # local overlay — no customer environment may be named that.
+    - path: 'overlays/{{ .env }}/**'
+      when: '{{ ne .env "local" }}'

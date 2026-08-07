@@ -9,10 +9,15 @@
 # there, but the file must stay a valid template for every caller. int local
 # fails the render if every fixture file comes out empty, so a local render
 # with no bindings never applies.
+#
+# Owner, not user: this overlay renders once per component, and a
+# connector's Component may exist exactly once in the build, so the component
+# whose app-id is first in the connector's scopes emits it — scopes still
+# list every app-id that may use it.
 {{- $bindings := dig "local" "bindings" dict . -}}
 {{- range .topology.connectors }}
 {{- $conn := . }}
-{{- if eq (index $bindings .name) "file" }}
+{{- if and (eq (index $bindings .name) "file") (eq $.component.appId (index $conn.appIds 0)) }}
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Component

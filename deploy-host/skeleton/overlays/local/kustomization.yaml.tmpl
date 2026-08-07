@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The local overlay, rendered by intropy int local. Same resources as every
+# other environment, but no namespace line: the CLI writes a root
+# kustomization whose namespace: targets every rendered resource at once, so
+# this overlay serves any --namespace without re-rendering. The generic
+# overlays/{{ .env }}/ skeleton never renders for local (spec.files).
+resources:
+  - ../../base

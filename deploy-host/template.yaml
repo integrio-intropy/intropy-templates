@@ -69,6 +69,15 @@ spec:
     - path: base/dapr/pubsub-redis.yaml.tmpl
       when: '{{ eq .pubsub "redis" }}'
 
+    # The generic environment overlay never renders for the local environment:
+    # it would set a namespace line, while the local overlay stays
+    # namespace-agnostic (int local sets the namespace on the root
+    # kustomization it writes). A dedicated overlays/local/ skeleton carries
+    # that thin-but-namespaceless variant. local is reserved — no customer
+    # environment may be named that.
+    - path: 'overlays/{{ .env }}/**'
+      when: '{{ ne .env "local" }}'
+
     - path: base/dapr/secretstore-kubernetes.yaml.tmpl
       when: '{{ eq .secretStore "kubernetes" }}'
     - path: base/dapr/secretstore-azure-keyvault.yaml.tmpl
@@ -83,6 +92,9 @@ spec:
       when: '{{ eq .secretStore "kubernetes" }}'
 
     # No external connectors means no bindings, and an empty multi-doc file in a
-    # kustomize resources list breaks the build.
+    # kustomize resources list breaks the build. Never for the local environment:
+    # the fixture catalog on deploy-component carries the local bindings, and a
+    # REPLACE-ME scaffold here would duplicate every Component the fixtures
+    # render.
     - path: base/bindings/**
-      when: '{{ gt (len .topology.connectors) 0 }}'
+      when: '{{ and (gt (len .topology.connectors) 0) (ne .env "local") }}'
