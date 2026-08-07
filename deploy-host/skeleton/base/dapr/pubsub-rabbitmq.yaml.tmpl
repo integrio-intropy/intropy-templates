@@ -1,9 +1,9 @@
 {{- if eq .env "local" }}
 # RabbitMQ pub/sub: what the local development cluster's k3s setup installs,
-# and the only broker int local ever renders with. The address is the fixture
+# and the only broker a local render ever uses. The address is the fixture
 # contract (see deploy-host/README.md); the credentials are the contract's
-# conventional dev credentials, inline rather than behind the secret store,
-# because there is nothing to keep secret locally.
+# conventional dev credentials, inline rather than behind a Secret, because
+# there is nothing to keep secret locally.
 {{- end }}
 apiVersion: dapr.io/v1alpha1
 kind: Component
@@ -17,6 +17,10 @@ spec:
 {{- if eq .env "local" }}
       value: amqp://guest:guest@rabbitmq.fixtures.svc.cluster.local:5672
 {{- else }}
+      # With no auth block, secretKeyRef resolves against a plain Kubernetes
+      # Secret in this namespace. That Secret is platform-owned (synced from
+      # Key Vault, Vault, or applied by hand) — the template only declares the
+      # name and key the platform must provide.
       secretKeyRef:
         name: {{ .secretName }}
         key: rabbitmq-connection
@@ -25,14 +29,6 @@ spec:
       value: "true"
     - name: deliveryMode
       value: "2"
-{{- if ne .env "local" }}
-# Resolved through the system's secret store, not necessarily a Kubernetes
-# Secret: with kubernetes that is the rendered secrets/secrets.yaml, and with
-# Key Vault or Vault the key is looked up there instead.
-auth:
-  secretStore: {{ .system }}-secretstore
-{{- end }}
-
 # Exactly the app-ids the topology says publish to or subscribe from this
 # broker's topics. The Component is namespace-scoped and this directory is its
 # only owner, so scopes is what limits who may use it.

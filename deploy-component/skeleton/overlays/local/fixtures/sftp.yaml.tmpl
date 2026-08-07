@@ -1,22 +1,22 @@
-# The sftp fixture: one Dapr binding per connector recorded as `sftp` in
-# .intropy/local.yaml, pointing at the SFTP server the k3s setup scripts
-# always install. Address and credentials are the fixture contract (see
+# The sftp fixture: one Dapr binding per connector bound to `sftp` for the
+# local environment, pointing at the SFTP server the k3s setup scripts always
+# install. Address and credentials are the fixture contract (see
 # deploy-component/README.md) — dev values, not placeholders.
 #
-# dig rather than .local.bindings: deploy init injects no .local, and
-# missingkey=error would fail its render — the overlay is never referenced
-# there, but the file must stay a valid template for every caller. int local
-# fails the render if every fixture file comes out empty, so a local render
-# with no bindings never applies.
+# The binding travels on the connector itself: manifest generation reads it
+# from .intropy/deploy-values.yaml and injects it per environment. The $recorded
+# fallback keeps a CLI older than that field working, reading the flat
+# bindings map it still injects under .local.
 #
 # Owner, not user: this overlay renders once per component, and a
 # connector's Component may exist exactly once in the build, so the component
 # whose app-id is first in the connector's scopes emits it — scopes still
 # list every app-id that may use it.
-{{- $bindings := dig "local" "bindings" dict . -}}
+{{- $recorded := dig "local" "bindings" dict . -}}
 {{- range .topology.connectors }}
 {{- $conn := . }}
-{{- if and (eq (index $bindings .name) "sftp") (eq $.component.appId (index $conn.appIds 0)) }}
+{{- $b := dig "binding" "" . -}}
+{{- if and (or (eq $b "sftp") (and (not $b) (eq (index $recorded .name) "sftp"))) (eq $.component.appId (index $conn.appIds 0)) }}
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Component

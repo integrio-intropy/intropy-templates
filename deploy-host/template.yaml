@@ -3,22 +3,22 @@ kind: Template
 metadata:
   name: deploy-host
   title: System deployment manifests (shared)
-  description: The Dapr components, secret store and secrets a system's blocks share, as one ArgoCD Application.
+  description: The Dapr components a system's blocks share, as one ArgoCD Application.
   tags: [deploy, gitops, kustomize, dapr]
   labels:
     intropy.dev/template-kind: deploy
 spec:
   parameters:
     type: object
-    # domain is absent, deliberately: it is only a GitOps path segment, no
-    # skeleton references it outside component.yaml (repo metadata int local
-    # never emits), and a local render has no domain to seed or answer with.
+    # domain is optional, deliberately: it is only a GitOps path segment, no
+    # skeleton references it outside component.yaml (repo metadata a local render
+    # never emits), and a local render has no domain.
     required: [system, namespace]
     properties:
       domain:
         type: string
         title: Domain
-        description: Business domain the system belongs to, as a GitOps path segment. Not required — a local render has no domain, and no skeleton references it outside component.yaml, which int local never emits.
+        description: Business domain the system belongs to, as a GitOps path segment. Not required — a local render has no domain, and no skeleton references it outside component.yaml, which local rendering never emits.
         pattern: "^[a-z][a-z0-9-]*$"
       system:
         type: string
@@ -39,7 +39,7 @@ spec:
       pubsub:
         type: string
         title: Pub/sub broker
-        description: The Dapr pub/sub building block to declare, from deploy.yaml platform.pubsub. rabbitmq is what the local development cluster runs; int local renders with it.
+        description: The Dapr pub/sub building block to declare, from deploy.yaml platform.pubsub. rabbitmq is what local rendering uses.
         enum: [in-memory, rabbitmq, servicebus]
         default: rabbitmq
       pubsubName:
@@ -48,12 +48,6 @@ spec:
         description: The name blocks resolve the broker by. Must match what the generated C# uses.
         default: pubsub
         pattern: "^[a-z][a-z0-9-]*$"
-      secretStore:
-        type: string
-        title: Secret store
-        description: Where credentials come from. Only "kubernetes" commits a Secret stub; the others resolve out of cluster.
-        enum: [kubernetes, azure-keyvault, vault]
-        default: kubernetes
   values:
     secretName: "{{ .system }}-secrets"
 
@@ -69,25 +63,12 @@ spec:
 
     # The generic environment overlay never renders for the local environment:
     # it would set a namespace line, while the local overlay stays
-    # namespace-agnostic (int local sets the namespace on the root
+    # namespace-agnostic (local rendering sets the namespace on the root
     # kustomization it writes). A dedicated overlays/local/ skeleton carries
     # that thin-but-namespaceless variant. local is reserved — no customer
     # environment may be named that.
     - path: 'overlays/{{ .env }}/**'
       when: '{{ ne .env "local" }}'
-
-    - path: base/dapr/secretstore-kubernetes.yaml.tmpl
-      when: '{{ eq .secretStore "kubernetes" }}'
-    - path: base/dapr/secretstore-azure-keyvault.yaml.tmpl
-      when: '{{ eq .secretStore "azure-keyvault" }}'
-    - path: base/dapr/secretstore-vault.yaml.tmpl
-      when: '{{ eq .secretStore "vault" }}'
-
-    # An in-cluster Secret only makes sense when the secret store reads from the
-    # cluster. With Key Vault or Vault the values live there and committing a
-    # placeholder Secret would be misleading.
-    - path: base/secrets/**
-      when: '{{ eq .secretStore "kubernetes" }}'
 
     # No external connectors means no bindings, and an empty multi-doc file in a
     # kustomize resources list breaks the build. Never for the local environment:

@@ -159,9 +159,9 @@ Notes:
   ⚠️ **Do not add `spec.files` to a pre-existing template until the CLI floor
   moves.** The CLI parses manifests without rejecting unknown fields, so an
   older CLI reading a template that uses `spec.files` silently **ignores the
-  filter and renders every file** — a wrong answer with no error. New templates
-  fetched only by a new command (`deploy-host`, `deploy-component`) are safe
-  because no old CLI ever fetches them.
+  filter and renders every file** — a wrong answer with no error. Deployment
+  templates fetched only by the manifest commands (`deploy-host`,
+  `deploy-component`) are safe because no old CLI ever fetches them.
 
 - **No `spec.steps`**, no `spec.owner`, no `nextSteps`. The model is
   intentionally narrow: a manifest declares parameters and the skeleton tree

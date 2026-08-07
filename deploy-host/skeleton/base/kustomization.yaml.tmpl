@@ -5,10 +5,6 @@ kind: Kustomization
 # matching pubsub-*.yaml is rendered at all.
 resources:
   - dapr/pubsub-{{ .pubsub }}.yaml
-  - dapr/secretstore-{{ .secretStore }}.yaml
 {{- if and (gt (len .topology.connectors) 0) (ne .env "local") }}
   - bindings/bindings.yaml
-{{- end }}
-{{- if eq .secretStore "kubernetes" }}
-  - secrets/secrets.yaml
 {{- end }}

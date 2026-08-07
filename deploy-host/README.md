@@ -1,8 +1,7 @@
 # deploy-host
 
-The system-level half of `intropy deploy init`: the Dapr components a system's
-blocks resolve by name, the secret store behind them, and — on a platform
-without an external one — the Secret holding the placeholders.
+The system-level half of manifest generation: the Dapr components a system's
+blocks resolve by name.
 
 Rendered once per system into `domains/<domain>/<system>/host/`.
 
@@ -28,8 +27,6 @@ Its `component.yaml` declares `kind: shared`, which is how `intropy deploy` and
 | condition | effect |
 |---|---|
 | `pubsub` | only the matching `base/dapr/pubsub-<broker>.yaml` |
-| `secretStore` | only the matching `base/dapr/secretstore-<store>.yaml` |
-| `secretStore == kubernetes` | `base/secrets/` at all |
 | topology has connectors | `base/bindings/` at all |
 
 `base/kustomization.yaml` references `dapr/pubsub-{{ .pubsub }}.yaml`, so the
@@ -39,9 +36,9 @@ Adding a broker is a new `pubsub-<name>.yaml.tmpl`, a new `enum` value and a new
 rule. The CLI is not involved: it passes `platform.pubsub` through from
 `deploy.yaml` without knowing what the values mean.
 
-## Everything is identical across environments
+## Shared pub/sub is identical across environments
 
-The Dapr components live in `base/` and do not vary by environment. What varies
+The pub/sub components live in `base/` and do not vary by environment. What varies
 is the *credential*, and a Component reaches that through `secretKeyRef` — so the
 same YAML resolves to different values in each environment's namespace. The
 overlays are a `namespace:` and a `resources:` line.
@@ -50,29 +47,28 @@ One customer repository does vary the broker per overlay (in-memory in dev,
 RabbitMQ in prod). That is a deviation, not the convention, and this template
 does not reproduce it.
 
-The local cluster is the exception, and it is no variation at all: `int local`
-always renders with `pubsub: rabbitmq`, the broker the k3s setup scripts
-install, so only `pubsub-rabbitmq.yaml` ever reaches a local render. Its
-address (`rabbitmq.fixtures.svc.cluster.local:5672`, credentials
-`guest:guest`) is the fixture contract — dev credentials, inline in the
-Component, with nothing behind the secret store. So the local render also
-skips the `auth:` block and the `rabbitmq-connection` placeholder in
-`base/secrets/`: neither has a consumer there.
+The local cluster is the exception, and it is no variation at all:
+`intropy manifests render --env local` always renders with
+`pubsub: rabbitmq`, the broker the k3s setup scripts install, so only
+`pubsub-rabbitmq.yaml` reaches a
+local render. Its address (`rabbitmq.fixtures.svc.cluster.local:5672`) and
+credentials (`guest:guest`) are the fixture contract — dev values kept inline
+because there is nothing to keep secret locally. Customer environments instead
+reference the platform-owned Secret named by the template.
 
 ## The local overlay
 
-`overlays/local/` is rendered by `intropy int local`, not `deploy init`. It is
-an ordinary thin overlay: `resources: - ../../base` and no namespace line —
+`overlays/local/` is rendered by `intropy manifests render --env local`. It
+is an ordinary thin overlay: `resources: - ../../base` and no namespace line —
 the CLI's root kustomization sets the namespace, so the overlay serves any
 `--namespace` without re-rendering.
 
 What it deliberately does not carry is connector bindings. The fixture
 catalog (the local counterpart of `base/bindings/`) lives on deploy-component,
 next to the block that resolves each binding; deploy-component's README
-explains why, and declares the catalog in `spec.local.fixtures`. A local
-render passes `secretStore: kubernetes`, so the kubernetes secret store and
-the placeholder Secret still render — blocks read secrets through the store
-the same way in every environment.
+explains why, and declares the catalog in `spec.local.fixtures`. The fixture
+broker carries its dev credentials inline and does not depend on the customer
+environments' Secret contract.
 
 ### ApplicationSet safety
 
@@ -88,20 +84,26 @@ Beyond the declared parameters, the CLI injects:
 - `.env` — the environment being rendered. Only meaningful under `overlays/`; the
   CLI refuses a skeleton where it changes anything else.
 - `.topology` — the derived system model: `pubsubs` (with `appIds` for `scopes:`),
-  `connectors` (name, directions, appIds — the topology mints names only;
-  binding types are owned here, so every connector renders as a REPLACE-ME
-  scaffold), `topics`, `components`.
+  `connectors` (name, directions, appIds, and the binding configured for the
+  selected environment; absent choices render as a `REPLACE-ME` scaffold),
+  `topics`, `components`.
 - `.gitops` — `domain`, `system`, `component`, `host`, `registry`,
   `argocdAppNamespace`, `environments`, `platform`.
 
 ## Check a change locally
 
+From a system workspace, validate a GitOps render without creating files or a
+review branch:
+
 ```sh
-intropy deploy init --domain sales --topology topology.json --plan
+intropy manifests create --env dev --domain sales \
+  --template-version feature/my-change --dry-run
 ```
 
-Then render what it produced:
+Validate the local build separately; stdout is the complete Kubernetes YAML
+stream:
 
 ```sh
-kustomize build domains/sales/<system>/host/overlays/dev
+intropy manifests render --env local \
+  --template-version feature/my-change > /tmp/manifests.yaml
 ```

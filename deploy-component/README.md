@@ -1,6 +1,6 @@
 # deploy-component
 
-The per-block half of `intropy deploy init`: one workload and one thin overlay
+The per-block half of manifest generation: one workload and one thin overlay
 per environment.
 
 Rendered once per topology component into
@@ -31,10 +31,9 @@ otherwise). `base/kustomization.yaml` names the picked variant.
 
 ## The image is never pinned here
 
-`spec.values.imageTag` is the literal `unpinned`. `intropy deploy` writes the
-digest, and it is the only thing that may. A tag here would let what runs change
-without a deployment — which is what got an earlier version of this command
-deleted.
+`spec.values.imageTag` is the literal `unpinned`. `intropy deploy pin` writes
+the digest, and it is the only thing that may. A mutable tag here would let what
+runs change without a deployment.
 
 `unpinned` rather than `latest` on purpose: it fails to pull loudly, and it reads
 correctly in an `ImagePullBackOff`.
@@ -42,37 +41,38 @@ correctly in an `ImagePullBackOff`.
 The local render replaces the sentinel with a different convention — see "The
 local overlay" below.
 
-## imageNamespace has no safe default
+## imageNamespace must match CI
 
 Customers disagree on the path segment between the registry and the image name —
-one uses the customer slug, another uses `integrations`. The default is
-`integrations`; override it with `--set imageNamespace=<slug>` or a values file.
-It must match what CI actually pushes.
+one uses the customer slug, another uses `integrations`. The template defaults
+to `integrations`. If CI pushes elsewhere, edit the created GitOps source before
+merge so the workload and `component.yaml` name the same image repository.
 
 ## The local overlay
 
-`overlays/local/` is rendered by `intropy int local`, not `deploy init`: a
+`overlays/local/` is rendered by `intropy manifests render --env local`: a
 one-off render for the local development cluster, piped straight to
 `kubectl apply -f -`. It differs from the environment overlays in three ways.
 
 **The image reference is pinned to a bare name.** `deployment.yaml` and
 `cronjob-local.yaml` render `image: {{ .name }}` — no registry prefix, no
-tag — exactly when `.env` is `local`. `int local` writes a root kustomization
-whose `images[]` entries rewrite that reference to `<name>:dev`, the tag the
-k3s setup scripts build and load component images under. kustomize matches
-`images[]` on the exact rendered string and **silently ignores a miss**, so
+tag — exactly when `.env` is `local`. `intropy manifests render` writes a root
+kustomization whose `images[]` entries rewrite that reference to `<name>:dev`,
+the tag the k3s setup scripts build and load component images under. kustomize
+matches `images[]` on the exact rendered string and **silently ignores a miss**, so
 the bare-name shape is part of the contract; the CLI also fails the render if
 any built Deployment image has no tag, as a second net.
 
 **The fixture bindings live here.** `overlays/local/fixtures/` carries one
 Dapr binding skeleton per fixture type — the closed catalog declared in
 `spec.local.fixtures` (`sftp`, `smb`, `http`, `file`). Each file renders one
-`Component` per topology connector whose recorded binding in the workspace's
-`.intropy/local.yaml` names that fixture, and nothing when none do; the CLI
-fails the render if every catalog file comes out empty, because a bindingless
-local overlay is a template release bug, not a system state. `int local`
-prompts for and validates the bindings, so the values are always catalog
-members.
+`Component` per topology connector whose binding for the local environment —
+recorded in the workspace's `.intropy/deploy-values.yaml` — names that
+fixture, and nothing when none do; the CLI fails the render if every catalog
+file comes out empty, because a bindingless local overlay is a template
+release bug, not a system state. Manifest commands read the choices from
+`.intropy/deploy-values.yaml` and validate them against the catalog; they never
+prompt or rewrite the file.
 
 **Dev values, not placeholders.** Every fixture skeleton points at the
 conventional fixture server the k3s setup scripts always install —
@@ -92,10 +92,11 @@ and any `--image` override without re-rendering.
 
 ### Why a connector's binding lives with the component
 
-`deploy init` renders bindings on the host because a customer cluster
-resolves their credentials through the system's secret store, which the host
-owns. The local cluster needs no secret store — fixture credentials are
-public dev values — and the catalog files *can* live on the host (they render
+`intropy manifests create` renders bindings on the host because
+customer-cluster credentials are environment-owned and shared at the system
+level. The local
+cluster needs no secret material — fixture credentials are public dev values —
+and the catalog files *can* live on the host (they render
 identically there). They live here anyway: a connector is scoped to exactly
 the app-ids that use it, and keeping the binding beside the block that
 resolves it keeps one component's fixture choices out of every other
@@ -116,5 +117,5 @@ There is no path segment in the generator to match on.
 
 `.env`, `.topology`, `.gitops`, `.component` (this block's derived record),
 `.scaffold` (its `.intropy/scaffold.json` values, or `{}`) and — local
-renders only — `.local`, the decided bindings: `.local.bindings` maps
+renders only — `.local`, the configured bindings: `.local.bindings` maps
 connector name to fixture name.
