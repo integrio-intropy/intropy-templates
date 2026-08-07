@@ -1,9 +1,9 @@
-# Azure: Service Bus topics, and credentials out of Key Vault rather than a
-# committed Secret — so base/secrets/ is not rendered at all.
+# Azure: Service Bus topics. Credentials come from a Kubernetes Secret the
+# platform syncs out of Key Vault; the template only declares the Secret name
+# and key the pubsub Component resolves.
 domain: sales
 system: ordersync
 namespace: acme-integrations
 namespacePerEnv: true
 pubsub: servicebus
 pubsubName: pubsub
-secretStore: azure-keyvault

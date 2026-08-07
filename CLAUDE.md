@@ -132,8 +132,8 @@ Notes:
       when: '{{ eq .pubsub "servicebus" }}'
     - path: base/dapr/pubsub-rabbitmq.yaml.tmpl
       when: '{{ eq .pubsub "rabbitmq" }}'
-    - path: base/secrets/**
-      when: '{{ eq .secretStore "kubernetes" }}'
+    - path: base/bindings/**
+      when: '{{ gt (len .topology.connectors) 0 }}'
   ```
 
   Rules:
