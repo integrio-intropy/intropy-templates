@@ -2,9 +2,9 @@
 #
 # Multi-doc rather than a file each: kustomize reads it natively, and adding a
 # connector stays a one-file diff. The topology mints only the connector's name
-# and scopes — the binding's spec.type, address, and credentials are owned
-# here, never in the topology, so every connector renders as a REPLACE-ME
-# scaffold. The name must not change: the blocks resolve the binding as
+# and scopes. Binding type, address, and credentials are environment-owned
+# GitOps configuration, so create-only onboarding leaves explicit placeholders
+# for the reviewer. The name must not change: blocks resolve the binding as
 # binding.<connector-name>.
 {{- range .topology.connectors }}
 ---
@@ -13,9 +13,8 @@ kind: Component
 metadata:
   name: {{ .name }}
 spec:
-  # The topology deliberately carries no binding type — pick the Dapr binding
-  # this connector deploys as (e.g. bindings.sftp, bindings.http,
-  # bindings.localstorage) and fill in its metadata below.
+  # Pick the Dapr binding this connector deploys as (for example,
+  # bindings.sftp or bindings.http) and fill in its metadata below.
   type: REPLACE-ME-BINDING-TYPE
   version: v1
   metadata:

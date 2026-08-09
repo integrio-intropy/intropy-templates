@@ -7,16 +7,15 @@ spec:
   version: v1
   metadata:
     - name: connectionString
+      # With no auth block, secretKeyRef resolves against a plain Kubernetes
+      # Secret in this namespace. That Secret is platform-owned (synced from
+      # Key Vault or applied by hand) — the template only declares the name
+      # and key the platform must provide.
       secretKeyRef:
         name: {{ .secretName }}
         key: servicebus-connection
     - name: maxActiveMessages
       value: "100"
-# Resolved through the system's secret store, not necessarily a Kubernetes
-# Secret: with kubernetes that is the rendered secrets/secrets.yaml, and with
-# Key Vault or Vault the key is looked up there instead.
-auth:
-  secretStore: {{ .system }}-secretstore
 scopes:
 {{- range .topology.pubsubs }}
 {{- range .appIds }}
