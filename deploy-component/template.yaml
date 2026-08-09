@@ -79,7 +79,7 @@ spec:
   # entry here, and the fixture server in the k3s setup scripts — a template PR,
   # not a CLI release.
   local:
-    fixtures: [sftp, smb, http, file]
+    fixtures: [sftp, smb, http, file, blob]
 
   values:
     imageRepo: "{{ .registry }}/{{ .imageNamespace }}/{{ .name }}"

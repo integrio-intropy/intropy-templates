@@ -65,7 +65,7 @@ any built Deployment image has no tag, as a second net.
 
 **The fixture bindings live here.** `overlays/local/fixtures/` carries one
 Dapr binding skeleton per fixture type — the closed catalog declared in
-`spec.local.fixtures` (`sftp`, `smb`, `http`, `file`). Each file renders one
+`spec.local.fixtures` (`sftp`, `smb`, `http`, `file`, `blob`). Each file renders one
 `Component` per topology connector whose binding for this local render names
 that fixture, and nothing when none do. Repeat
 `--binding <connector>=<fixture>` for reproducible renders; an interactive
@@ -76,13 +76,16 @@ against the catalog and never persisted.
 conventional fixture server the k3s setup scripts always install —
 `sftp.fixtures.svc.cluster.local:22` (`intropy`/`intropy`),
 `smb.fixtures.svc.cluster.local:445`, `http.fixtures.svc.cluster.local:8080`
-(wiremock-style stub), and `/data/<connector>` in the component's own
-container for `file`. That fixture contract — namespace, service names,
-ports, credentials, the bare image reference above — is shared with the k3s
-setup scripts and is the only coupling between the two; the rendered
-manifests are otherwise generic and apply to any cluster with Dapr and the
-fixtures installed. Local output must apply cleanly on first run, so nothing
-under `overlays/local/` renders a `REPLACE-ME-*` value.
+(wiremock-style stub), `garage.fixtures.svc.cluster.local:3900`
+(S3-compatible, bucket `dev-fixtures`, pinned dev key pair) for `blob`, and
+`/data/<connector>` in the component's own container for `file`. That fixture
+contract — namespace, service names, ports, credentials, the bare image
+reference above — is owned and verified by the `intropy-dev-env` repo (the
+k3s setup scripts install the fixture servers) and is the only coupling
+between the two; the rendered manifests are otherwise generic and apply to
+any cluster with Dapr and the fixtures installed. Local output must apply
+cleanly on first run, so nothing under `overlays/local/` renders a
+`REPLACE-ME-*` value.
 
 The overlay renders no namespace and no image override of its own: the CLI's
 root kustomization sets both, so the same overlay serves any `--namespace`
