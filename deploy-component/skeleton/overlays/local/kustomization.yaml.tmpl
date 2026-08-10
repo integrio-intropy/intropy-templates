@@ -10,10 +10,26 @@ kind: Kustomization
 # it writes: namespace: targets every rendered resource at once, and images[]
 # rewrites the local/ image reference the base renders (local/{{ .name }}, no
 # tag; pinned in the README) to local/<name>:dev.
+{{- $recorded := dig "local" "bindings" dict . -}}
+{{- $fixtures := dict -}}
+{{- range .topology.connectors }}
+{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}
+{{- if $binding }}{{- $_ := set $fixtures $binding true -}}{{- end }}
+{{- end }}
 resources:
   - ../../base
+{{- if hasKey $fixtures "sftp" }}
   - fixtures/sftp.yaml
+{{- end }}
+{{- if hasKey $fixtures "smb" }}
   - fixtures/smb.yaml
+{{- end }}
+{{- if hasKey $fixtures "http" }}
   - fixtures/http.yaml
+{{- end }}
+{{- if hasKey $fixtures "file" }}
   - fixtures/file.yaml
+{{- end }}
+{{- if hasKey $fixtures "blob" }}
   - fixtures/blob.yaml
+{{- end }}

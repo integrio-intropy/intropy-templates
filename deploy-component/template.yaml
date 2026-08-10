@@ -92,6 +92,22 @@ spec:
     - path: base/deployment.yaml.tmpl
       when: '{{ eq .workload "deployment" }}'
 
+    # The local overlay is static rather than named by .env, so its files must
+    # only render during the local pass. A fixture file exists only when one
+    # connector selected it; otherwise the kustomization must not reference it.
+    - path: overlays/local/kustomization.yaml.tmpl
+      when: '{{ eq .env "local" }}'
+    - path: overlays/local/fixtures/sftp.yaml.tmpl
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "sftp" }}true{{- end }}{{- end }}'
+    - path: overlays/local/fixtures/smb.yaml.tmpl
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "smb" }}true{{- end }}{{- end }}'
+    - path: overlays/local/fixtures/http.yaml.tmpl
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "http" }}true{{- end }}{{- end }}'
+    - path: overlays/local/fixtures/file.yaml.tmpl
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "file" }}true{{- end }}{{- end }}'
+    - path: overlays/local/fixtures/blob.yaml.tmpl
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "blob" }}true{{- end }}{{- end }}'
+
     # The generic environment overlay never renders for the local environment:
     # it and overlays/local/ would both land at overlays/local/, and the walk
     # order ("local" sorts before "{{ .env }}") means the thin overlay would
