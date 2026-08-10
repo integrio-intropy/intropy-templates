@@ -63,7 +63,7 @@ any built Deployment image has no tag, as a second net.
 
 **The fixture bindings live here.** `overlays/local/fixtures/` carries one
 Dapr binding skeleton per fixture type — the closed catalog declared in
-`spec.local.fixtures` (`sftp`, `smb`, `http`, `file`, `blob`). Only fixture files selected by a
+`spec.local.fixtures` (`sftp`, `http`, `file`, `blob`). Only fixture files selected by a
 local connector binding render; each selected file renders one `Component`
 per matching topology connector. Repeat
 `--binding <connector>=<fixture>` for reproducible renders; an interactive
@@ -72,8 +72,8 @@ against the catalog and never persisted.
 
 **Dev values, not placeholders.** Every fixture skeleton points at the
 conventional fixture server the k3s setup scripts always install —
-`sftp.fixtures.svc.cluster.local:22` (`intropy`/`intropy`),
-`smb.fixtures.svc.cluster.local:445`, `http.fixtures.svc.cluster.local:8080`
+`sftp.fixtures.svc.cluster.local:22` (`intropy`/`intropy`, root path
+`/home/intropy`), `http.fixtures.svc.cluster.local:8080`
 (wiremock-style stub), `garage.fixtures.svc.cluster.local:3900`
 (S3-compatible, bucket `dev-fixtures`, pinned dev key pair) for `blob`, and
 `/data/<connector>` in the component's own container for `file`. That fixture
@@ -83,7 +83,18 @@ k3s setup scripts install the fixture servers) and is the only coupling
 between the two; the rendered manifests are otherwise generic and apply to
 any cluster with Dapr and the fixtures installed. Local output must apply
 cleanly on first run, so nothing under `overlays/local/` renders a
-`REPLACE-ME-*` value.
+`REPLACE-ME-*` value. The SFTP fixture's `insecureIgnoreHostKey` is the
+same trade: the fixture server is a disposable dev pod whose host key
+changes on every reinstall, so pinning it serves nothing. That bypass is
+part of the disposable fixture contract only — the GitOps SFTP adapter on
+deploy-host pins `hostPublicKey` and never renders the flag.
+
+The local fixture catalog and deploy-host's GitOps binding catalog
+(`spec.gitops.bindingKinds`) are separate contracts, kept deliberately:
+fixture files carry dev values next to the component, GitOps adapters carry
+reviewed, Secret-backed Components on the host. A connector kind must exist
+in the catalog for its side of the render to offer it; today both catalogs
+are `sftp`, `http`, `file`, `blob`.
 
 The overlay renders no namespace and no image override of its own: the CLI's
 root kustomization sets both, so the same overlay serves any `--namespace`
@@ -99,7 +110,7 @@ and the catalog files *can* live on the host (they render
 identically there). They live here anyway: a connector is scoped to exactly
 the app-ids that use it, and keeping the binding beside the block that
 resolves it keeps one component's fixture choices out of every other
-component's render. The host's `base/bindings/bindings.yaml` is not rendered
+component's render. The host's `base/bindings/` adapters are not rendered
 locally — the CLI renders only the local overlay, and only this overlay
 references fixture files.
 

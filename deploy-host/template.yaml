@@ -40,7 +40,7 @@ spec:
   gitops:
     # Binding kinds are GitOps choices, distinct from deploy-component's local
     # fixture catalog. The CLI validates manifests create --binding against it.
-    bindingKinds: [sftp, smb, http, file, blob]
+    bindingKinds: [sftp, http, file, blob]
 
   values:
     secretName: "{{ .system }}-secrets"
@@ -64,10 +64,19 @@ spec:
     - path: 'overlays/{{ .env }}/**'
       when: '{{ ne .env "local" }}'
 
-    # No external connectors means no bindings, and an empty multi-doc file in a
-    # kustomize resources list breaks the build. Never for the local environment:
-    # the fixture catalog on deploy-component carries the local bindings, and a
-    # REPLACE-ME scaffold here would duplicate every Component the fixtures
-    # render.
-    - path: base/bindings/**
-      when: '{{ and (gt (len .topology.connectors) 0) (ne .env "local") }}'
+    # One adapter file per binding kind, rendered only when at least one
+    # connector selects that kind: an unselected adapter renders zero
+    # documents, and an empty multi-doc file in a kustomize resources list
+    # breaks the build. base/kustomization.yaml builds the same kind set from
+    # the connectors to decide which files it references. Never for the local
+    # environment: the fixture catalog on deploy-component carries the local
+    # bindings, and a REPLACE-ME scaffold here would duplicate every Component
+    # the fixtures render.
+    - path: base/bindings/sftp.yaml.tmpl
+      when: '{{- $hit := "" -}}{{- range .topology.connectors }}{{- if eq .binding "sftp" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
+    - path: base/bindings/http.yaml.tmpl
+      when: '{{- $hit := "" -}}{{- range .topology.connectors }}{{- if eq .binding "http" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
+    - path: base/bindings/file.yaml.tmpl
+      when: '{{- $hit := "" -}}{{- range .topology.connectors }}{{- if eq .binding "file" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
+    - path: base/bindings/blob.yaml.tmpl
+      when: '{{- $hit := "" -}}{{- range .topology.connectors }}{{- if eq .binding "blob" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'

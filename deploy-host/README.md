@@ -27,7 +27,7 @@ Its `component.yaml` declares `kind: shared`, which is how `intropy deploy` and
 | condition | effect |
 |---|---|
 | `pubsub` | only the matching `base/dapr/pubsub-<broker>.yaml` |
-| topology has connectors | `base/bindings/` at all |
+| a connector selects a binding kind | that kind's `base/bindings/<adapter>.yaml` |
 
 `base/kustomization.yaml` references `dapr/pubsub-{{ .pubsub }}.yaml`, so the
 list needs no conditional — the file name follows the parameter.
@@ -60,11 +60,70 @@ reference the platform-owned Secret named by the template.
 
 ## Binding kinds
 
-`intropy manifests create --binding <connector>=<kind>` writes the selected
-Dapr `bindings.<kind>` type into the shared GitOps binding Component. Its
-address, credentials and metadata remain `REPLACE-ME` values for the reviewer.
-The selection is independent of `manifests render --env local`, which resolves
-local fixture bindings without reading or writing the GitOps repository.
+`intropy manifests create --binding <connector>=<kind>` renders the shared
+GitOps binding Component for that connector from the adapter file for the
+selected kind. The selection is independent of `manifests render --env local`,
+which resolves local fixture bindings without reading or writing the GitOps
+repository. The GitOps catalog (`spec.gitops.bindingKinds`) and the local
+fixture catalog (deploy-component's `spec.local.fixtures`) are separate
+contracts: the GitOps side renders reviewed, Secret-backed Components; the
+local side renders dev-valued fixtures.
+
+`base/bindings/` carries one file per adapter, each emitting one
+`Component` per connector that selected it:
+
+| kind | Dapr type | required metadata |
+|---|---|---|
+| `sftp` | `bindings.sftp` | `address`, `rootPath`, `username`, `password` or `privateKey` (exactly one profile), `hostPublicKey` |
+| `http` | `bindings.http` | `url` |
+| `file` | `bindings.localstorage` | `rootPath` |
+| `blob` | `bindings.aws.s3` | `bucket`, `region`, `accessKey`, `secretKey` |
+
+The catalog names do not all match the Dapr type: there is no
+`bindings.file` (the file adapter is `bindings.localstorage`) and no
+`bindings.blob` (the blob adapter is `bindings.aws.s3`). A Kubernetes
+deployment using the file adapter must mount suitable storage at `rootPath`
+on every pod that resolves the binding. The blob adapter declares no
+`endpoint`: it is optional, and setting one is wrong for ordinary AWS S3 —
+an S3-compatible store is the reviewer's per-environment addition.
+
+### The Secret contract
+
+With no auth block, `secretKeyRef` resolves against a plain Kubernetes
+Secret in this namespace. That Secret is platform-owned (synced from Key
+Vault, Vault, or applied by hand) — the template only declares the name and
+the connector-specific keys the platform must provide:
+
+| key | used by |
+|---|---|
+| `<connector>-sftp-username` | `sftp` |
+| `<connector>-sftp-password` | `sftp` (password profile) |
+| `<connector>-sftp-private-key` | `sftp` (private-key profile) |
+| `<connector>-sftp-host-public-key` | `sftp` |
+| `<connector>-s3-access-key` | `blob` |
+| `<connector>-s3-secret-key` | `blob` |
+
+Endpoints (`address`, `url`, `bucket`, `region`, `rootPath`) remain
+`REPLACE-ME` values for the reviewer; credentials never render as values.
+
+SFTP host validation is mandatory in GitOps output: the adapter pins the
+server's SSH host public key via `hostPublicKey`, and never renders
+`insecureIgnoreHostKey`. The private-key profile may add
+`privateKeyPassphrase`; the reviewer deletes whichever authentication
+profile is not in use. The local SFTP *fixture* is the deliberate opposite
+— a disposable dev server whose host key is not worth pinning — and that
+bypass may never travel into GitOps output.
+
+### Which adapter files exist
+
+`spec.files` renders an adapter file only when at least one connector
+selected its kind — an unselected adapter would render zero documents, and
+an empty multi-doc file in a kustomize `resources` list breaks the build.
+`base/kustomization.yaml` collects the same kind set from the connectors,
+deduplicated, so its references always match the rendered files. Adding a
+binding kind is a new adapter file, a `spec.files` rule, a `bindingKinds`
+entry, a kustomization reference, and a row in the table above — a template
+PR, not a CLI release.
 
 ## The local overlay
 

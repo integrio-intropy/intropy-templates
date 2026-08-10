@@ -1,0 +1,64 @@
+# The sftp adapter: one Dapr `bindings.sftp` Component per connector whose
+# topology binding selected `sftp`, as a multi-document file. Metadata
+# contract per dapr/components-contrib bindings/sftp/metadata.yaml.
+#
+# Multi-doc rather than a file each: kustomize reads it natively, and adding a
+# connector stays a one-file diff. The topology mints only the connector's
+# name, label, and scopes. Endpoint and credentials are environment-owned
+# GitOps configuration, so create-only onboarding leaves explicit REPLACE-ME
+# placeholders for the reviewer. The name must not change: blocks resolve the
+# binding as binding.<connector-name>.
+#
+# Secrets live in the platform-owned {{ .secretName }} Secret — the template
+# only declares the connector-specific keys the platform must provide.
+#
+# Host validation is mandatory: the binding pins the server's host key via
+# hostPublicKey. Never set insecureIgnoreHostKey here — a GitOps Component
+# without host-key verification accepts any server.
+#
+# Authentication is either password or private-key, not both (the binding's
+# two authentication profiles). The reviewer deletes the profile not in use.
+{{- range .topology.connectors }}
+{{- if eq .binding "sftp" }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+  labels:
+    intropy.io/connector: {{ .name }}
+spec:
+  type: bindings.sftp
+  version: v1
+  metadata:
+    - name: address
+      value: REPLACE-ME-SFTP-HOST:22
+    - name: rootPath
+      value: REPLACE-ME-SFTP-ROOT-PATH
+    - name: username
+      secretKeyRef:
+        name: {{ $.secretName }}
+        key: {{ .name }}-sftp-username
+    # Password authentication (authentication profile 1): keep password,
+    # delete the privateKey entry below. Private-key authentication (profile
+    # 2): keep privateKey, delete password. Exactly one profile applies.
+    - name: password
+      secretKeyRef:
+        name: {{ $.secretName }}
+        key: {{ .name }}-sftp-password
+    - name: privateKey
+      secretKeyRef:
+        name: {{ $.secretName }}
+        key: {{ .name }}-sftp-private-key
+    # Mandatory host validation: pin the server's SSH host public key
+    # (OpenSSH format). Do not replace with insecureIgnoreHostKey.
+    - name: hostPublicKey
+      secretKeyRef:
+        name: {{ $.secretName }}
+        key: {{ .name }}-sftp-host-public-key
+scopes:
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
