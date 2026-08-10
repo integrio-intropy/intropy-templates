@@ -58,9 +58,17 @@ credentials (`guest:guest`) are the fixture contract — dev values kept inline
 because there is nothing to keep secret locally. Customer environments instead
 reference the platform-owned Secret named by the template.
 
+## Binding kinds
+
+`intropy manifests create --binding <connector>=<kind>` writes the selected
+Dapr `bindings.<kind>` type into the shared GitOps binding Component. Its
+address, credentials and metadata remain `REPLACE-ME` values for the reviewer.
+The selection is independent of `manifests render --env local`, which resolves
+local fixture bindings without reading or writing the GitOps repository.
+
 ## The local overlay
 
-`overlays/local/` is rendered by `intropy manifests render --env local`. It
+`overlays/local/` is rendered only by `intropy manifests render --env local`. It
 is an ordinary thin overlay: `resources: - ../../base` and no namespace line —
 the CLI's root kustomization sets the namespace, so the overlay serves any
 `--namespace` without re-rendering.
@@ -72,12 +80,8 @@ explains why, and declares the catalog in `spec.local.fixtures`. The fixture
 broker carries its dev credentials inline and does not depend on the customer
 environments' Secret contract.
 
-### ApplicationSet safety
-
-If this rendered tree ever lands in a GitOps repository, `overlays/local/`
-cannot produce an ArgoCD Application: the ApplicationSet's cluster generator
-matches only clusters registered in ArgoCD, and the local development cluster
-never is.
+`manifests create` excludes this overlay and every local fixture from the
+GitOps repository.
 
 ## Reserved values
 
@@ -86,8 +90,9 @@ Beyond the declared parameters, the CLI injects:
 - `.env` — the environment being rendered. Only meaningful under `overlays/`; the
   CLI refuses a skeleton where it changes anything else.
 - `.topology` — the derived system model: `pubsubs` (with `appIds` for `scopes:`),
-  `connectors` (name, directions and appIds), `topics`, `components`. GitOps
-  connector bindings remain `REPLACE-ME` scaffolds for reviewers to complete.
+  `connectors` (name, directions, appIds and a selected binding kind), `topics`,
+  `components`. GitOps binding metadata remains `REPLACE-ME` for reviewers to
+  complete.
 - `.gitops` — `domain`, `system`, `component`, `host`, `registry`,
   `argocdAppNamespace`, `environments`, `platform`.
 

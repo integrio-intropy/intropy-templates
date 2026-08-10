@@ -37,6 +37,11 @@ spec:
         description: The name blocks resolve the broker by. Must match what the generated C# uses.
         default: pubsub
         pattern: "^[a-z][a-z0-9-]*$"
+  gitops:
+    # Binding kinds are GitOps choices, distinct from deploy-component's local
+    # fixture catalog. The CLI validates manifests create --binding against it.
+    bindingKinds: [sftp, smb, http, file, blob]
+
   values:
     secretName: "{{ .system }}-secrets"
 

@@ -13,9 +13,9 @@ kind: Component
 metadata:
   name: {{ .name }}
 spec:
-  # Pick the Dapr binding this connector deploys as (for example,
-  # bindings.sftp or bindings.http) and fill in its metadata below.
-  type: REPLACE-ME-BINDING-TYPE
+  # The create command selects the binding kind; endpoint metadata remains
+  # environment-owned GitOps configuration for the reviewer to complete.
+  type: {{ if .binding }}bindings.{{ .binding }}{{ else }}REPLACE-ME-BINDING-TYPE{{ end }}
   version: v1
   metadata:
     - name: REPLACE-ME-METADATA-NAME
