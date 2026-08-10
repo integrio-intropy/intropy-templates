@@ -74,10 +74,10 @@ spec:
 
   values:
     imageRepo: "{{ .registry }}/{{ .imageNamespace }}/{{ .name }}"
-    # Never a real tag. `intropy deploy pin` writes the digest; a tag here would let
-    # what runs change without a deployment, which is the whole thing this
-    # toolchain exists to prevent.
-    imageTag: "unpinned"
+    # The tag CI pushes on every build, so a rendered environment runs the
+    # freshest component image. `intropy deploy pin` writes the digest when a
+    # deployment must be frozen.
+    imageTag: "dev"
 
   files:
     # The CronJob's schedule is deployment configuration that differs between

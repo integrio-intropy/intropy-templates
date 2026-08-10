@@ -30,9 +30,8 @@ spec:
           # through mergeRendered).
           image: local/{{ .name }}
 {{- else }}
-          # The tag is a sentinel, not a version: `intropy deploy` replaces it
-          # with a digest. It fails to pull loudly if anything deploys this
-          # overlay before that happens.
+          # The tag tracks the freshest CI build. `intropy deploy` replaces it
+          # with a digest when a deployment must be pinned.
           image: {{ .imageRepo }}:{{ .imageTag }}
 {{- end }}
           ports:

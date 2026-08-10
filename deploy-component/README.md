@@ -29,16 +29,13 @@ inside one file, because everything outside `overlays/` must render
 identically per environment (the CLI's mergeRendered refuses the render
 otherwise). `base/kustomization.yaml` names the picked variant.
 
-## The image is never pinned here
+## The image tracks the dev tag
 
-`spec.values.imageTag` is the literal `unpinned`. `intropy deploy pin` writes
-the digest, and it is the only thing that may. A mutable tag here would let what
-runs change without a deployment.
+`spec.values.imageTag` is the literal `dev`: the tag CI pushes on every build,
+so a rendered environment runs the freshest component image. `intropy deploy
+pin` writes the digest when a deployment must be frozen.
 
-`unpinned` rather than `latest` on purpose: it fails to pull loudly, and it reads
-correctly in an `ImagePullBackOff`.
-
-The local render replaces the sentinel with a different convention — see "The
+The local render replaces the reference with a different convention — see "The
 local overlay" below.
 
 ## imageNamespace must match CI
