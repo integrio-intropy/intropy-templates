@@ -1,0 +1,101 @@
+apiVersion: intropy.dev/v1
+kind: Template
+metadata:
+  name: deploy-component
+  title: Block deployment manifests
+  description: The workload and overlays for one block, as one ArgoCD Application.
+  tags: [deploy, gitops, kustomize]
+  labels:
+    intropy.dev/template-kind: deploy
+spec:
+  parameters:
+    type: object
+    # domain is optional, deliberately: it is only a GitOps path segment, no
+    # skeleton references it, and a local render has no domain. GitOps creation
+    # derives it from the destination or requires --domain.
+    required: [name, system, registry]
+    properties:
+      name:
+        type: string
+        title: Component
+        description: Block name, as a GitOps path segment.
+        pattern: "^[a-z][a-z0-9-]*$"
+      domain:
+        type: string
+        title: Domain
+        description: Only a GitOps path segment; no skeleton file references it.
+        pattern: "^[a-z][a-z0-9-]*$"
+      system:
+        type: string
+        title: System
+        pattern: "^[a-z][a-z0-9-]*$"
+      appId:
+        type: string
+        title: Dapr app-id
+        description: The identity the sidecar registers as, and what a Component's scopes list.
+      kind:
+        type: string
+        title: Block kind
+        description: The topology's block kind, carried through as a label.
+        default: ""
+      workload:
+        type: string
+        title: Workload
+        description: An extractor is scheduled and exits; everything else stays resident.
+        enum: [cronjob, deployment]
+        default: deployment
+      registry:
+        type: string
+        title: Registry
+        description: The registry from deploy.yaml.
+      imageNamespace:
+        type: string
+        title: Image namespace
+        description: The path segment between the registry and the image name. Must match what CI pushes.
+        default: integrations
+      replicas:
+        type: integer
+        title: Replicas
+        default: 1
+      sourceDir:
+        type: string
+        title: Source directory
+        description: The block's directory in the source repository, used for component.yaml sourcePaths. Empty when no scaffold record was found.
+        default: ""
+  # The closed fixture catalog for the local development cluster: one Dapr
+  # binding skeleton per fixture type in overlays/local/fixtures/, switched on
+  # the connector's binding for this render. Local manifest rendering fails a
+  # release that ships a local overlay without this list and validates explicit
+  # or interactive choices against it. Adding a fixture is a skeleton file, an
+  # entry here, and the fixture server in the k3s setup scripts — a template PR,
+  # not a CLI release.
+  local:
+    fixtures: [sftp, smb, http, file, blob]
+
+  values:
+    imageRepo: "{{ .registry }}/{{ .imageNamespace }}/{{ .name }}"
+    # Never a real tag. `intropy deploy pin` writes the digest; a tag here would let
+    # what runs change without a deployment, which is the whole thing this
+    # toolchain exists to prevent.
+    imageTag: "unpinned"
+
+  files:
+    # The CronJob's schedule is deployment configuration that differs between
+    # the local cluster (a dev cadence, applied unreviewed) and every other
+    # environment (a REPLACE-ME a human fills in), and .env may only vary
+    # under overlays/ — so the variant is picked here, per file, and
+    # base/kustomization.yaml names the picked file. First match decides.
+    - path: base/cronjob.yaml.tmpl
+      when: '{{ and (eq .workload "cronjob") (ne .env "local") }}'
+    - path: base/cronjob-local.yaml.tmpl
+      when: '{{ and (eq .workload "cronjob") (eq .env "local") }}'
+    - path: base/deployment.yaml.tmpl
+      when: '{{ eq .workload "deployment" }}'
+
+    # The generic environment overlay never renders for the local environment:
+    # it and overlays/local/ would both land at overlays/local/, and the walk
+    # order ("local" sorts before "{{ .env }}") means the thin overlay would
+    # silently overwrite the fixture-carrying one. local is reserved for the
+    # local overlay — no customer environment may be named that.
+    - path: 'overlays/{{ .env }}/**'
+      when: '{{ ne .env "local" }}'

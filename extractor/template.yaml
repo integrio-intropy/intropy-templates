@@ -1,0 +1,82 @@
+apiVersion: intropy.dev/v1
+kind: Template
+metadata:
+  name: extractor
+  title: Extractor Integration
+  description: Run-to-completion .NET extractor that sweeps a local source folder once per run, runs each file through the Intropy extractor pipeline, and publishes the result as a CloudEvent to a Dapr pub/sub topic.
+  tags:
+    - example
+    - dotnet
+    - dapr
+    - extractor
+  labels:
+    intropy.io/template-level: example
+    intropy.dev/block-kind: extractor
+    intropy.dev/data-flow: "in"
+
+spec:
+  parameters:
+    type: object
+    required:
+      - name
+      - organization
+      - topic
+      - contract
+    properties:
+      name:
+        type: string
+        title: Project name
+        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed for nested namespaces (e.g. OrderExtractor or Int1055.OrderExtractor).
+        pattern: "^[A-Z][A-Za-z0-9]*(\\.[A-Z][A-Za-z0-9]*)*$"
+      organization:
+        type: string
+        title: Organization
+        description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
+        pattern: "^[A-Z][A-Za-z0-9]*$"
+      topic:
+        type: string
+        title: Topic
+        description: The pub/sub topic the extractor publishes to. The extractor's half of the system contract — scaffold the consuming loader with the same value.
+        pattern: "^[a-z][a-z0-9-]*$"
+      contract:
+        type: string
+        title: Contract type
+        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
+        pattern: "^[A-Z][A-Za-z0-9]*$"
+      empty:
+        type: boolean
+        title: Empty bodies
+        description: When true, strip sample business logic from pipeline step bodies. The resulting project compiles and starts under Dapr, but every step throws NotImplementedException so a migration agent can fill them in. The idempotency and business-incident wiring stays (the extractor pipeline requires it) with throwing extractor lambdas to replace.
+        default: true
+  values:
+    appId: '{{ .name | kebabcase | replace "." "-" }}'
+    # The component's .NET project name, recorded in .intropy/scaffold.json
+    # for workspace-level tooling (e.g. solution file assembly).
+    projectName: '{{ .name }}'
+    # Local feed holding the Intropy.Framework integration builds the
+    # skeleton's csproj references (0.0.0-int.<timestamp> placeholders until a
+    # published framework release carries them). Written into the rendered
+    # nuget.config; point at your own feed when you pack your own builds.
+    nugetFeed: '~/local-nuget'
+    # Name of the sibling shared-contracts project; also drives the dependency
+    # output below and the ProjectReference in the skeleton csproj. Plain
+    # "Contracts" on purpose: the project is scoped to the system directory it
+    # lives in, not to the organization.
+    contracts: 'Contracts'
+    # The pub/sub component name the skeleton publishes through
+    # (Constants.cs). Recorded in .intropy/scaffold.json for
+    # `intropy sys create`, together with the contract parameter above.
+    pubsub: 'pubsub'
+    # The extractor's source connector — the local port it reads the outside
+    # world through. Derived like appId so it stays unique per component.
+    # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to
+    # a local file transport by default (external system and transport are
+    # never asked for at scaffold time).
+    connector: '{{ .name | kebabcase | replace "." "-" }}-source'
+  dependencies:
+    - template: shared-contracts
+      output: '{{ .contracts }}'
+      values:
+        name: '{{ .contracts }}'
+        contract: '{{ .contract }}'
+        empty: '{{ .empty }}'

@@ -1,0 +1,36 @@
+using {{ .name }}.Configuration;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Hosting.TransactionalIntegration.Job;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ .name }}.Test;
+
+/// <summary>
+/// Composition smoke test: the DI graph the system host will run must build
+/// without a Dapr sidecar. Registrations are lazy — a missing registration
+/// (framework upgrade, renamed builder) fails here, not at system-host time.
+/// </summary>
+public class CompositionTests
+{
+    [Fact]
+    public void Composition_ResolvesTransactionalIntegrationRunner()
+    {
+        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+
+        var runner = provider.GetRequiredService<TransactionalIntegrationRunner>();
+
+        Assert.NotNull(runner);
+    }
+
+    [Fact]
+    public void Composition_ResolvesBothFileAdaptersUnderTheirKeys()
+    {
+        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+
+        var source = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourceFileAdapterKey);
+        var destination = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationFileAdapterKey);
+
+        Assert.NotNull(source);
+        Assert.NotNull(destination);
+    }
+}

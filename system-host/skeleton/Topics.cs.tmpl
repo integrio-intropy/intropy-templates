@@ -1,0 +1,13 @@
+using Intropy.Topology;
+using {{ .sharedContracts.name }};
+
+/// <summary>The system's topics, each defined once and shared by every component that touches it.</summary>
+public static class Topics
+{
+{{- range $i, $t := .topics }}
+{{- if $i }}
+{{ end }}
+    /// <summary>{{ $t.contract }} messages on topic '{{ $t.name }}' (pubsub '{{ $t.pubsub }}').</summary>
+    public static readonly TopicRef<{{ $t.contract }}> {{ $t.field }} = TopicRef<{{ $t.contract }}>.Define("{{ $t.pubsub }}", "{{ $t.name }}");
+{{- end }}
+}

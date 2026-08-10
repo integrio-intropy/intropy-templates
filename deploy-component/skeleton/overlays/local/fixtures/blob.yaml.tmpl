@@ -1,0 +1,50 @@
+# The blob fixture: one Dapr binding per connector bound to `blob` for the
+# local environment, pointing at the Garage S3-compatible object store the
+# k3s setup scripts always install. Endpoint, bucket, and the pinned dev
+# credentials are the fixture contract (see deploy-component/README.md) —
+# dev values, not placeholders.
+#
+# The binding travels on the connector itself: manifest rendering injects the
+# explicit or interactive choice for this run. The $recorded fallback keeps a
+# CLI older than that field working with the flat bindings map under .local.
+#
+# Owner, not user: this overlay renders once per component, and a
+# connector's Component may exist exactly once in the build, so the component
+# whose app-id is first in the connector's scopes emits it — scopes still
+# list every app-id that may use it.
+{{- $recorded := dig "local" "bindings" dict . -}}
+{{- range .topology.connectors }}
+{{- $conn := . }}
+{{- $b := dig "binding" "" . -}}
+{{- if and (or (eq $b "blob") (and (not $b) (eq (index $recorded .name) "blob"))) (eq $.component.appId (index $conn.appIds 0)) }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+  labels:
+    intropy.io/connector: {{ .name }}
+spec:
+  type: bindings.aws.s3
+  version: v1
+  metadata:
+    - name: endpoint
+      value: http://garage.fixtures.svc.cluster.local:3900
+    - name: bucket
+      value: dev-fixtures
+    - name: region
+      value: garage
+    - name: forcePathStyle
+      value: "true"
+    - name: disableSSL
+      value: "true"
+    - name: accessKey
+      value: GKdev0fixture0000000001
+    - name: secretKey
+      value: dev-fixture-secret-not-real-0001
+scopes:
+{{- range $conn.appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,173 @@
+using System.Text;
+using CloudNative.CloudEvents;
+using {{ .contracts }};
+using {{ .name }}.Model;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Extractor;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Intropy.Framework.Hosting.RunToCompletion;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }};
+
+/// <summary>
+/// One sweep of the inbound folder: run each listed file through the extract
+/// pipeline, delete the source file once its content has been published (or
+/// cancelled as a duplicate), and leave failed files in place for the next
+/// scheduled run — the idempotency check makes the retry safe.
+/// </summary>
+/// <remarks>
+/// The sweep is deliberately sidecar-free so the integration suite can run it
+/// directly against the framework's testing fakes; the framework's
+/// <c>RunToCompletionRunner</c> (via <see cref="ExtractJob"/>) owns the sidecar
+/// lifecycle and the exit-code mapping around it.
+/// </remarks>
+public class Sweep(
+    [FromKeyedServices(Constants.SourceFileAdapterKey)] IFileAdapter fileAdapter,
+    Extractor<Source{{ .contract }}, {{ .contract }}, Context> pipeline,
+    ILoggerFactory loggerFactory)
+{
+    private readonly ILogger _logger = loggerFactory.CreateLogger("{{ .name }}.Pipeline");
+
+    /// <summary>Sweeps the inbound folder once.</summary>
+    /// <returns>The outcome breakdown: published/incident-routed files as
+    /// <c>Processed</c>, idempotent duplicates as <c>Cancelled</c>, and files left in
+    /// place as <c>Failed</c>. <c>Failed &gt; 0</c> is what asks the scheduler to record a
+    /// failed run.</returns>
+    public virtual async Task<JobRunSummary> SweepAsync(CancellationToken ct)
+    {
+        var files = await fileAdapter.ListAsync();
+        if (files.Count == 0)
+        {
+            _logger.LogInformation("Inbound is empty; nothing to do");
+            return JobRunSummary.Empty;
+        }
+
+        _logger.LogInformation("Swept {Count} file(s) from inbound", files.Count);
+
+        var processed = 0;
+        var failed = 0;
+        var cancelled = 0;
+
+        foreach (var file in files)
+        {
+            switch (await ProcessFileAsync(file.FileName, ct))
+            {
+                case FileOutcome.Processed:
+                    processed++;
+                    break;
+                case FileOutcome.Cancelled:
+                    cancelled++;
+                    break;
+                default:
+                    failed++;
+                    break;
+            }
+        }
+
+        if (failed > 0)
+            _logger.LogWarning("{Failed} of {Total} file(s) failed; exiting 1 so the scheduler records a failed run",
+                failed, files.Count);
+
+        return new JobRunSummary(processed, failed, cancelled);
+    }
+
+    /// <summary>How a single swept file ended up. Distinct from the pipeline's
+    /// <c>StepResult</c>: this is the sweep's consumption outcome (after the source-file
+    /// delete), not the pipeline's processing result.</summary>
+    private enum FileOutcome
+    {
+        /// <summary>Published (or incident-routed) and the source file consumed.</summary>
+        Processed,
+        /// <summary>Cancelled as an idempotent duplicate and the source file consumed.</summary>
+        Cancelled,
+        /// <summary>Left in place for the next run: read/no-content/pipeline failure, or
+        /// a delete failure after a successful publish.</summary>
+        Failed
+    }
+
+    /// <returns>The file's consumption outcome. A delete failure after a successful
+    /// publish or duplicate-cancel maps to <see cref="FileOutcome.Failed"/> (the file
+    /// stays), preserving the existing exit-code semantics — even though the order was
+    /// published, the run is not clean.</returns>
+    private async Task<FileOutcome> ProcessFileAsync(string fileName, CancellationToken ct)
+    {
+        string? content;
+        try
+        {
+            content = await fileAdapter.GetContentAsync(fileName, Encoding.UTF8);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Cooperative cancellation is not a per-file failure: let it
+            // propagate so the runner maps the abort to exit 0.
+            throw;
+        }
+        catch (Exception e)
+        {
+            // A listed file that cannot be read (dead source, corrupt file)
+            // stays in place and fails loudly — never silently skipped.
+            _logger.LogWarning(e, "Could not read {FileName}; leaving it for the next scheduled run",
+                fileName);
+            return FileOutcome.Failed;
+        }
+
+        if (content is null)
+        {
+            // A listed file with no content is stuck: count it and keep it so
+            // the run exits 1 instead of silently skipping it.
+            _logger.LogWarning("{FileName} was listed but has no content; leaving it for the next scheduled run",
+                fileName);
+            return FileOutcome.Failed;
+        }
+
+        var context = new Context(new Dictionary<string, string>
+        {
+            [Constants.ContextKeyFileName] = fileName
+        });
+
+        var (result, _) = await pipeline.Execute(content, context, ct);
+
+        switch (result)
+        {
+            case StepResult<CloudEvent>.Success success:
+                _logger.LogInformation("Published {Subject} to topic {Topic} ({PubSub})",
+                    success.Value.Subject, Constants.TopicName, Constants.PubSubName);
+                return await DeleteSourceFileAsync(fileName, FileOutcome.Processed, ct);
+            case StepResult<CloudEvent>.Cancelled:
+                _logger.LogInformation("Cancelled {FileName} as a duplicate (idempotency check)",
+                    fileName);
+                return await DeleteSourceFileAsync(fileName, FileOutcome.Cancelled, ct);
+            default:
+                _logger.LogWarning("Processing {FileName} failed ({ResultType}); leaving it for the next scheduled run",
+                    fileName, result.GetType().Name);
+                return FileOutcome.Failed;
+        }
+    }
+
+    /// <returns><paramref name="onDeleted"/> when the file was deleted;
+    /// <see cref="FileOutcome.Failed"/> when the delete failed and the file stays.
+    /// A failed delete after a successful publish is safe: the next run re-processes the file
+    /// and the idempotency check cancels the duplicate — but the run is not clean, so it
+    /// counts as failed rather than as <paramref name="onDeleted"/>.</returns>
+    private async Task<FileOutcome> DeleteSourceFileAsync(string fileName, FileOutcome onDeleted, CancellationToken ct)
+    {
+        try
+        {
+            await fileAdapter.DeleteAsync(fileName);
+            return onDeleted;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning(e, "Could not delete {FileName} after processing; the next run re-processes it and idempotency cancels the duplicate",
+                fileName);
+            return FileOutcome.Failed;
+        }
+    }
+}

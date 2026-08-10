@@ -1,0 +1,49 @@
+using System.Text.Json;
+using CloudNative.CloudEvents;
+using {{ .contracts }};
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Framework.Blocks.Loader.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+public class Deserializer : DeserializeStep<{{ .contract }}, Context>
+{
+    protected override Task<(BusinessStepResult<{{ .contract }}> Result, Context Context)> DeserializeAsync(
+        CloudEvent cloudEvent, Context context)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        var json = cloudEvent.Data?.ToString();
+        if (string.IsNullOrEmpty(json))
+        {
+            var incident = new BusinessIncidentData
+            {
+                Description = "CloudEvent data is null or empty",
+                Context = new Dictionary<string, string>()
+            };
+            return Task.FromResult<(BusinessStepResult<{{ .contract }}>, Context)>(
+                (new BusinessStepResult<{{ .contract }}>.Failure(incident), context));
+        }
+
+        var order = JsonSerializer.Deserialize<{{ .contract }}>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+
+        context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
+
+        // The idempotency check keys off the CloudEvent Subject/Time context
+        // keys the base step extracted from the envelope. Stamp both from the
+        // order's business identity: for extractor-published events these equal
+        // the envelope values, and a `dapr publish` envelope carries no Subject
+        // and a wall-clock Time — a per-delivery value that would make the
+        // duplicate check pass everything.
+        context.Metadata[Constants.ContextKeyCloudEventSubject] = order.OrderId;
+        context.Metadata[Constants.ContextKeyCloudEventTime] = order.OrderDate.ToString("O");
+
+        return Task.FromResult<(BusinessStepResult<{{ .contract }}>, Context)>(
+            (new BusinessStepResult<{{ .contract }}>.Success(order), context));
+{{- end }}
+    }
+}

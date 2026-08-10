@@ -1,0 +1,30 @@
+# Render fixture: the full value payload, as `intropy sys create` assembles it
+# from the tutorial's order-flow workspace (one extractor, one loader, the
+# shared Contracts project). The payload parameters are required and
+# pre-joined: each component carries the Topics/Connectors field identifiers
+# it touches, and sharedContracts.include is the ProjectReference path from
+# the host's output directory to the contracts csproj.
+#   intropy int create system-host -o /tmp/system-host-out -f system-host/examples/minimal.yaml --version main --no-input
+name: order-flow
+topics:
+  - pubsub: pubsub
+    name: orders
+    contract: Order
+    field: Orders
+connectors:
+  - name: order-extractor-source
+    field: OrderExtractorSource
+  - name: order-loader-destination
+    field: OrderLoaderDestination
+components:
+  - appId: order-extractor
+    kind: extractor
+    topicField: Orders
+    connectorField: OrderExtractorSource
+  - appId: order-loader
+    kind: loader
+    topicField: Orders
+    connectorField: OrderLoaderDestination
+sharedContracts:
+  name: Contracts
+  include: ../Contracts/Contracts.csproj

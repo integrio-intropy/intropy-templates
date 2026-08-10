@@ -1,0 +1,47 @@
+# Agent Instructions
+
+This project is the shared contracts class library of an Intropy integration
+system. It holds the contract types that cross component boundaries; sibling
+components (extractor, loader) reference it with a `ProjectReference` and
+exchange exactly these shapes over pub/sub.
+
+## Project overview
+
+- Framework: .NET 10 class library (no entrypoint, no Dapr)
+- Assembly / root namespace: `{{ .name }}`
+- Referenced by sibling components as `../{{ .name }}/{{ .name }}.csproj` —
+  the folder name, csproj name, and namespace must stay in sync
+- Scaffolded once by the first component template that declared it as a
+  dependency; later component scaffolds detect `.intropy/scaffold.json` here
+  and leave the project untouched
+
+## Important files
+
+- `{{ .name }}.csproj` - the class library project; sibling components point
+  their `ProjectReference` at this file.
+- `{{ .contract }}.cs` - the canonical order contract the extractor publishes and
+  the loader consumes.
+- `OrderLine.cs` - the line item record embedded in `{{ .contract }}`.
+
+## Build
+
+```bash
+dotnet build
+```
+
+There is no Taskfile — the library is built implicitly by every referencing
+component's `task build` / `dotnet build`.
+
+## Development notes
+
+- A contract change here fans out to every referencing component on rebuild;
+  compile errors in a component after editing this project mean the component
+  still maps to the old shape.
+{{- if .empty }}
+- The contract was scaffolded empty (`public record {{ .contract }}()`); fill in the
+  real fields before implementing the component pipeline steps that map to it.
+{{- end }}
+
+## Framework guidance
+
+How-to knowledge for the Intropy framework (pipelines, blocks, endpoints, Dapr components, testing) lives in the Intropy skills collection under `.agents/skills/`. If it is not installed, run `intropy skills collection add --name intropy --ref harbor.intropy.io/skills/index:latest`.

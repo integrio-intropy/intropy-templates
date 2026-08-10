@@ -1,0 +1,147 @@
+# {{ .name }}
+
+.NET extractor integration. One run = one sweep: the runner lists the
+inbound folder, runs each swept JSON order through the Intropy extractor
+pipeline, publishes the result as a CloudEvent to the `{{ .topic }}` topic on
+the Dapr pub/sub, deletes the source file, and exits. Scheduling lives
+outside the block — activation cadence is deployment configuration (a
+Kubernetes CronJob in production); locally the system host runs the block
+once at startup.
+
+## Build and test
+
+```bash
+task build
+task test
+```
+
+The extractor does not run standalone. It runs via its system host, which
+runs it once at startup, provides the
+source binding, pub/sub, and platform services, and carries the sample data
+used to seed a run. A re-run is a host restart. `task test` covers the component-level loop: pipeline
+unit tests plus integration tests proving the whole DI graph and the sweep
+behave without a sidecar (`task test:unit` / `task test:integration` run the
+suites separately). `task coverage` runs the integration suite with
+branch coverage (Cobertura report under the integration project's
+`TestResults/`).
+
+## Testing strategy
+
+The integration suite runs against `Intropy.Framework.Testing` fakes — no
+Dapr sidecar, no Testcontainers, no live platform services. The one principle
+throughout: **build the pipeline exactly as production composition does, fake
+only the edges, assert on fake state.** NSubstitute appears only where the
+testing library deliberately leaves a seam open: the `DaprClient` publish
+capture in `PublishIntegrationTests`.
+
+### Layers
+
+| Layer | Project / files | What it pins |
+|---|---|---|
+| Step unit tests | `test/{{ .name }}.Test.Unit/Process/*Tests.cs` | Each pipeline step's own contract: `Deserializer` (valid JSON, `order_id` stamped into the context), `Validator` (all four branches), `Transformer` (line-content fidelity). (Serialization is the framework's
+`CloudEventSerializeStep`, tested in the framework.) |
+| Sweep integration | `test/{{ .name }}.Test.Integration/SweepTests.cs` | The full pipeline (deserialize → validate → idempotency → transform → serialize → publish) over one inbound sweep, with `FakeTopic` at the publish edge. Pins the sweep's consumption contract: published, duplicate-cancelled, and incident-routed files are all deleted; technical failures stay and are counted.{{- if .empty }} In this empty-bodies scaffold three tests are not included: business-failure incident routing (which input fails validation is the Validator's to define), duplicate-cancel, and delete-failure-redelivery (the latter two need the duplicate simulation the idempotency extractor lambdas enable). Add them as the corresponding implementation lands.{{- end }} |
+| Composition / publish | `test/{{ .name }}.Test.Integration/PublishIntegrationTests.cs`, `CompositionTests.cs` | The real DI graph from `Composition` with only the externals faked. Proves the DI graph builds without a sidecar and that the DI-registered `DaprTopicPublisher` wires pubsub name, topic, and structured-mode CloudEvent encoding correctly (captured via `PublishedMessageCapture`). |
+
+### The edges and their fakes
+
+- **Inbound files** — `InMemoryFileAdapter`. Stateful (List → GetContent →
+  Delete behaves consistently), with fault injection: `AddUnreadableFile`
+  (per-file read throws), `SetDeleteException` (publish-succeeds-but-delete-
+  fails), `ReadException`/`WriteException` (dead source/destination).
+- **Topic** — `FakeTopic<Context>`, swapped into DI in place of the production
+  `SendStep<Context>` registration (a `DaprTopicPublisher`), exactly like the
+  other externals. `Count`/`Events` expose exactly what the real publisher
+  would have encoded; `SendException` simulates a dead broker.
+- **Platform services** — `FakeIdempotencyServiceClient` and
+  `FakeBusinessIncidentServiceClient`. Tests assert on recorded state
+  (`Committed`, `Incidents.Single().Data.Description`) directly.
+- **DaprClient publish** — the one seam the library doesn't fake. A minimal
+  NSubstitute stub forwards `PublishByteEventAsync` into
+  `PublishedMessageCapture`; `DecodeCloudEvent()` decodes the structured-mode
+  envelope.
+
+### Behaviors pinned
+
+- **Never retry a poison file.** Invalid input routes a business incident and
+  consumes the file; a business failure does **not** commit idempotency (a
+  corrected redelivery must not cancel as seen-before).
+- **Exactly-once survives a delete failure.** Publish succeeds, delete throws
+  → next run re-processes, idempotency cancels the duplicate, no double-publish.
+- **One bad file never blocks the batch.** Per-file failures (read throws,
+  broker down mid-batch) are isolated; remaining files still process, `failed`
+  counts only the failed ones.
+- **A stuck file fails loudly.** A listed-but-unreadable file is counted and
+  kept so the CronJob exits 1, not silently skipped.
+
+### What is deliberately not tested
+
+No Testcontainers or real Dapr sidecar: `PublishIntegrationTests` already
+proves the wiring at near-zero cost. Revisit only if the real sidecar's
+structured-mode or metadata behavior is ever suspected of diverging.
+
+## Shared contracts
+
+The canonical contract types (`{{ .contract }}`, `OrderLine`) live in the sibling
+`../{{ .contracts }}` project, referenced from `src/{{ .name }}.csproj`. It was
+scaffolded together with this project (or already existed — components in the
+same parent directory share it); the consuming loader deserializes exactly
+those records.
+
+## Container image
+
+```bash
+docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .
+```
+
+Multi-stage build on the .NET 10 chiseled runtime. The shared contracts sibling
+enters the build as the `contracts` named context (it lies outside this build
+context). The image contains only the app — the Dapr sidecar and components
+come from the deployment environment.
+
+## Pipeline
+
+Per swept file (`src/Sweep.cs` drives this once per run, hosted by the
+framework's `RunToCompletionRunner`, which owns the sidecar lifecycle, tracing,
+and the 0/1/2 exit-code mapping — success / job failure / infrastructure
+failure — via `src/ExtractJob.cs`):
+{{- if .empty }}
+
+1. `Deserializer` parses the JSON into `Source{{ .contract }}`.
+2. `Validator` enforces business rules.
+3. Idempotency check — cancels duplicates.
+4. `Transformer` maps `Source{{ .contract }}` → the shared `{{ .contract }}` contract.
+5. `CloudEventSerializeStep` (framework) wraps `{{ .contract }}` in a CloudEvent
+   (Subject and Time are mandatory).
+6. The Dapr topic publisher sends it to `pubsub` / `{{ .topic }}`.
+
+Every step body throws `NotImplementedException` — this project was scaffolded
+with empty bodies for a migration agent to fill in. The idempotency and
+business-incident wiring is already in place; point the idempotency extractors
+at stable business fields when you implement the steps (see `AGENTS.md`).
+
+The test suite is real and fails out of the box by design: every test drives
+the pipeline into a throwing step or extractor lambda (only `CompositionTests`
+starts green). The suite flips green piece by piece as the steps are
+implemented — the failing tests are the to-do list.
+{{- else }}
+
+1. `Deserializer` parses the JSON into `Source{{ .contract }}` and stamps `order_id` into the
+   pipeline context.
+2. `Validator` enforces required fields and basic business rules; failures are
+   routed to the Business Incident Service.
+3. Idempotency check — asks the Idempotency Service whether this `OrderId` /
+   `OrderDate` combination was already processed; duplicates cancel the run.
+4. `Transformer` maps `Source{{ .contract }}` → the canonical `{{ .contract }}` shape from the
+   shared contracts project (`../{{ .contracts }}`) that the consuming loader
+   deserializes.
+5. `CloudEventSerializeStep` (framework) wraps `{{ .contract }}` in a CloudEvent with
+   `Subject` = order id and `Time` = order date, validating both at serialize
+   time.
+6. The Dapr topic publisher sets the envelope source/type and sends it to
+   `pubsub` / `{{ .topic }}`.
+
+On success (or an idempotent duplicate) the source file is deleted; a failed
+file stays in the inbound folder and is retried on the next scheduled run,
+which the run's exit code 1 asks the CronJob to record as failed.
+{{- end }}

@@ -1,0 +1,30 @@
+using Intropy.Topology;
+
+/// <summary>The {{ .name }} system: what exists, and what connects it.</summary>
+public sealed class {{ .systemClass }} : ISystemDefinition
+{
+    public string SystemName => "{{ .name }}";
+
+    public void Define(SystemBuilder builder)
+    {
+{{- range .components }}
+{{- if eq .kind "extractor" }}
+        builder.AddExtractor("{{ .appId }}")
+{{- if .connectorField }}
+            .From(Connectors.{{ .connectorField }})
+{{- end }}
+            .Publishes(Topics.{{ .topicField }})
+            .Uses(Services.Idempotency)
+            .Uses(Services.BusinessIncidents);
+{{- else }}
+        builder.AddLoader("{{ .appId }}")
+            .Subscribes(Topics.{{ .topicField }})
+{{- if .connectorField }}
+            .To(Connectors.{{ .connectorField }})
+{{- end }}
+            .Uses(Services.Idempotency)
+            .Uses(Services.BusinessIncidents);
+{{- end }}
+{{- end }}
+    }
+}

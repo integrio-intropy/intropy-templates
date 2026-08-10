@@ -1,0 +1,28 @@
+using System.Net;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Testing;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// Boot smoke test: the host the system will run must build and expose its
+/// Dapr surface without a sidecar. A missing registration (framework
+/// upgrade, renamed builder) fails here, not at system-host time.
+/// </summary>
+public class BootSmokeTests
+{
+    [Fact]
+    public async Task Host_BuildsAndAnnouncesItsSubscription()
+    {
+        using var factory = new WebApplicationFactory<Program>();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/dapr/subscribe");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var subscription = payload.RootElement[0];
+        Assert.Equal(Constants.PubSubName, subscription.GetProperty("pubsubName").GetString());
+        Assert.Equal(Constants.TopicName, subscription.GetProperty("topic").GetString());
+    }
+}

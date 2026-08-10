@@ -1,30 +1,22 @@
 # {{ .name }}
 
-.NET transactional integration job. Polls JSON orders from a local inbound folder,
-publishes them onto an in-memory Dapr pub/sub topic, processes each one through a
-VETER pipeline, and writes the transformed result to a local outbound folder.
+.NET transactional integration job. Reads JSON orders from an inbound Dapr
+file binding, publishes them onto a Dapr pub/sub topic, processes each one
+through a VETER pipeline, and writes the transformed result to an outbound
+file binding.
 
-## Run
+## Build and test
 
 ```bash
-task run
+task build
+task test
 ```
 
-This seeds `./local/storage/inbound` with the bundled sample order, starts the
-local stack (grafana/otel-lgtm observability plus the Intropy Idempotency Service
-and Business Incident Service — see `local/platform-services/`), and runs the job
-once under Dapr. The runner picks up the file, publishes it via in-memory pub/sub
-to topic `orders`, runs the send pipeline, writes the transformed JSON to
-`./local/storage/outbound/<orderId>.json`, and deletes the source file.
-
-{{- if not .empty }}
-Run `task run` again with the same order and the send pipeline cancels at the
-idempotency check instead of writing twice — the second run's trace shows the
-check step cancelled and no downstream steps.
-{{- end }}
-
-Other tasks: `task build`, `task test`, `task clean` (remove `./local/storage`),
-and `task services:down` (stop the local stack). See `Taskfile.yml`.
+The job does not run standalone. It runs via its system host, which provides
+the storage bindings, pub/sub, and platform services, and carries the sample
+data used to seed a run. `task test` covers the component-level loop:
+send-pipeline unit tests plus a composition smoke test proving the DI graph
+builds without a sidecar.
 
 ## Container image
 

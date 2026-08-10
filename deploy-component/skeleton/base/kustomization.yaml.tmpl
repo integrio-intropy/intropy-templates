@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+{{- if eq .workload "cronjob" }}
+  # The schedule is env-dependent, so the file rules pick the CronJob variant
+  # and this list names the variant file: local gets a dev cadence, every
+  # other environment the REPLACE-ME scaffold a human fills in.
+{{- if eq .env "local" }}
+  - cronjob-local.yaml
+{{- else }}
+  - cronjob.yaml
+{{- end }}
+{{- else }}
+  - deployment.yaml
+{{- end }}
+
+# includeSelectors: false on purpose. A Deployment's spec.selector is immutable
+# after creation, so letting these labels into it would turn any later change to
+# them into a failed apply. The workload declares its own selector.
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/name: {{ .name }}
+      app.kubernetes.io/part-of: {{ .system }}
+{{- if .kind }}
+      intropy.io/block-kind: {{ .kind }}
+{{- end }}

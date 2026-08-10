@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <Sdk Name="Aspire.AppHost.Sdk" Version="13.4.6" />
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>{{ .projectName }}.SystemHost</RootNamespace>
+        <IsAspireHost>true</IsAspireHost>
+        <IsPackable>false</IsPackable>
+        <UserSecretsId>{{ .name }}-systemhost</UserSecretsId>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Aspire.Hosting.AppHost" Version="13.4.6" />
+        <!-- The Intropy.Topology packages must be resolvable from your NuGet feed.
+             0.4.0 is the floor: the topology carries only minted facts —
+             connector identity is the name alone (no declared transport) and
+             activation cadence lives in deployment configuration, so the
+             declaration files below use the name-only ConnectorRef API and
+             declare no schedules. Earlier versions cannot compile this scaffold. -->
+        <PackageReference Include="Intropy.Topology.Aspire" Version="0.4.0" />
+        <PackageReference Include="Intropy.Topology.Generation" Version="0.4.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Shared contracts project (the workspace's shared-library scaffold).
+             IsAspireProjectResource="false" keeps the Aspire AppHost from
+             treating the class library as an orchestrated resource. -->
+        <ProjectReference Include="{{ .sharedContracts.include }}" IsAspireProjectResource="false" />
+    </ItemGroup>
+
+</Project>

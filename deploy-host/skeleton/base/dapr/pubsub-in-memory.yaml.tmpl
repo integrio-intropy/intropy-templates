@@ -1,0 +1,15 @@
+# In-memory pub/sub: no broker, and no message leaves the pod. Only correct when
+# a single block both publishes and subscribes.
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .pubsubName }}
+spec:
+  type: pubsub.in-memory
+  version: v1
+scopes:
+{{- range .topology.pubsubs }}
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}

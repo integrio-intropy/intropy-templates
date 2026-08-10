@@ -1,0 +1,51 @@
+using {{ .name }}.Model;
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+public class Validator : ValidateStep<Source{{ .contract }}, Context>
+{
+    public override Task<(BusinessStepResult<Source{{ .contract }}> Result, Context Context)> ExecuteAsync(
+        Source{{ .contract }} input, Context context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        var error = Validate(input);
+        if (error is not null)
+        {
+            var incident = new BusinessIncidentData
+            {
+                Description = error,
+                Context = new Dictionary<string, string>
+                {
+                    { "orderId", input.OrderId }
+                }
+            };
+            return Task.FromResult<(BusinessStepResult<Source{{ .contract }}>, Context)>(
+                (new BusinessStepResult<Source{{ .contract }}>.Failure(incident), context));
+        }
+
+        return Task.FromResult<(BusinessStepResult<Source{{ .contract }}>, Context)>(
+            (new BusinessStepResult<Source{{ .contract }}>.Success(input), context));
+{{- end }}
+    }
+{{- if not .empty }}
+
+    private static string? Validate(Source{{ .contract }} order)
+    {
+        if (string.IsNullOrWhiteSpace(order.OrderId))
+            return "OrderId is required";
+        if (string.IsNullOrWhiteSpace(order.CustomerId))
+            return "CustomerId is required";
+        if (order.OrderDate > DateTimeOffset.UtcNow)
+            return $"OrderDate {order.OrderDate:O} is in the future";
+        if (order.Lines.Count == 0)
+            return "Order must contain at least one line";
+        return null;
+    }
+{{- end }}
+}

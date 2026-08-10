@@ -1,0 +1,12 @@
+using Intropy.Topology;
+
+/// <summary>The system's connectors: the named ports its edge blocks reach the outside world through. The name is each connector's whole identity — the Dapr binding component's name is derived (<c>binding.&lt;connector-name&gt;</c>), and its deployed type, address, and credentials are environment-owned deployment configuration. The development definition resolves each connector to a local folder under test/ so the system runs with zero external configuration.</summary>
+public static class Connectors
+{
+{{- range $i, $c := .connectors }}
+{{- if $i }}
+{{ end }}
+    /// <summary>Locally resolved to <c>./test/{{ $c.name }}</c>; the deployed binding type is environment-owned deployment configuration.</summary>
+    public static readonly ConnectorRef {{ $c.field }} = ConnectorRef.Define("{{ $c.name }}");
+{{- end }}
+}

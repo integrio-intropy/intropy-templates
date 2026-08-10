@@ -1,9 +1,9 @@
 # Agent Instructions
 
 This project is a .NET transactional integration job built on the Intropy
-framework. It reads files from a local Dapr file binding, publishes each one
-onto an in-memory Dapr pub/sub topic, and processes them through a VETER send
-pipeline that writes the transformed result to a second local file binding.
+framework. It reads files from a Dapr file binding, publishes each one onto a
+Dapr pub/sub topic, and processes them through a VETER send pipeline that
+writes the transformed result to a second file binding.
 
 ## Project overview
 
@@ -11,48 +11,49 @@ pipeline that writes the transformed result to a second local file binding.
 - App type: Console job (no web endpoints)
 - Runner: `Intropy.Framework.Hosting.TransactionalIntegration.Job.TransactionalIntegrationRunner`
 - App id: `{{ .appId }}`
-- Pub/sub component: `pubsub` (in-memory)
+- Pub/sub component: `pubsub`
 - Topic: `orders`
-- Source binding: `inbound-storage` (Dapr local storage, rootPath `./local/storage/inbound`)
-- Destination binding: `outbound-storage` (Dapr local storage, rootPath `./local/storage/outbound`)
+- Source binding: `inbound-storage` — the name must match the binding the
+  system host generates for this component
+- Destination binding: `outbound-storage` — same: generated and resolved by
+  the system host
 {{- if not .empty }}
 - Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
-  (locally an `HTTPEndpoint` component pointing at `http://127.0.0.1:8080`)
 - Business Incident Service: reached via Dapr service invocation, app id
-  `business-incident-service` (locally an `HTTPEndpoint` at `http://127.0.0.1:8081`)
+  `business-incident-service`
 {{- end }}
 
 ## Important files
 
-- `Taskfile.yml` - local-dev tasks; `task run` is the canonical way to run the job.
+- `Taskfile.yml` - build and test tasks (`task build`, `task test`).
 - `Dockerfile` - multi-stage image build on the .NET chiseled runtime
   (`docker build -t {{ .appId }} .`); the image contains only the app — the
   Dapr sidecar and components come from the deployment environment.
-- `src/Program.cs` - DI wiring and entrypoint that runs the `TransactionalIntegrationRunner`.
+- `src/Program.cs` - entrypoint: builds the service provider via `Composition`
+  and runs the `TransactionalIntegrationRunner`.
+- `src/Configuration/Composition.cs` - every service registration, shared by
+  the entrypoint and the composition smoke test.
 - `src/Configuration/Constants.cs` - component names, keyed-adapter keys, context metadata keys.
 - `src/Receive/` - source listing and the receive pipeline steps (`Receiver`, `Enqueuer`, `Completer`).
 - `src/Send/` - the VETER send pipeline steps.
-- `test/` - xUnit tests for the send pipeline steps (`task test`).
-- `local/dapr-components/` - the job's local Dapr components (pub/sub, storage bindings,
-  HTTPEndpoints for the platform services).
-- `local/platform-services/` - Docker Compose + Dapr components for the local
-  Idempotency Service and Business Incident Service (included by `docker-compose.yml`).
-- `local/sample-data/sample-order.json` - sample input seeded into the inbound folder.
+- `test/` - xUnit tests: send pipeline steps plus the composition smoke test
+  (`task test`).
 
-## Build and run
+## Build and test
 
-`task run` is the canonical run path. It seeds the inbound folder with the
-sample order, starts the local stack (grafana/otel-lgtm plus the Idempotency
-Service and Business Incident Service with their backing stores), and runs the
-job once under Dapr with OTLP export configured; the job exits when done.
+Components do not run standalone — this job runs via its system host, which
+provides every Dapr component (storage bindings, pub/sub, platform services)
+and carries the sample data used to seed a run. The component-level loop is
+build and test:
 
 ```bash
-task run
+task build
+task test
 ```
 
-Other tasks: `task build` (dotnet build), `task test` (dotnet test), `task clean`
-(stop the Dapr app and remove `./local/storage`), `task services:down` (stop the
-local stack). See `Taskfile.yml` for ports and flags.
+`task test` runs the send-pipeline unit tests (steps faked at the adapter
+seam) and a composition smoke test that builds the whole DI graph — runner
+and both keyed file adapters — without a sidecar.
 
 ## Development notes
 
@@ -65,7 +66,7 @@ local stack). See `Taskfile.yml` for ports and flags.
   dateExtractor)` and `.WithBusinessIncidents(client, messageIdExtractor, subjectExtractor)`
   to the send pipeline builder in `Send/ServiceCollectionExtensions.cs` (and
   `.WithBusinessIncidents(...)` on the receive pipeline), register the clients in
-  `Program.cs` with `services.AddIdempotencyServiceClient()` and
+  `Configuration/Composition.cs` with `services.AddIdempotencyServiceClient()` and
   `services.AddBusinessIncidentServiceClient()`, and pick a stable business identifier
   and business timestamp for the idempotency extractors.
 {{- else }}

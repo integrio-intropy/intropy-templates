@@ -1,0 +1,8 @@
+{{- if not .empty -}}
+namespace {{ .name }};
+
+public record OrderLine(
+    string Sku,
+    int Quantity,
+    decimal UnitPrice);
+{{ end -}}

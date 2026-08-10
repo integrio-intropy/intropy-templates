@@ -1,0 +1,24 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .pubsubName }}
+spec:
+  type: pubsub.azure.servicebus.topics
+  version: v1
+  metadata:
+    - name: connectionString
+      # With no auth block, secretKeyRef resolves against a plain Kubernetes
+      # Secret in this namespace. That Secret is platform-owned (synced from
+      # Key Vault or applied by hand) — the template only declares the name
+      # and key the platform must provide.
+      secretKeyRef:
+        name: {{ .secretName }}
+        key: servicebus-connection
+    - name: maxActiveMessages
+      value: "100"
+scopes:
+{{- range .topology.pubsubs }}
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}

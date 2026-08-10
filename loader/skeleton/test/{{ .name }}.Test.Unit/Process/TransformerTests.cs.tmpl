@@ -1,0 +1,54 @@
+using {{ .contracts }};
+using {{ .name }}.Process;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Unit.Process;
+
+public class TransformerTests
+{
+{{- if .empty }}
+    // Fails from the start: the Transformer body throws NotImplementedException.
+    // The assertion pins the step's framework contract — map the contract
+    // record to the destination load record and return Success — and flips
+    // green once the step is implemented. Add field-fidelity tests with the
+    // real shape.
+    [Fact]
+    public async Task ExecuteAsync_WithInput_ReturnsSuccess()
+    {
+        // Arrange
+        var transformer = new Transformer();
+        var input = new {{ .contract }}();
+
+        // Act
+        var (result, _) = await transformer.ExecuteAsync(input, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        Assert.IsType<TechnicalStepResult<Out>.Success>(result);
+    }
+{{- else }}
+    [Fact]
+    public async Task ExecuteAsync_WithOrder_MapsToLoadRecord()
+    {
+        // Arrange
+        var transformer = new Transformer();
+        var order = new {{ .contract }}(
+            OrderId: "ORD-1001",
+            CustomerId: "CUST-42",
+            OrderDate: new DateTimeOffset(2026, 1, 15, 9, 30, 0, TimeSpan.Zero),
+            Lines: [new OrderLine("SKU-1", 2, 10.0m)]);
+        var before = DateTimeOffset.UtcNow;
+
+        // Act
+        var (result, _) = await transformer.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        var success = Assert.IsType<TechnicalStepResult<Out>.Success>(result);
+        Assert.Equal("ORD-1001", success.Value.OrderId);
+        Assert.Equal("CUST-42", success.Value.CustomerId);
+        Assert.Equal("Loaded", success.Value.Status);
+        Assert.InRange(success.Value.LoadedAt, before, DateTimeOffset.UtcNow);
+    }
+{{- end }}
+}

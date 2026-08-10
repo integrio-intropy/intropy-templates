@@ -1,0 +1,84 @@
+using Dapr.Client;
+using Dapr.Messaging.PublishSubscribe.Extensions;
+using {{ .name }}.Receive;
+using {{ .name }}.Send;
+{{- if not .empty }}
+using Intropy.BusinessIncidentService.Client;
+{{- end }}
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.TransactionalIntegration.Receive;
+using Intropy.Framework.Core.Configuration;
+using Intropy.Framework.Hosting.TransactionalIntegration.Job;
+{{- if not .empty }}
+using Intropy.IdempotencyService.Client;
+{{- end }}
+using Intropy.Telemetry.ConsoleApp;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Configuration;
+
+/// <summary>
+/// The component's service registrations, shared by the entrypoint
+/// (<c>Program.cs</c>) and the composition smoke test. Everything the runner
+/// needs — telemetry, Dapr clients, both file adapters, the receive and send
+/// pipelines — is registered here so the test can prove the whole graph
+/// builds without a sidecar.
+/// </summary>
+public static class Composition
+{
+    /// <summary>Registers every service the integration job needs.</summary>
+    public static IServiceCollection ConfigureServices(IServiceCollection services)
+    {
+        var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+
+        services.AddLogging(builder => builder.AddConsole());
+
+        services.AddOpenTelemetry(conf =>
+        {
+            conf.ServiceNamespace = Constants.Organization;
+            conf.ServiceName = Constants.ComponentName;
+            conf.Environment = environment;
+        });
+
+        services.AddSingleton(_ => new DaprClientBuilder().Build());
+        services.AddDaprPubSubClient();
+{{- if not .empty }}
+
+        // Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
+        // contributes its own DaprClient registration (camelCase JSON + string enums),
+        // and the last registration wins for GetRequiredService<DaprClient>().
+        services.AddIdempotencyServiceClient();      // Dapr app id / HTTPEndpoint name: idempotency-service
+        services.AddBusinessIncidentServiceClient(); // Dapr app id / HTTPEndpoint name: business-incident-service
+{{- end }}
+
+        services.AddIntropyFramework(x =>
+        {
+            x.ComponentName = Constants.ComponentName;
+            x.ServiceNamespace = Constants.Organization;
+        });
+
+        services.AddTransactionalIntegration(options =>
+        {
+            options.DaprPubSubName = Constants.PubSubName;
+            options.DaprTopicName = Constants.TopicName;
+        });
+
+        services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
+            new LocalFileAdapter(
+                sp.GetRequiredService<DaprClient>(),
+                new FileAdapterOptions(Constants.InboundBindingName)));
+
+        services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationFileAdapterKey, (sp, _) =>
+            new LocalFileAdapter(
+                sp.GetRequiredService<DaprClient>(),
+                new FileAdapterOptions(Constants.OutboundBindingName)));
+
+        services.AddSingleton<ISourceLister, SourceLister>();
+
+        services.AddReceivePipeline();
+        services.AddSendPipeline();
+
+        return services;
+    }
+}

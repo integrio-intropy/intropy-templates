@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .name }}
+spec:
+  # The schedule's one and only home: activation cadence is deployment
+  # configuration, so the topology carries no schedule to copy from.
+  schedule: "REPLACE-ME-CRON-SCHEDULE"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: {{ .name }}
+          annotations:
+            dapr.io/enabled: "true"
+            dapr.io/app-id: {{ .appId }}
+            # A Job's sidecar must be told to shut down, or the pod never
+            # completes and the CronJob piles up.
+            dapr.io/enable-app-health-check: "false"
+            dapr.io/graceful-shutdown-seconds: "10"
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: {{ .name }}
+              image: {{ .imageRepo }}:{{ .imageTag }}
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi

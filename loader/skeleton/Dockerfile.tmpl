@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /source
+
+# The app references the shared contracts sibling (../../{{ .contracts }}), which
+# lies outside this build context. Pass it in as a named context:
+#   docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .
+COPY --from=contracts --exclude=bin --exclude=obj . {{ .contracts }}/
+
+# Restore first so the NuGet layer is cached until a csproj changes.
+COPY src/{{ .name }}.csproj app/src/
+RUN dotnet restore ./app/src
+
+COPY src/ app/src/
+RUN dotnet publish ./app/src -c Release -o /app --no-restore
+
+# Chiseled ASP.NET runtime: no shell or package manager, runs as non-root
+# `app` and listens on port 8080 (ASPNETCORE_HTTP_PORTS) — point the Dapr
+# sidecar's --app-port there. Invariant globalization — switch to
+# 10.0-noble-chiseled-extra if the app needs ICU (culture-sensitive
+# parsing/formatting) or tzdata.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
+WORKDIR /app
+COPY --from=build /app .
+ENTRYPOINT ["dotnet", "{{ .name }}.dll"]

@@ -1,0 +1,82 @@
+apiVersion: intropy.dev/v1
+kind: Template
+metadata:
+  name: loader
+  title: Loader Integration
+  description: Long-running ASP.NET loader that subscribes to a Dapr pub/sub topic over HTTP delivery, runs each delivered message through the Intropy loader pipeline, and writes the result through a local destination folder binding.
+  tags:
+    - example
+    - dotnet
+    - dapr
+    - loader
+  labels:
+    intropy.io/template-level: example
+    intropy.dev/block-kind: loader
+    intropy.dev/data-flow: "out"
+
+spec:
+  parameters:
+    type: object
+    required:
+      - name
+      - organization
+      - topic
+      - contract
+    properties:
+      name:
+        type: string
+        title: Project name
+        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed for nested namespaces (e.g. OrderLoader or Int1055.OrderLoader).
+        pattern: "^[A-Z][A-Za-z0-9]*(\\.[A-Z][A-Za-z0-9]*)*$"
+      organization:
+        type: string
+        title: Organization
+        description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
+        pattern: "^[A-Z][A-Za-z0-9]*$"
+      topic:
+        type: string
+        title: Topic
+        description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value.
+        pattern: "^[a-z][a-z0-9-]*$"
+      contract:
+        type: string
+        title: Contract type
+        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
+        pattern: "^[A-Z][A-Za-z0-9]*$"
+      empty:
+        type: boolean
+        title: Empty bodies
+        description: When true, strip sample business logic from pipeline step bodies. The resulting project compiles and starts under Dapr, but every step throws NotImplementedException so a migration agent can fill them in. The idempotency and business-incident wiring stays (the loader pipeline requires it); idempotency keys off CloudEvent Subject/Time from the context, so there are no extractor lambdas to stub.
+        default: true
+  values:
+    appId: '{{ .name | kebabcase | replace "." "-" }}'
+    # The component's .NET project name, recorded in .intropy/scaffold.json
+    # for workspace-level tooling (e.g. solution file assembly).
+    projectName: '{{ .name }}'
+    # Local feed holding the Intropy.Framework integration builds the
+    # skeleton's csproj references (0.0.0-int.<timestamp> placeholders until a
+    # published framework release carries them). Written into the rendered
+    # nuget.config; point at your own feed when you pack your own builds.
+    nugetFeed: '~/local-nuget'
+    # Name of the sibling shared-contracts project; also drives the dependency
+    # output below and the ProjectReference in the skeleton csproj. Plain
+    # "Contracts" on purpose: the project is scoped to the system directory it
+    # lives in, not to the organization.
+    contracts: 'Contracts'
+    # The pub/sub component name the skeleton subscribes through
+    # (Constants.cs). Recorded in .intropy/scaffold.json for
+    # `intropy sys create`, together with the contract parameter above.
+    pubsub: 'pubsub'
+    # The loader's destination connector — the local port it writes the
+    # outside world through. Derived like appId so it stays unique per
+    # component. Recorded in .intropy/scaffold.json; `intropy sys create`
+    # resolves it to a local file transport by default (external system and
+    # transport are never asked for at scaffold time).
+    connector: '{{ .name | kebabcase | replace "." "-" }}-destination'
+  dependencies:
+    - template: shared-contracts
+      output: '{{ .contracts }}'
+      values:
+        name: '{{ .contracts }}'
+        contract: '{{ .contract }}'
+        empty: '{{ .empty }}'

@@ -1,0 +1,153 @@
+# Agent Instructions
+
+This project is a .NET loader integration built on the Intropy framework.
+An ASP.NET service holds a Dapr subscription on a pub/sub topic; the sidecar
+POSTs each delivered message to the subscription endpoint, where it is rebuilt
+into a CloudEvent, run through the Intropy loader pipeline, and written as
+`{orderId}.json` through a Dapr destination binding.
+
+## Project overview
+
+- Framework: .NET 10
+- App type: ASP.NET Dapr subscriber service (long-running; a Deployment in
+  production)
+- App port: assigned by the system host in development; 8080 in the
+  container image
+- Subscription endpoint: `POST /events/{{ .topic }}`
+  (`src/Endpoints/LoaderEndpoints.cs`), announced to the sidecar via
+  `GET /dapr/subscribe`; the ack is the response body's `status` field
+  (SUCCESS / RETRY)
+- Health endpoint: `GET /healthz`
+- App id: `{{ .appId }}`
+- Pub/sub component: `pubsub` — provided by the system host; messages are
+  published from there
+- Topic: `{{ .topic }}` — the loader's half of the system contract; the
+  publishing extractor uses the same topic
+- Destination binding: `binding.{{ .connector }}` — named after the
+  destination connector; the system host generates the binding and resolves
+  it to a local folder in development
+- Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
+- Business Incident Service: reached via Dapr service invocation, app id
+  `business-incident-service`
+- Shared contracts: the consumed contract (`{{ .contract }}`, `OrderLine`) lives in the
+  sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
+  from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
+  dependency declaration; when it already exists (another component created
+  it) the scaffold leaves it untouched. The destination load record (`Out`)
+  stays local in `src/Model/`.
+
+## Important files
+
+- `Taskfile.yml` - build and test tasks (`task build`, `task test`; the
+  suites also run separately via `task test:unit` / `task test:integration`).
+- `nuget.config` - adds the local feed carrying the `Intropy.Framework.*`
+  integration builds the csproj references; remove it with the version
+  placeholders once a published framework release carries them.
+- `Dockerfile` - multi-stage image build on the chiseled ASP.NET runtime,
+  listening on port 8080 in the container
+  (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
+  the shared contracts sibling enters as a named context); the image contains
+  only the app — the Dapr sidecar and components come from the deployment
+  environment.
+- `src/Program.cs` - host bootstrap: applies the service registrations from
+  `Composition` and maps the endpoints (subscription, `/dapr/subscribe`,
+  `/healthz`).
+- `src/Composition/Composition.cs` - every service registration (including
+  the pipeline and the load edge: the sender is a DI-registered
+  `SendStep<Out, Context>` resolved by `BuildPipeline(provider)` like any
+  other external). Note the namespace/type collision: `{{ .name }}.Composition`
+  is both namespace and class, so call sites inside nested namespaces use the
+  fully qualified `Composition.Composition.BuildPipeline(...)`.
+- `src/Endpoints/LoaderEndpoints.cs` - the subscription endpoint: the envelope
+  → CloudEvent rebuild and the pipeline-result → ack mapping.
+- `src/Constants.cs` - component/topic/binding names, the subscription route,
+  keyed-adapter key, and the CloudEvent context keys the idempotency step
+  reads (root namespace — consumed by both `src` and the tests).
+- `src/Process/` - the loader pipeline steps only (`Deserializer`,
+  `Validator`, `Transformer`, `Sender`). All DI and `LoaderBuilder` wiring
+  lives in `src/Composition/`.
+- `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (pure xUnit; no
+  fakes except the Sender's `IFileAdapter` seam via NSubstitute, no Dapr;
+  `task test:unit`).
+- `test/{{ .name }}.Test.Integration/` - delivery, boot-smoke, and
+  composition tests against `Intropy.Framework.Testing` fakes
+  (`task test:integration`; `task coverage` reports branch coverage).
+
+## Build and test
+
+Components do not run standalone — this loader runs via its system host,
+which provides every Dapr component (pub/sub, destination binding, platform
+services) and carries the sample data used to publish a message. The
+component-level loop is build and test:
+
+```bash
+task build
+task test
+```
+
+`task test` runs both test projects (`task test:unit` / `task test:integration`
+run them separately): the unit suite pins each pipeline step's own contract;
+the integration suite boots the real host (`WebApplicationFactory<Program>`)
+with only the externals faked (`InMemoryFileAdapter` at the keyed destination
+seam, `FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` —
+from `Intropy.Framework.Testing`), delivers CloudEvents to the subscription
+route exactly as a sidecar would (`DaprDelivery.DeliverAsync`), and asserts
+on fake state and the delivery ack. `task coverage` runs the integration
+suite with branch coverage (Cobertura report under the integration project's
+`TestResults/`).
+
+## Development notes
+
+- The destination `IFileAdapter` is registered as a keyed singleton
+  (`Constants.DestinationFileAdapterKey`). Inject it via
+  `[FromKeyedServices(...)]` or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
+- Loader idempotency keys off CloudEvent `Subject` (id) and `Time` (date),
+  read from the context keys `cloudevent.subject` / `cloudevent.time`
+  (constants in `Constants.cs`, mirroring the framework's internal keys —
+  there are no id/date extractor lambdas to configure).
+- Ack mapping (`LoaderEndpoints`): success, an idempotent duplicate, and a
+  routed business incident all ack with `status: SUCCESS` (redelivering a
+  validation failure would loop forever); technical failures return
+  `status: RETRY` and the sidecar redelivers. Note the pipeline finalizer
+  reports a routed business failure as `Success` with a null value — which is
+  why the handler matches `Success { Value: not null }` for the loaded case.
+- Redelivery detection: HTTP delivery has no counterpart to the streaming
+  API's `retrycount` extension, so the pipeline context's `IsRetry` is always
+  false — a routed business incident is not auto-resolved by a later
+  successful redelivery.
+- Additional extraction steps go into the builder chain in
+  `src/Composition/Composition.cs` (`BuildPipeline`) via `.WithExtractor(...)` —
+  the loader pipeline supports any number of them, executed in order after
+  deserialization.
+{{- if .empty }}
+- The step bodies are scaffolded empty (`NotImplementedException`). The
+  idempotency and business-incident wiring stays in place — `LoaderBuilder`
+  requires both. There are no idempotency lambdas to stub; instead, stamp
+  the `cloudevent.subject` / `cloudevent.time` context keys from a stable
+  business identifier and business timestamp in your `Deserializer` — a
+  per-delivery value (fresh GUID, wall-clock time, or the `dapr publish`
+  envelope's delivery-time `time`) makes the check pass everything.
+- The test suite is real and fails out of the box by design — `task test` is
+  red until the steps land (only `CompositionTests` and the boot smoke test
+  start green). The pinned behaviors flip green one by one as the
+  implementation progresses; no test edits are needed to get there. Two
+  delivery tests from the full sample suite are deliberately not scaffolded:
+  business-failure incident routing (which input fails validation is the
+  Validator's to define; scaffolded now its assertions would hold vacuously),
+  and duplicate-ack (the duplicate simulation relies on the idempotency
+  commit the implemented pipeline records). Add them as the corresponding
+  implementation lands, copying the full sample suite's versions.
+{{- else }}
+- The `Deserializer` stamps the `cloudevent.subject` / `cloudevent.time`
+  context keys from the order's `OrderId` / `OrderDate` — for
+  extractor-published events these equal the envelope values, and a
+  `dapr publish` envelope carries no subject and a wall-clock time. Keep the
+  stamping pointed at *business* fields — a per-delivery value (fresh GUID,
+  wall-clock time) makes the idempotency check pass everything.
+- Business failures (validation errors) are routed to the Business Incident
+  Service, keyed on the order id (falling back to the envelope subject).
+{{- end }}
+
+## Framework guidance
+
+How-to knowledge for the Intropy framework (pipelines, blocks, endpoints, Dapr components, testing) lives in the Intropy skills collection under `.agents/skills/`. If it is not installed, run `intropy skills collection add --name intropy --ref harbor.intropy.io/skills/index:latest`.

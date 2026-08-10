@@ -1,0 +1,7 @@
+# Self-hosted platform: RabbitMQ in cluster, credentials as a Kubernetes
+# Secret the platform owns; the template only declares the Secret name and
+# key the pubsub Component resolves.
+domain: sales
+system: ordersync
+pubsub: rabbitmq
+pubsubName: pubsub

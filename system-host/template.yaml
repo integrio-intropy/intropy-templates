@@ -1,0 +1,64 @@
+apiVersion: intropy.dev/v1
+kind: Template
+metadata:
+  name: system-host
+  title: System Host
+  description: The Aspire host project of an Intropy integration system. Declares the system's components and the edges between them as one typed C# declaration, validates the topology, and runs or generates the system from the same model. Renders every declaration file from the value payload `intropy sys create` assembles; without that payload it renders a valid empty system.
+  tags:
+    - dotnet
+    - aspire
+    - system
+  labels:
+    intropy.io/template-level: example
+    intropy.dev/template-role: system-host
+
+spec:
+  # `intropy sys create` renders this template with the full value payload
+  # and --no-input. The payload parameters are required so an older CLI
+  # that only sets `name` fails validation loudly instead of rendering an
+  # empty system. They are supplied programmatically — never via --set or
+  # prompts — so they carry no title/description.
+  parameters:
+    type: object
+    required:
+      - name
+      - topics
+      - connectors
+      - components
+      - sharedContracts
+    properties:
+      name:
+        type: string
+        title: System name
+        description: DNS-1123 name of the integration system (e.g. order-flow). Becomes the SystemName. The pub/sub component is always named `pubsub` (system-independent), so a component runs the same standalone or under this host.
+        pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+      # The payload below. The CLI pre-joins every reference (each
+      # component carries the Topics/Connectors field identifiers it
+      # touches), so the skeleton is a flat range over these lists — no
+      # lookups. Empty lists render a valid empty system, so no minItems.
+      topics:
+        type: array
+        items:
+          type: object
+          additionalProperties: true
+      connectors:
+        type: array
+        items:
+          type: object
+          additionalProperties: true
+      components:
+        type: array
+        items:
+          type: object
+          additionalProperties: true
+      sharedContracts:
+        type: object
+        additionalProperties: true
+  values:
+    # Must match the CLI's pascalCase(name): the CLI's payload assembly
+    # derives the same project name for its result summary, and a
+    # derivation that disagrees renders files under names the CLI's
+    # summary does not report.
+    projectName: '{{ .name | replace "-" " " | title | replace " " "" }}'
+    systemClass: '{{ .name | replace "-" " " | title | replace " " "" }}System'
+    pubsub: 'pubsub'

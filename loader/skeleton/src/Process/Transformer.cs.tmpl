@@ -1,0 +1,28 @@
+using {{ .contracts }};
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Loader.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+public class Transformer : TransformStep<{{ .contract }}, Out, Context>
+{
+    public override Task<(TechnicalStepResult<Out> Result, Context Context)> ExecuteAsync(
+        {{ .contract }} input, Context context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        // Map the canonical order to the destination system's load record.
+        var output = new Out(
+            OrderId: input.OrderId,
+            CustomerId: input.CustomerId,
+            LoadedAt: DateTimeOffset.UtcNow,
+            Status: "Loaded");
+
+        return Task.FromResult<(TechnicalStepResult<Out>, Context)>(
+            (new TechnicalStepResult<Out>.Success(output), context));
+{{- end }}
+    }
+}

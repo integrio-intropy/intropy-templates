@@ -1,0 +1,9 @@
+schemaVersion: 1
+
+# Shared: this directory holds the system-level objects its blocks resolve by
+# name, not a workload. There is no image, so `intropy deploy` and
+# `intropy deploy promote` refuse it — edit these manifests directly.
+kind: shared
+name: {{ .gitops.host }}
+
+environments: [{{ range $i, $e := .gitops.environments }}{{ if $i }}, {{ end }}{{ $e }}{{ end }}]

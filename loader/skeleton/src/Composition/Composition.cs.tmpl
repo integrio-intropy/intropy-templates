@@ -1,0 +1,107 @@
+using {{ .contracts }};
+using Dapr.Client;
+using {{ .name }}.Model;
+using {{ .name }}.Process;
+using Intropy.BusinessIncidentService.Client;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Loader;
+using Intropy.Framework.Blocks.Loader.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Configuration;
+using Intropy.IdempotencyService.Client;
+using Intropy.Telemetry.AspNetCore;
+using Microsoft.Extensions.DependencyInjection;
+using Sender = {{ .name }}.Process.Sender;
+
+namespace {{ .name }}.Composition;
+
+/// <summary>
+/// The component's service registrations, shared by the entrypoint
+/// (<c>Program.cs</c>) and the composition smoke test. Everything the host
+/// needs — telemetry, Dapr clients, the destination file adapter, the load
+/// pipeline — is registered here so the test can prove the whole graph
+/// builds without a sidecar.
+/// </summary>
+public static class Composition
+{
+    /// <summary>Registers every service the loader needs.</summary>
+    public static IServiceCollection ConfigureServices(IServiceCollection services)
+    {
+        var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+
+        services.AddLogging(builder => builder.AddConsole());
+
+        services.AddOpenTelemetry(conf =>
+        {
+            conf.ServiceNamespace = Constants.Organization;
+            conf.ServiceName = Constants.ComponentName;
+            conf.Environment = environment;
+        });
+
+        services.AddSingleton(_ => new DaprClientBuilder().Build());
+
+        // Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
+        // contributes its own DaprClient registration (camelCase JSON + string enums),
+        // and the last registration wins for GetRequiredService<DaprClient>().
+        services.AddIdempotencyServiceClient();      // Dapr app id / HTTPEndpoint name: idempotency-service
+        services.AddBusinessIncidentServiceClient(); // Dapr app id / HTTPEndpoint name: business-incident-service
+
+        services.AddIntropyFramework(x =>
+        {
+            x.ComponentName = Constants.ComponentName;
+            x.ServiceNamespace = Constants.Organization;
+        });
+
+        services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationFileAdapterKey, (sp, _) =>
+            new LocalFileAdapter(
+                sp.GetRequiredService<DaprClient>(),
+                new FileAdapterOptions(Constants.DestinationBindingName)));
+
+        // The load edge is a service like the other externals (destination
+        // adapter, platform clients): tests swap it for their own
+        // SendStep<Out, Context> via RemoveAll/AddSingleton, exactly as they
+        // swap the others — no special seam in BuildPipeline.
+        services.AddSingleton<SendStep<Out, Context>>(sp =>
+            new Sender(sp.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationFileAdapterKey)));
+
+        AddLoadPipeline(services);
+
+        return services;
+    }
+
+    /// <summary>The single composition entrypoint for the pipeline: registers
+    /// <see cref="BuildPipeline"/> as the pipeline factory. The explicit lambda
+    /// matters — a method group (<c>AddSingleton(BuildPipeline)</c>) compiles but
+    /// registers a signature DI cannot resolve for <c>Loader&lt;,,&gt;</c>.</summary>
+    private static void AddLoadPipeline(IServiceCollection services) =>
+        services.AddSingleton(provider => BuildPipeline(provider));
+
+    /// <summary>
+    /// Builds the load pipeline against the DI graph. Every external edge —
+    /// destination adapter, sender, idempotency, business incidents — resolves
+    /// from the provider, so a test swaps any of them by swapping its
+    /// registration.
+    /// </summary>
+    public static Loader<{{ .contract }}, Out, Context> BuildPipeline(IServiceProvider provider)
+    {
+        return LoaderBuilder<{{ .contract }}, Out, Context>.Create("{{ .name }}.Process", provider)
+            .WithDeserializer(new Deserializer())
+            .WithValidator(new Validator())
+            // The loader pipeline requires idempotency. It keys off CloudEvent
+            // Subject (id) and Time (date) read from context metadata — the
+            // Deserializer backfills both from the order's business identity
+            // when the envelope lacks them. The payload hash uses the default
+            // implementation (property reflection + SHA256).
+            .WithIdempotency()
+            .WithTransformer(new Transformer())
+            // The sender resolves from DI like every other external edge;
+            // tests swap the SendStep<Out, Context> registration.
+            .WithSender(provider.GetRequiredService<SendStep<Out, Context>>())
+            .WithBusinessIncidents(
+                messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
+                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyCloudEventSubject, "unknown")),
+                subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
+                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyCloudEventSubject, "unknown")))
+            .Build();
+    }
+}

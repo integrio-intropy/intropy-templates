@@ -1,0 +1,7 @@
+# Render fixture: full sample (business logic + service wiring).
+#   intropy int create loader -o /tmp/loader-out -f loader/examples/minimal.yaml --version main --no-input
+name: OrderLoader
+organization: Fluxia
+topic: orders
+contract: Order
+empty: false

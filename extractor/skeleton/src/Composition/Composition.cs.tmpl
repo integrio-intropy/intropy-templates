@@ -1,0 +1,137 @@
+using {{ .contracts }};
+using Dapr.Client;
+using {{ .name }}.Model;
+using {{ .name }}.Process;
+using Intropy.BusinessIncidentService.Client;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Extractor;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Configuration;
+using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.IdempotencyService.Client;
+using Intropy.Telemetry.ConsoleApp;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Composition;
+
+/// <summary>
+/// The component's service registrations, shared by the entrypoint
+/// (<c>Program.cs</c>) and the composition smoke test. Everything the runner
+/// needs — telemetry, Dapr clients, the source file adapter, the extract
+/// pipeline — is registered here so the test can prove the whole graph
+/// builds without a sidecar.
+/// </summary>
+public static class Composition
+{
+    /// <summary>Registers every service the extractor needs.</summary>
+    public static IServiceCollection ConfigureServices(IServiceCollection services)
+    {
+        var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+
+        services.AddLogging(builder => builder.AddConsole());
+
+        services.AddOpenTelemetry(conf =>
+        {
+            conf.ServiceNamespace = Constants.Organization;
+            conf.ServiceName = Constants.ComponentName;
+            conf.Environment = environment;
+        });
+
+        services.AddSingleton(_ => new DaprClientBuilder().Build());
+
+        // Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
+        // contributes its own DaprClient registration (camelCase JSON + string enums),
+        // and the last registration wins for GetRequiredService<DaprClient>().
+        services.AddIdempotencyServiceClient();      // Dapr app id / HTTPEndpoint name: idempotency-service
+        services.AddBusinessIncidentServiceClient(); // Dapr app id / HTTPEndpoint name: business-incident-service
+
+        services.AddIntropyFramework(x =>
+        {
+            x.ComponentName = Constants.ComponentName;
+            x.ServiceNamespace = Constants.Organization;
+        });
+
+        services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
+            new LocalFileAdapter(
+                sp.GetRequiredService<DaprClient>(),
+                new FileAdapterOptions(Constants.InboundBindingName)));
+
+        // The publish edge is a service like the other externals (source adapter,
+        // platform clients): tests swap it for a FakeTopic via RemoveAll/AddSingleton,
+        // exactly as they swap the others — no special seam in BuildPipeline.
+        services.AddSingleton<SendStep<Context>>(sp => new DaprTopicPublisher<Context>(
+            sp.GetRequiredService<DaprClient>(),
+            Constants.PubSubName,
+            Constants.TopicName,
+            new Uri(Constants.EventSource),
+            Constants.EventType));
+
+        AddExtractPipeline(services);
+        services.AddSingleton<Sweep>();
+
+        // The framework's run-to-completion host owns the Dapr sidecar lifecycle,
+        // tracing, and exit-code mapping; ExtractJob adapts the sweep to it. JobName
+        // names the trace activity so this job is distinguishable in telemetry.
+        // AddRunToCompletionJob self-registers TJob (TryAddSingleton), so a component
+        // registration here would only be needed to override the lifetime/construction.
+        services.AddRunToCompletionJob<ExtractJob>(options => options.JobName = Constants.ComponentName);
+
+        return services;
+    }
+
+    /// <summary>The single composition entrypoint for the pipeline: registers
+    /// <see cref="BuildPipeline"/> as the pipeline factory. The explicit lambda
+    /// matters — a method group (<c>AddSingleton(BuildPipeline)</c>) compiles but
+    /// registers a signature DI cannot resolve for <c>Extractor&lt;,,&gt;</c>.</summary>
+    private static void AddExtractPipeline(IServiceCollection services) =>
+        services.AddSingleton(provider => BuildPipeline(provider));
+
+    /// <summary>
+    /// Builds the extract pipeline against the DI graph. Every external edge —
+    /// source adapter, sender, idempotency, business incidents — resolves from
+    /// the provider, so a test swaps any of them by swapping its registration.
+    /// </summary>
+    public static Extractor<Source{{ .contract }}, {{ .contract }}, Context> BuildPipeline(IServiceProvider provider)
+    {
+        return ExtractorBuilder<Source{{ .contract }}, {{ .contract }}, Context>.Create("{{ .name }}.Process", provider)
+            .WithDeserializer(new Deserializer())
+            .WithValidator(new Validator())
+            // Point the idempotency check at a stable business identifier and
+            // timestamp — per-delivery values (fresh GUID, wall-clock time)
+            // make the check pass everything.
+            .WithIdempotency(
+                idExtractor: (Source{{ .contract }} order, Context _) =>
+{{- if .empty }}
+                    throw new NotImplementedException(),
+                dateExtractor: (_, _) =>
+                    throw new NotImplementedException())
+{{- else }}
+                    order.OrderId,
+                dateExtractor: (Source{{ .contract }} order, Context _) =>
+                    order.OrderDate)
+{{- end }}
+            .WithTransformer(new Transformer())
+            // The framework's serialize step owns the CloudEvent envelope (Id,
+            // Subject, Time, Data) and validates Subject/Time at serialize time;
+            // the publisher adds Source/Type from the registration above.
+            .WithSerializer(new CloudEventSerializeStep<{{ .contract }}, Context>(
+{{- if .empty }}
+                subject: _ => throw new NotImplementedException(),
+                time: _ => throw new NotImplementedException()))
+{{- else }}
+                subject: order => order.OrderId,
+                time: order => order.OrderDate))
+{{- end }}
+            // The sender resolves from DI like every other external edge;
+            // tests swap the SendStep<Context> registration for a FakeTopic.
+            .WithSender(provider.GetRequiredService<SendStep<Context>>())
+            .WithBusinessIncidents(
+                messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
+                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")),
+                subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
+                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")))
+            .Build();
+    }
+}

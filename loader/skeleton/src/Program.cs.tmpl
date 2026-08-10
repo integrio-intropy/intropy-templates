@@ -1,0 +1,24 @@
+using {{ .name }}.Composition;
+using {{ .name }}.Endpoints;
+using Microsoft.Extensions.DependencyInjection;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Every service registration lives in Composition so the composition smoke
+// test builds the exact graph the host runs.
+Composition.ConfigureServices(builder.Services);
+
+builder.Services.AddHealthChecks();
+
+var app = builder.Build();
+
+// The subscription endpoint, plus the GET /dapr/subscribe route the sidecar
+// calls at startup to discover it (from the endpoint's .WithTopic metadata).
+app.MapLoaderEndpoints();
+app.MapSubscribeHandler();
+app.MapHealthChecks("/healthz");
+
+app.Run();
+
+// Makes the top-level Program visible to the test project (WebApplicationFactory<Program>).
+public partial class Program;

@@ -1,0 +1,29 @@
+namespace {{ .name }};
+
+public static class Constants
+{
+    public const string ComponentName = "{{ .name | kebabcase }}";
+    public const string Organization = "{{ .organization }}";
+
+    public const string PubSubName = "pubsub";
+    public const string TopicName = "{{ .topic }}";
+
+    // The destination connector's Dapr binding. "binding.<connector>" is the
+    // derived component name the system host generates, so the overlay can
+    // swap the local folder for the system-level one without touching code.
+    public const string DestinationBindingName = "binding.{{ .connector }}";
+
+    public const string DestinationFileAdapterKey = "destination";
+
+    // The route the sidecar delivers to; announced via GET /dapr/subscribe.
+    public const string SubscriptionRoute = "/events/{{ .topic }}";
+
+    // Context keys the loader pipeline's idempotency step reads CloudEvent
+    // Subject (id) and Time (date) from. The values mirror the framework's
+    // internal CloudEventContextKeys (Intropy.Framework.Blocks) — they must
+    // match exactly.
+    public const string ContextKeyCloudEventSubject = "cloudevent.subject";
+    public const string ContextKeyCloudEventTime = "cloudevent.time";
+
+    public const string ContextKeyOrderId = "order_id";
+}

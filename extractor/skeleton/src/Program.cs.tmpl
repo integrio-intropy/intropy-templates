@@ -1,0 +1,18 @@
+using {{ .name }};
+using {{ .name }}.Composition;
+using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.Telemetry.ConsoleApp;
+using Microsoft.Extensions.DependencyInjection;
+
+var serviceProvider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+using var telemetryScope = new OpenTelemetryScope(serviceProvider);
+
+using var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    cts.Cancel();
+};
+
+var runner = serviceProvider.GetRequiredService<RunToCompletionRunner>();
+return await runner.RunAsync(cts.Token);

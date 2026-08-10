@@ -1,22 +1,7 @@
 version: "3"
 
-# Local-dev tasks for {{ .name }} — a .NET transactional integration job.
-# It polls JSON orders from a local inbound folder, publishes each onto an
-# in-memory Dapr pub/sub topic, runs the VETER send pipeline, and writes the
-# transformed result to a local outbound folder.
-#
-# This is a console one-shot job (no web endpoints): `run` deliberately omits
-# --app-port so `dapr run` follows the app down once it completes and exits.
-
-vars:
-  APP_ID: {{ .appId }}
-  DAPR_HTTP_PORT: '{{ "{{" }}.DAPR_HTTP_PORT | default "3500"}}'
-  DAPR_GRPC_PORT: '{{ "{{" }}.DAPR_GRPC_PORT | default "50001"}}'
-  LOG_LEVEL: '{{ "{{" }}.LOG_LEVEL | default "info"}}'
-  # Working folders the local-storage bindings read/write.
-  # Keep in sync with local/dapr-components/{inbound,outbound}-storage.yaml.
-  INBOUND_DIR: ./local/storage/inbound
-  OUTBOUND_DIR: ./local/storage/outbound
+# Build and test tasks for {{ .name }} — a .NET transactional integration job.
+# The job runs via its system host; these tasks are the component-level loop.
 
 tasks:
   # ── .NET build ────────────────────────────────────────────────────
@@ -26,65 +11,9 @@ tasks:
     cmds:
       - dotnet build ./src
 
-  # ── Local data seeding ────────────────────────────────────────────
-  seed:
-    desc: Create the inbound/outbound folders and drop the sample order into inbound
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    cmds:
-      - mkdir -p {{ "{{" }}.INBOUND_DIR}} {{ "{{" }}.OUTBOUND_DIR}}
-      - cp local/sample-data/sample-order.json {{ "{{" }}.INBOUND_DIR}}/
-      - echo "Seeded {{ "{{" }}.INBOUND_DIR}} with sample-order.json"
-
   # ── Tests ─────────────────────────────────────────────────────────
   test:
-    desc: Run the unit tests
+    desc: Run the tests
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     cmds:
       - dotnet test ./test
-
-  # ── Component runner ──────────────────────────────────────────────
-  run:
-    desc: Run the integration job once via Dapr (in-memory pub/sub) and exit
-    deps: [seed, services:up]
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    env:
-      DOTNET_ENVIRONMENT: Development
-      # Export OTLP to the local grafana/otel-lgtm stack (see `task services:up`).
-      # If nothing is listening the exporter just logs a warning — it won't crash the job.
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
-    cmds:
-      # No --app-port: a console job exits on completion and `dapr run` follows it down.
-      - >-
-        dapr run
-        --app-id {{ "{{" }}.APP_ID}}
-        --dapr-http-port {{ "{{" }}.DAPR_HTTP_PORT}}
-        --dapr-grpc-port {{ "{{" }}.DAPR_GRPC_PORT}}
-        --resources-path ./local/dapr-components
-        --placement-host-address=""
-        --scheduler-host-address=""
-        --log-level {{ "{{" }}.LOG_LEVEL}}
-        --
-        dotnet run --project ./src
-
-  # ── Local services (observability + platform services) ───────────
-  services:up:
-    desc: Start the local stack — grafana/otel-lgtm, Idempotency Service, Business Incident Service
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    cmds:
-      - docker compose up -d --wait
-      - echo "Grafana UI → http://localhost:3000  (OTLP gRPC on :4317)"
-      - echo "Idempotency Service → http://localhost:8080, Business Incident Service → http://localhost:8081"
-
-  services:down:
-    desc: Stop and remove the local stack
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    cmds:
-      - docker compose down
-
-  # ── Teardown ──────────────────────────────────────────────────────
-  clean:
-    desc: Stop the Dapr app and remove the local working folders
-    dir: "{{ "{{" }}.TASKFILE_DIR}}"
-    cmds:
-      - dapr stop --app-id {{ "{{" }}.APP_ID}} 2>/dev/null || true
-      - rm -rf ./local/storage

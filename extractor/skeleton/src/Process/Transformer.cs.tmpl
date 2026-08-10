@@ -1,0 +1,30 @@
+using {{ .contracts }};
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+public class Transformer : TransformStep<Source{{ .contract }}, {{ .contract }}, Context>
+{
+    public override Task<(TechnicalStepResult<{{ .contract }}> Result, Context Context)> ExecuteAsync(
+        Source{{ .contract }} input, Context context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        // {{ .contract }} is the canonical contract from the shared contracts
+        // project; the consuming loader deserializes exactly this. Enrich or
+        // reshape here if the source format ever diverges from the canonical one.
+        var output = new {{ .contract }}(
+            OrderId: input.OrderId,
+            CustomerId: input.CustomerId,
+            OrderDate: input.OrderDate,
+            Lines: input.Lines);
+
+        return Task.FromResult<(TechnicalStepResult<{{ .contract }}>, Context)>(
+            (new TechnicalStepResult<{{ .contract }}>.Success(output), context));
+{{- end }}
+    }
+}

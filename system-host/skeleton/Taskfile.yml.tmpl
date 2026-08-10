@@ -1,0 +1,79 @@
+version: "3"
+
+# Local-dev tasks for the {{ .name }} SystemHost — the Aspire host that holds the
+# system's topology as a typed declaration. `task run` starts the whole system
+# (Aspire dashboard, Redis-backed pub/sub, one Dapr sidecar per component); the
+# other tasks inspect and export the same model without starting anything.
+
+tasks:
+  # ── Build ─────────────────────────────────────────────────────────
+  build:
+    desc: Build the SystemHost
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      # MSBuild writes everything to stdout, but check/graph/generate depend on
+      # this task and their stdout is meant for piping (e.g. `task graph | jq`)
+      # — redirect the build output to stderr so it never pollutes their JSON.
+      - dotnet build --nologo >&2
+
+  # ── Run backend ───────────────────────────────────────────────────
+  run:
+    desc: Run the system under the Aspire dashboard; stop with Ctrl+C
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet run
+
+  # ── Trigger a run ─────────────────────────────────────────────────
+  seed:
+    desc: Drop the sample order into a connector folder (needs the host running to pick it up)
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    vars:
+      # Folder the connector resolves to — must match the Files(...).RootPath(...)
+      # resolution in the development definition (conventionally test/<connector-name>).
+      CONNECTOR_DIR: '{{ "{{" }}.CONNECTOR_DIR | default "./test/order-extractor-source"}}'
+    cmds:
+      - mkdir -p {{ "{{" }}.CONNECTOR_DIR}}
+      - cp ./sample-data/sample-order.json {{ "{{" }}.CONNECTOR_DIR}}/
+      - echo "Seeded {{ "{{" }}.CONNECTOR_DIR}} with sample-order.json"
+
+  publish:
+    desc: Publish the sample order to a topic via a component's sidecar (needs the host running)
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    vars:
+      # The app-id of any running component whose sidecar should publish —
+      # the dapr CLI resolves the sidecar from the app-id.
+      PUBLISH_APP_ID: '{{ "{{" }}.PUBLISH_APP_ID | default "order-extractor"}}'
+      PUBSUB: '{{ "{{" }}.PUBSUB | default "{{ .pubsub }}"}}'
+      TOPIC: '{{ "{{" }}.TOPIC | default "orders"}}'
+    cmds:
+      - >-
+        dapr publish
+        --publish-app-id {{ "{{" }}.PUBLISH_APP_ID}}
+        --pubsub {{ "{{" }}.PUBSUB}}
+        --topic {{ "{{" }}.TOPIC}}
+        --data-file ./sample-data/sample-order.json
+
+  # ── Generation backend ────────────────────────────────────────────
+  # The generation backend is a plain CLI — `--no-launch-profile` keeps the Aspire
+  # dashboard environment from launchSettings.json out of it, and `--no-build`
+  # reuses the `build` dependency's output instead of rebuilding.
+  check:
+    desc: Build and validate the topology without starting anything
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    deps: [build]
+    cmds:
+      - dotnet run --no-build --no-launch-profile -- check
+
+  graph:
+    desc: Print the SystemTopology JSON
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    deps: [build]
+    cmds:
+      - dotnet run --no-build --no-launch-profile -- graph
+
+  generate:
+    desc: Write Dapr YAML + per-component runtime config to ./out
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    deps: [build]
+    cmds:
+      - dotnet run --no-build --no-launch-profile -- generate ./out

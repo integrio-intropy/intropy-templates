@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .name }}
+spec:
+  # A low-frequency dev cadence: the local render applies with no review step,
+  # so unlike cronjob.yaml this carries a real schedule — the job must run on
+  # first install. Picked per component by the spec.files rules on .env;
+  # change it here for the local cluster, in cronjob.yaml for the environments.
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: {{ .name }}
+          annotations:
+            dapr.io/enabled: "true"
+            dapr.io/app-id: {{ .appId }}
+            # A Job's sidecar must be told to shut down, or the pod never
+            # completes and the CronJob piles up.
+            dapr.io/enable-app-health-check: "false"
+            dapr.io/graceful-shutdown-seconds: "10"
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: {{ .name }}
+              # The pinned local reference, same contract as deployment.yaml:
+              # local/<name>, rewritten to local/<name>:dev by the root
+              # kustomization intropy manifests render writes.
+              image: local/{{ .name }}
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
