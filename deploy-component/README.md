@@ -63,9 +63,9 @@ any built Deployment image has no tag, as a second net.
 
 **The fixture bindings live here.** `overlays/local/fixtures/` carries one
 Dapr binding skeleton per fixture type — the closed catalog declared in
-`spec.local.fixtures` (`sftp`, `smb`, `http`, `file`, `blob`). Each file renders one
-`Component` per topology connector whose binding for this local render names
-that fixture, and nothing when none do. Repeat
+`spec.local.fixtures` (`sftp`, `smb`, `http`, `file`, `blob`). Only fixture files selected by a
+local connector binding render; each selected file renders one `Component`
+per matching topology connector. Repeat
 `--binding <connector>=<fixture>` for reproducible renders; an interactive
 terminal asks for omitted choices with a Huh selector. Choices are validated
 against the catalog and never persisted.
