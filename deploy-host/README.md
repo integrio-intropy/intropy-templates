@@ -7,8 +7,8 @@ Rendered once per system into `domains/<domain>/<system>/host/`.
 
 ## Why these objects live here
 
-A Dapr `Component` is namespace-scoped, and every integration in a customer's
-namespace shares it. So exactly one ArgoCD Application may own each one. If each
+A Dapr `Component` is namespace-scoped, and every integration in the
+cluster's integration namespace shares it. So exactly one ArgoCD Application may own each one. If each
 block owned a copy, N Applications would claim the same `Component/pubsub` and
 whichever synced last would win — a live example of that exists in one customer
 repository today.
@@ -40,8 +40,10 @@ rule. The CLI is not involved: it passes `platform.pubsub` through from
 
 The pub/sub components live in `base/` and do not vary by environment. What varies
 is the *credential*, and a Component reaches that through `secretKeyRef` — so the
-same YAML resolves to different values in each environment's namespace. The
-overlays are a `namespace:` and a `resources:` line.
+same YAML resolves to different values per environment's Secret. The overlays are a
+`namespace:` and a `resources:` line; the namespace is always `integration`, the
+single integration namespace every system and environment on the cluster shares, so
+it is a literal in the overlay rather than a parameter.
 
 One customer repository does vary the broker per overlay (in-memory in dev,
 RabbitMQ in prod). That is a deviation, not the convention, and this template

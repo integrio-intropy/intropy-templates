@@ -3,7 +3,5 @@
 # key the pubsub Component resolves.
 domain: sales
 system: ordersync
-namespace: integrations
-namespacePerEnv: false
 pubsub: rabbitmq
 pubsubName: pubsub

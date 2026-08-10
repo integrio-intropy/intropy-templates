@@ -3,11 +3,9 @@ kind: Kustomization
 
 # Thin on purpose: `intropy deploy` writes an images[] entry here with the digest
 # it resolved. Nothing else in this file should need to change per environment.
-{{- if .namespacePerEnv }}
-namespace: {{ .env }}-{{ .namespace }}
-{{- else }}
-namespace: {{ .namespace }}
-{{- end }}
+# The namespace is a fixture of the platform, not a parameter: one integration
+# namespace per cluster, shared by every system and environment.
+namespace: integration
 
 resources:
   - ../../base

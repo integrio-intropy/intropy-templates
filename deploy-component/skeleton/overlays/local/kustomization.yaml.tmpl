@@ -8,8 +8,8 @@ kind: Kustomization
 # image override on purpose — intropy manifests render sets both on the root
 # kustomization
 # it writes: namespace: targets every rendered resource at once, and images[]
-# rewrites the bare image reference the base renders ({{ .name }}, no registry
-# prefix or tag; pinned in the README) to <name>:dev.
+# rewrites the local/ image reference the base renders (local/{{ .name }}, no
+# tag; pinned in the README) to local/<name>:dev.
 resources:
   - ../../base
   - fixtures/sftp.yaml

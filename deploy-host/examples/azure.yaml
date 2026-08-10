@@ -3,7 +3,5 @@
 # and key the pubsub Component resolves.
 domain: sales
 system: ordersync
-namespace: acme-integrations
-namespacePerEnv: true
 pubsub: servicebus
 pubsubName: pubsub

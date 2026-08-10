@@ -30,9 +30,9 @@ spec:
           containers:
             - name: {{ .name }}
               # The pinned local reference, same contract as deployment.yaml:
-              # the bare component name, rewritten to <name>:dev by the root
+              # local/<name>, rewritten to local/<name>:dev by the root
               # kustomization intropy manifests render writes.
-              image: {{ .name }}
+              image: local/{{ .name }}
               resources:
                 requests:
                   cpu: 50m

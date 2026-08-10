@@ -20,14 +20,15 @@ spec:
       containers:
         - name: {{ .name }}
 {{- if eq .env "local" }}
-          # The pinned local reference: the bare component name, no registry
-          # prefix, no tag. intropy manifests render rewrites it to <name>:dev —
-          # the image the k3s scripts build and load — through the images[] entries on
-          # the root kustomization it writes. kustomize matches on this exact
-          # string and silently ignores a miss, so the shape is part of the
-          # fixture contract; only a local render may use it (manifest
-          # generation rejects an .env-varying base through mergeRendered).
-          image: {{ .name }}
+          # The pinned local reference: the local/ prefix the k3s setup
+          # scripts tag every side-loaded image under, plus the component name,
+          # no tag. intropy manifests render rewrites it to local/<name>:dev
+          # through the images[] entries on the root kustomization it writes.
+          # kustomize matches on this exact string and silently ignores a miss,
+          # so the shape is part of the fixture contract; only a local render
+          # may use it (manifest generation rejects an .env-varying base
+          # through mergeRendered).
+          image: local/{{ .name }}
 {{- else }}
           # The tag is a sentinel, not a version: `intropy deploy` replaces it
           # with a digest. It fails to pull loudly if anything deploys this

@@ -3,11 +3,9 @@ kind: Kustomization
 
 # Thin on purpose. The Dapr components are identical in every environment; what
 # differs is the credential, and a Component reaches that through secretKeyRef.
-{{- if .namespacePerEnv }}
-namespace: {{ .env }}-{{ .namespace }}
-{{- else }}
-namespace: {{ .namespace }}
-{{- end }}
+# The namespace is a fixture of the platform, not a parameter: one integration
+# namespace per cluster, shared by every system and environment.
+namespace: integration
 
 resources:
   - ../../base

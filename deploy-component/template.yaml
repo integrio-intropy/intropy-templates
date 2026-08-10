@@ -44,15 +44,6 @@ spec:
         description: An extractor is scheduled and exits; everything else stays resident.
         enum: [cronjob, deployment]
         default: deployment
-      namespace:
-        type: string
-        title: Namespace
-        default: integrations
-        pattern: "^[a-z][a-z0-9-]*$"
-      namespacePerEnv:
-        type: boolean
-        title: Namespace per environment
-        default: false
       registry:
         type: string
         title: Registry

@@ -13,7 +13,7 @@ spec:
     # domain is optional, deliberately: it is only a GitOps path segment, no
     # skeleton references it outside component.yaml (repo metadata a local render
     # never emits), and a local render has no domain.
-    required: [system, namespace]
+    required: [system]
     properties:
       domain:
         type: string
@@ -25,17 +25,6 @@ spec:
         title: System
         description: System name, as a GitOps path segment.
         pattern: "^[a-z][a-z0-9-]*$"
-      namespace:
-        type: string
-        title: Namespace
-        description: The Kubernetes namespace the system's blocks run in. With namespacePerEnv the environment is prefixed to it.
-        default: integrations
-        pattern: "^[a-z][a-z0-9-]*$"
-      namespacePerEnv:
-        type: boolean
-        title: Namespace per environment
-        description: Prefix the environment to the namespace, e.g. test-acme-integrations. Leave false for a single flat namespace.
-        default: false
       pubsub:
         type: string
         title: Pub/sub broker

@@ -54,13 +54,14 @@ merge so the workload and `component.yaml` name the same image repository.
 one-off render for the local development cluster, piped straight to
 `kubectl apply -f -`. It differs from the environment overlays in three ways.
 
-**The image reference is pinned to a bare name.** `deployment.yaml` and
-`cronjob-local.yaml` render `image: {{ .name }}` — no registry prefix, no
-tag — exactly when `.env` is `local`. `intropy manifests render` writes a root
-kustomization whose `images[]` entries rewrite that reference to `<name>:dev`,
-the tag the k3s setup scripts build and load component images under. kustomize
-matches `images[]` on the exact rendered string and **silently ignores a miss**, so
-the bare-name shape is part of the contract; the CLI also fails the render if
+**The image reference is pinned to a `local/` name.** `deployment.yaml` and
+`cronjob-local.yaml` render `image: local/{{ .name }}` — the prefix the k3s
+setup scripts tag every side-loaded image under, no tag — exactly when `.env`
+is `local`. `intropy manifests render` writes a root kustomization whose
+`images[]` entries rewrite that reference to `local/<name>:dev`, the tag the
+k3s setup scripts build and load component images under. kustomize matches
+`images[]` on the exact rendered string and **silently ignores a miss**, so
+the shape is part of the contract; the CLI also fails the render if
 any built Deployment image has no tag, as a second net.
 
 **The fixture bindings live here.** `overlays/local/fixtures/` carries one
@@ -79,7 +80,7 @@ conventional fixture server the k3s setup scripts always install —
 (wiremock-style stub), `garage.fixtures.svc.cluster.local:3900`
 (S3-compatible, bucket `dev-fixtures`, pinned dev key pair) for `blob`, and
 `/data/<connector>` in the component's own container for `file`. That fixture
-contract — namespace, service names, ports, credentials, the bare image
+contract — namespace, service names, ports, credentials, the `local/` image
 reference above — is owned and verified by the `intropy-dev-env` repo (the
 k3s setup scripts install the fixture servers) and is the only coupling
 between the two; the rendered manifests are otherwise generic and apply to
