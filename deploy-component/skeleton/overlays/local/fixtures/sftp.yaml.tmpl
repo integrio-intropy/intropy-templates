@@ -29,10 +29,16 @@ spec:
   metadata:
     - name: address
       value: sftp.fixtures.svc.cluster.local:22
+    - name: rootPath
+      value: /home/intropy
     - name: username
       value: intropy
     - name: password
       value: intropy
+    # Local-only host-key bypass: the fixture SFTP server is a disposable
+    # dev pod whose host key changes on every reinstall, so pinning it
+    # serves nothing. GitOps bindings must validate for real — the
+    # deploy-host adapter uses hostPublicKey and never this flag.
     - name: insecureIgnoreHostKey
       value: "true"
 scopes:

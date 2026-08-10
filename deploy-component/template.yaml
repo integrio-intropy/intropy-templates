@@ -70,7 +70,7 @@ spec:
   # entry here, and the fixture server in the k3s setup scripts — a template PR,
   # not a CLI release.
   local:
-    fixtures: [sftp, smb, http, file, blob]
+    fixtures: [sftp, http, file, blob]
 
   values:
     imageRepo: "{{ .registry }}/{{ .imageNamespace }}/{{ .name }}"
@@ -99,8 +99,6 @@ spec:
       when: '{{ eq .env "local" }}'
     - path: overlays/local/fixtures/sftp.yaml.tmpl
       when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "sftp" }}true{{- end }}{{- end }}'
-    - path: overlays/local/fixtures/smb.yaml.tmpl
-      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "smb" }}true{{- end }}{{- end }}'
     - path: overlays/local/fixtures/http.yaml.tmpl
       when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "http" }}true{{- end }}{{- end }}'
     - path: overlays/local/fixtures/file.yaml.tmpl

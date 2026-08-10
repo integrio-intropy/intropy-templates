@@ -1,10 +1,29 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# The file name follows the broker, so this list needs no conditional: only the
-# matching pubsub-*.yaml is rendered at all.
+# The file name follows the broker, so the pub/sub line needs no conditional:
+# only the matching pubsub-*.yaml is rendered at all.
+#
+# Binding references follow the same rule per adapter: spec.files renders an
+# adapter file only when a connector selects it, so this list collects the
+# kinds the topology's connectors selected — deduplicated, since several
+# connectors may share one adapter — and must stay empty when no connector
+# selected any binding (a reference to an unrendered file breaks the build).
+{{- $kinds := dict -}}
+{{- range .topology.connectors }}
+{{- if .binding }}{{- $_ := set $kinds .binding true -}}{{- end }}
+{{- end }}
 resources:
   - dapr/pubsub-{{ .pubsub }}.yaml
-{{- if and (gt (len .topology.connectors) 0) (ne .env "local") }}
-  - bindings/bindings.yaml
+{{- if and (hasKey $kinds "sftp") (ne .env "local") }}
+  - bindings/sftp.yaml
+{{- end }}
+{{- if and (hasKey $kinds "http") (ne .env "local") }}
+  - bindings/http.yaml
+{{- end }}
+{{- if and (hasKey $kinds "file") (ne .env "local") }}
+  - bindings/file.yaml
+{{- end }}
+{{- if and (hasKey $kinds "blob") (ne .env "local") }}
+  - bindings/blob.yaml
 {{- end }}

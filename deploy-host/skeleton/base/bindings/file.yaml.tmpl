@@ -1,0 +1,37 @@
+# The file adapter: one Dapr `bindings.localstorage` Component per connector
+# whose topology binding selected `file`, as a multi-document file. (The
+# catalog name is `file`; the Dapr type is bindings.localstorage — there is
+# no bindings.file.) Metadata contract per dapr/components-contrib
+# bindings/localstorage/metadata.yaml.
+#
+# Multi-doc rather than a file each: kustomize reads it natively, and adding a
+# connector stays a one-file diff. The topology mints only the connector's
+# name, label, and scopes. The name must not change: blocks resolve the
+# binding as binding.<connector-name>.
+#
+# Local storage means the daprd container's filesystem: a Kubernetes
+# deployment must mount suitable storage (a PVC, a hostPath, an NFS share) at
+# rootPath on every pod that resolves this binding, or files land on the
+# ephemeral container filesystem and vanish with the pod.
+{{- range .topology.connectors }}
+{{- if eq .binding "file" }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+  labels:
+    intropy.io/connector: {{ .name }}
+spec:
+  type: bindings.localstorage
+  version: v1
+  metadata:
+    # Mount suitable storage at this path in the component's workload.
+    - name: rootPath
+      value: /data/{{ .name }}
+scopes:
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
