@@ -33,6 +33,8 @@ spec:
       value: intropy
     - name: password
       value: intropy
+    - name: insecureIgnoreHostKey
+      value: "true"
 scopes:
 {{- range $conn.appIds }}
   - {{ . }}
