@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dapr.AspNetCore" Version="1.18.5" />
+    <PackageReference Include="Dapr.AspNetCore" Version="1.17.9" />
     <PackageReference Include="Intropy.Contracts" Version="0.1.0" />
-    <PackageReference Include="Intropy.Framework.Adapters" Version="0.3.0-beta.2" />
-    <PackageReference Include="Intropy.Framework.Blocks" Version="0.2.3" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageReference Include="Intropy.Framework.Adapters" Version="0.2.2" />
+    <PackageReference Include="Intropy.Framework.Blocks" Version="0.2.2" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
     <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
   </ItemGroup>
 

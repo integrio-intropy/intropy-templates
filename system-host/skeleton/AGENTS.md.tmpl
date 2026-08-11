@@ -26,8 +26,22 @@ declaration — an Aspire run backend and a generation backend.
   static fields. Same regenerate-then-yours lifecycle. `Apis.cs` appears
   the same way once components declare APIs.
 - `Connectors.cs` — the system's connectors as refs (`ConnectorRef`), declared as
-  static fields with `Transport.File("./test/<connector>")` local paths. Same
-  regenerate-then-yours lifecycle.
+  static fields. Same regenerate-then-yours lifecycle. The name is each
+  connector's whole identity: the Dapr binding component's name is derived
+  (`binding.<connector-name>`), and the deployed binding's type, address, and
+  credentials are environment-owned deployment configuration the topology
+  deliberately does not repeat. Local runs resolve the connector through the
+  development definition instead.
+- `{{ .projectName }}Development.cs` — the `IDevelopmentDefinition` (at most one per
+  assembly): local substitutions for the outside world. Same
+  regenerate-then-yours lifecycle. `Mock(...).FromOpenApi(...)` stands in an
+  OpenAPI-backed mock for a platform service; `Files(...).RootPath(...)` resolves a
+  connector to a folder under this project (conventionally `test/<connector>/`), so
+  the system runs end-to-end with zero external configuration.
+- `Services.cs` — the platform services as refs (`ServiceRef`), declared as static
+  fields; blocks attach them in `Define()` via `.Uses(...)`.
+- `mocks/` — the OpenAPI 3.0.x documents backing the platform-service mocks,
+  served by Microcks during `task run`.
 - `{{ .sharedContracts.name }}/` — the contract records carried on topics and APIs,
   shared by this host and every component project (csproj reference:
   `{{ .sharedContracts.include }}`).
@@ -50,8 +64,10 @@ task run
 ```
 
 Other tasks: `task check` (validate the topology — do this after editing
-edges), `task graph` (print the SystemTopology JSON), `task generate` (write
-Dapr YAML + per-component runtime config to `./out`), `task build`.
+edges), `task graph` (print the SystemTopology JSON; add `--development` via
+`dotnet run -- graph --development` to include the mocks and connector file
+resolutions), `task generate` (write Dapr YAML + per-component runtime config
+to `./out`), `task build`.
 
 ## Triggering components
 
@@ -61,8 +77,8 @@ originate here too:
 - **Extractors**: an extractor runs once when the host starts, so seed before
   `task run`: `task seed` drops `sample-data/sample-order.json` into the
   connector folder (override with `task seed CONNECTOR_DIR=./test/<connector>`
-  — the folder must match the `Transport.File(...)` path in `Connectors.cs`,
-  conventionally `test/<connector-name>`; the default
+  — the folder must match the `Files(...).RootPath(...)` resolution in the
+  development definition, conventionally `test/<connector-name>`; the default
   targets `test/order-extractor-source`). Seeding into a live system needs a
   host restart to be picked up.
 - **Loaders**: `task publish` publishes the sample order to the topic through
@@ -78,8 +94,14 @@ originate here too:
 - Adding a component later: scaffold it as a sibling folder (`intropy int
   create ...`), then add its `builder.Add<Kind>("<name>")` call and any new
   refs by hand — `Define()` is plain C#, and `task check` verifies the result.
-- Every connector the topology uses must have a `Transport.File(...)` path in
-  `Connectors.cs`; keep those paths inside this project directory.
+- Every connector the topology uses must have a `Files(...).RootPath(...)`
+  resolution in the development definition — `task check` fails with "no local
+  file resolution" otherwise. The root path must stay inside this project
+  directory. Mocks are per-service optional, but `Mock(...)` and `Files(...)`
+  reject services and connectors the topology does not use.
+- Mocked platform services run under a single Microcks container
+  (localhost:8585) in the Aspire run; their OpenAPI documents live in `mocks/`
+  and must be self-contained OpenAPI 3.0.x (no external `$ref`).
 - Component Dapr resolution under this host is a staged overlay in
   `obj/dapr-components/<component>/`, generated from the declaration on every
   start — components ship no Dapr YAML of their own. Change the declaration,
