@@ -49,6 +49,12 @@ which case it is left untouched. The extractor's csproj references it as
 The `contract` parameter is threaded through to `shared-contracts`, which
 renames its canonical record to match.
 
+The skeleton's `nuget.config` points at a local feed with the
+`Intropy.Framework.*` integration builds the csproj references
+(`0.0.0-int.<timestamp>` placeholders, packed from the framework repo).
+Replace both with the published versions once a framework release carries the
+run-to-completion host and the extractor builder additions.
+
 ## Parameters
 
 | Name           | Required | Description                                                                                          |

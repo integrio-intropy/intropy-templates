@@ -28,8 +28,8 @@ tasks:
     desc: Drop the sample order into a connector folder (needs the host running to pick it up)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     vars:
-      # Folder the connector resolves to — must match the Transport.File(...)
-      # path in Connectors.cs (conventionally test/<connector-name>).
+      # Folder the connector resolves to — must match the Files(...).RootPath(...)
+      # resolution in the development definition (conventionally test/<connector-name>).
       CONNECTOR_DIR: '{{ "{{" }}.CONNECTOR_DIR | default "./test/order-extractor-source"}}'
     cmds:
       - mkdir -p {{ "{{" }}.CONNECTOR_DIR}}

@@ -41,6 +41,9 @@ production); locally the system host runs the block once at startup.
 
 - `Taskfile.yml` - build and test tasks (`task build`, `task test`; the
   suites also run separately via `task test:unit` / `task test:integration`).
+- `nuget.config` - adds the local feed carrying the `Intropy.Framework.*`
+  integration builds the csproj references; remove it with the version
+  placeholders once a published framework release carries them.
 - `Dockerfile` - multi-stage image build on the .NET chiseled runtime
   (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
   the shared contracts sibling enters as a named context); the image contains
@@ -66,8 +69,9 @@ production); locally the system host runs the block once at startup.
 - `src/Constants.cs` - component/topic names, keyed-adapter key, CloudEvent
   envelope values (root namespace — consumed by both `src` and the tests).
 - `src/Process/` - the extractor pipeline steps only (`Deserializer`,
-  `Validator`, `Transformer`, `Serializer`). All DI and `ExtractorBuilder`
-  wiring lives in `src/Composition/`.
+  `Validator`, `Transformer`); serialization is the framework's
+  `CloudEventSerializeStep`. All DI and `ExtractorBuilder` wiring lives in
+  `src/Composition/`.
 - `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (pure xUnit; no
   fakes, no Dapr; `task test:unit`).
 - `test/{{ .name }}.Test.Integration/` - sweep, publish-wiring, composition,
@@ -133,9 +137,9 @@ coverage (Cobertura report under the integration project's `TestResults/`).
   wall-clock time) makes the check pass everything.
 - Business failures (validation errors) are routed to the Business Incident
   Service, keyed on the order id (falling back to the source file name).
-- The component's `Serializer` builds the CloudEvent envelope. The component
-  supplies `Subject` and `Time` as lambdas in `BuildPipeline`; keep them on
-  stable business fields.
+- The framework's `CloudEventSerializeStep` builds the CloudEvent envelope and
+  validates `Subject`/`Time` at serialize time (the publisher keeps its checks
+  as defense-in-depth). The component supplies both as lambdas in `BuildPipeline`.
 {{- end }}
 
 ## Framework guidance

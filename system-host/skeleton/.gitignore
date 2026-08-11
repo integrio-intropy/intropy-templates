@@ -484,6 +484,6 @@ $RECYCLE.BIN/
 # Local Dapr storage-binding working folders (seeded/produced by `task run`)
 local/storage/
 
-# Connector drop folders (the `Transport.File(...)` resolutions in Connectors.cs,
-# conventionally test/<connector>/; read/written at run time)
+# Connector drop folders (the development definition's `Files(...).RootPath(...)`
+# resolutions, conventionally test/<connector>/; read/written at run time)
 test/

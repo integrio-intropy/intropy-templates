@@ -1,6 +1,7 @@
 # Render fixture: an empty system — the payload lists at their minimum. The
 # render compiles; `dotnet run -- check` reports ITP002 until components are
-# declared.
+# declared. Development.cs still mocks both platform services (the skeleton's
+# Services.cs and mocks/ exist regardless of payload).
 #   intropy int create system-host -o /tmp/system-host-empty -f system-host/examples/empty.yaml --version main --no-input
 name: order-flow
 topics: []

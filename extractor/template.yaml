@@ -53,6 +53,11 @@ spec:
     # The component's .NET project name, recorded in .intropy/scaffold.json
     # for workspace-level tooling (e.g. solution file assembly).
     projectName: '{{ .name }}'
+    # Local feed holding the Intropy.Framework integration builds the
+    # skeleton's csproj references (0.0.0-int.<timestamp> placeholders until a
+    # published framework release carries them). Written into the rendered
+    # nuget.config; point at your own feed when you pack your own builds.
+    nugetFeed: '~/local-nuget'
     # Name of the sibling shared-contracts project; also drives the dependency
     # output below and the ProjectReference in the skeleton csproj. Plain
     # "Contracts" on purpose: the project is scoped to the system directory it
