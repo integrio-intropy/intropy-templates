@@ -9,23 +9,27 @@
 
   <ItemGroup>
     <!-- coverlet.collector: enables the "XPlat Code Coverage" collector used by `task coverage`. -->
-    <PackageReference Include="coverlet.collector" Version="6.0.4">
+    <PackageReference Include="coverlet.collector" Version="10.0.1">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="Intropy.Framework.Adapters" Version="0.3.0-beta.2" />
+    <PackageReference Include="Intropy.Framework.Blocks" Version="0.3.0-beta.3" />
+    <PackageReference Include="Intropy.Framework.Core" Version="0.3.0-beta.2" />
+    <PackageReference Include="Intropy.Framework.Hosting" Version="0.3.0-beta.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <!-- NSubstitute appears exactly once in the suite: the DaprClient publish
          seam Intropy.Framework.Testing deliberately leaves open. -->
-    <PackageReference Include="NSubstitute" Version="5.3.0" />
+    <PackageReference Include="NSubstitute" Version="6.1.0" />
     <!-- Hand-rolled fakes (InMemoryFileAdapter, FakeTopic, service-client
-         fakes, PublishedMessageCapture). Versioned in lockstep with the
-         Intropy.Framework packages the src project references. -->
-    <PackageReference Include="Intropy.Framework.Testing" Version="0.0.0-int.20260805064606" />
+         fakes, PublishedMessageCapture) for component-level integration tests. -->
+    <PackageReference Include="Intropy.Framework.Testing" Version="0.3.0-beta.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../../{{ .contracts }}/{{ .contracts }}.csproj" />
     <ProjectReference Include="../../src/{{ .name }}.csproj" />
   </ItemGroup>
 

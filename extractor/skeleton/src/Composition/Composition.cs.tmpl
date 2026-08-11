@@ -113,10 +113,9 @@ public static class Composition
                     order.OrderDate)
 {{- end }}
             .WithTransformer(new Transformer())
-            // The framework's serialize step owns the CloudEvent envelope (Id,
-            // Subject, Time, Data) and validates Subject/Time at serialize time;
-            // the publisher adds Source/Type from the registration above.
-            .WithSerializer(new CloudEventSerializeStep<{{ .contract }}, Context>(
+            // The serializer owns the CloudEvent envelope (Id, Subject, Time,
+            // Data); the publisher adds Source/Type from the registration above.
+            .WithSerializer(new Serializer(
 {{- if .empty }}
                 subject: _ => throw new NotImplementedException(),
                 time: _ => throw new NotImplementedException()))

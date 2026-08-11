@@ -38,8 +38,7 @@ capture in `PublishIntegrationTests`.
 
 | Layer | Project / files | What it pins |
 |---|---|---|
-| Step unit tests | `test/{{ .name }}.Test.Unit/Process/*Tests.cs` | Each pipeline step's own contract: `Deserializer` (valid JSON, `order_id` stamped into the context), `Validator` (all four branches), `Transformer` (line-content fidelity). (Serialization is the framework's
-`CloudEventSerializeStep`, tested in the framework.) |
+| Step unit tests | `test/{{ .name }}.Test.Unit/Process/*Tests.cs` | Each pipeline step's own contract: `Deserializer` (valid JSON, `order_id` stamped into the context), `Validator` (all four branches), `Transformer` (line-content fidelity), and `Serializer` (CloudEvent subject/time/data). |
 | Sweep integration | `test/{{ .name }}.Test.Integration/SweepTests.cs` | The full pipeline (deserialize → validate → idempotency → transform → serialize → publish) over one inbound sweep, with `FakeTopic` at the publish edge. Pins the sweep's consumption contract: published, duplicate-cancelled, and incident-routed files are all deleted; technical failures stay and are counted.{{- if .empty }} In this empty-bodies scaffold three tests are not included: business-failure incident routing (which input fails validation is the Validator's to define), duplicate-cancel, and delete-failure-redelivery (the latter two need the duplicate simulation the idempotency extractor lambdas enable). Add them as the corresponding implementation lands.{{- end }} |
 | Composition / publish | `test/{{ .name }}.Test.Integration/PublishIntegrationTests.cs`, `CompositionTests.cs` | The real DI graph from `Composition` with only the externals faked. Proves the DI graph builds without a sidecar and that the DI-registered `DaprTopicPublisher` wires pubsub name, topic, and structured-mode CloudEvent encoding correctly (captured via `PublishedMessageCapture`). |
 
@@ -111,8 +110,8 @@ failure — via `src/ExtractJob.cs`):
 2. `Validator` enforces business rules.
 3. Idempotency check — cancels duplicates.
 4. `Transformer` maps `Source{{ .contract }}` → the shared `{{ .contract }}` contract.
-5. `CloudEventSerializeStep` (framework) wraps `{{ .contract }}` in a CloudEvent
-   (Subject and Time are mandatory).
+5. `Serializer` wraps `{{ .contract }}` in a CloudEvent (Subject and Time are
+   mandatory).
 6. The Dapr topic publisher sends it to `pubsub` / `{{ .topic }}`.
 
 Every step body throws `NotImplementedException` — this project was scaffolded
@@ -135,9 +134,8 @@ implemented — the failing tests are the to-do list.
 4. `Transformer` maps `Source{{ .contract }}` → the canonical `{{ .contract }}` shape from the
    shared contracts project (`../{{ .contracts }}`) that the consuming loader
    deserializes.
-5. `CloudEventSerializeStep` (framework) wraps `{{ .contract }}` in a CloudEvent with
-   `Subject` = order id and `Time` = order date, validating both at serialize
-   time.
+5. `Serializer` wraps `{{ .contract }}` in a CloudEvent with `Subject` = order id
+   and `Time` = order date.
 6. The Dapr topic publisher sets the envelope source/type and sends it to
    `pubsub` / `{{ .topic }}`.
 

@@ -1,0 +1,31 @@
+using {{ .contracts }};
+using {{ .name }}.Process;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Unit.Process;
+
+public class SerializerTests
+{
+    [Fact]
+    public async Task ExecuteAsync_builds_cloud_event_with_business_subject_time_and_data()
+    {
+        var order = new {{ .contract }}(
+            OrderId: "A-100",
+            CustomerId: "C-42",
+            OrderDate: new DateTimeOffset(2026, 8, 10, 12, 0, 0, TimeSpan.Zero),
+            Lines: []);
+        var serializer = new Serializer(
+            subject: x => x.OrderId,
+            time: x => x.OrderDate);
+
+        var (result, context) = await serializer.ExecuteAsync(order, new Context([]), CancellationToken.None);
+
+        var success = Assert.IsType<TechnicalStepResult<CloudNative.CloudEvents.CloudEvent>.Success>(result);
+        Assert.Equal("A-100", success.Value.Subject);
+        Assert.Equal(order.OrderDate, success.Value.Time);
+        Assert.Equal("application/json", success.Value.DataContentType);
+        Assert.Same(order, success.Value.Data);
+        Assert.Empty(context.Metadata);
+    }
+}

@@ -22,24 +22,17 @@ unit.
 | Files | Rendered from |
 |---|---|
 | `Topics.cs` | `topics` — one `TopicRef<T>` field per topic |
-| `Connectors.cs` | `connectors` — one `ConnectorRef` per connector (the name is the whole identity; the deployed binding type is environment-owned deployment configuration) |
-| `<Project>Development.cs` | `connectors` — one `development.Files(...).RootPath("./test/<name>")` resolution per connector, plus OpenAPI-backed mocks for both platform services (the skeleton's `Services.cs` + `mocks/` exist regardless of payload) |
+| `Connectors.cs` | `connectors` — one `ConnectorRef` per connector, with local file transport rooted at `./test/<name>` |
 | `<Project>System.cs` | `components` — one `builder.Add<Kind>(...)` chain per component |
 | `<Project>.SystemHost.csproj` | `sharedContracts.include` — the `ProjectReference` to the workspace's shared contracts project |
-| `Program.cs`, `Taskfile.yml`, `Properties/launchSettings.json`, `Services.cs`, `mocks/`, `sample-data/`, `AGENTS.md`, `README.md`, `.gitignore` | static shell |
+| `Program.cs`, `Taskfile.yml`, `Properties/launchSettings.json`, `sample-data/`, `AGENTS.md`, `README.md`, `.gitignore` | static shell |
 
 Contract types are not generated: the host references the workspace's shared
 contracts project (the `shared-library` scaffold, typically `Contracts/`),
 whose path arrives in the payload as `sharedContracts.include`.
 
-A connector's name is its whole identity — the deployed binding's type and
-connection values are environment-owned deployment configuration the topology
-deliberately does not repeat. The
-local-run picture lives in `<Project>Development.cs`
-(`IDevelopmentDefinition`), so a fully assembled system runs end-to-end with
-zero external configuration. Every connector the topology uses must have a
-`Files(...).RootPath(...)` resolution — `check` fails otherwise. The drop
-folders themselves are **not** created by this render or by
+Each connector resolves to a local file transport under `test/<connector>`.
+The drop folders themselves are **not** created by this render or by
 Intropy.Topology at runtime: `intropy sys create` creates `test/<connector>`
 after rendering, and `task seed` `mkdir -p`s its target on demand. When
 rendering outside `sys create`, create them by hand.
@@ -77,17 +70,5 @@ intropy int create system-host -o /tmp/system-host-out \
 ```
 
 `examples/empty.yaml` covers the empty-system render. Building a render
-requires the `Intropy.Topology.Aspire` / `Intropy.Topology.Generation`
-packages to be resolvable from a NuGet feed; until they are published, pack
-the intropy-topology repo to a local folder feed:
-
-```bash
-cd ~/dev/intropy/tooling/intropy-topology
-dotnet pack -p:Version=0.3.0 -o ~/dev/intropy/local-nuget
-```
-
-Do not lower the pin below 0.4.0. From that version the topology carries only
-minted facts: connector identity is the name alone (no declared transport),
-and activation cadence lives in deployment configuration. Earlier versions
-require a declared `Transport` on every `ConnectorRef` and cannot compile
-this skeleton's declarations.
+restores `Intropy.Topology.Aspire` and `Intropy.Topology.Generation` from
+NuGet.org at the versions pinned in the scaffolded project file.
