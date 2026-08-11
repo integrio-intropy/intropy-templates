@@ -41,9 +41,6 @@ production); locally the system host runs the block once at startup.
 
 - `Taskfile.yml` - build and test tasks (`task build`, `task test`; the
   suites also run separately via `task test:unit` / `task test:integration`).
-- `nuget.config` - adds the local feed carrying the `Intropy.Framework.*`
-  integration builds the csproj references; remove it with the version
-  placeholders once a published framework release carries them.
 - `Dockerfile` - multi-stage image build on the .NET chiseled runtime
   (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
   the shared contracts sibling enters as a named context); the image contains
