@@ -1,0 +1,28 @@
+using {{ .contracts }};
+using CloudNative.CloudEvents;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+public sealed class Serializer(
+    Func<{{ .contract }}, string> subject,
+    Func<{{ .contract }}, DateTimeOffset> time) : SerializeStep<{{ .contract }}, Context>
+{
+    public override Task<(TechnicalStepResult<CloudEvent> Result, Context Context)> ExecuteAsync(
+        {{ .contract }} input, Context context, CancellationToken ct)
+    {
+        var cloudEvent = new CloudEvent
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Subject = subject(input),
+            Time = time(input),
+            DataContentType = "application/json",
+            Data = input
+        };
+
+        return Task.FromResult<(TechnicalStepResult<CloudEvent>, Context)>(
+            (new TechnicalStepResult<CloudEvent>.Success(cloudEvent), context));
+    }
+}

@@ -14,16 +14,15 @@ public sealed class {{ .systemClass }} : ISystemDefinition
             .From(Connectors.{{ .connectorField }})
 {{- end }}
             .Publishes(Topics.{{ .topicField }})
-            .Uses(Services.Idempotency)
-            .Uses(Services.BusinessIncidents);
+            // Production cadence is owned by the deploy-component CronJob;
+            // this package line requires a topology schedule placeholder.
+            .WithSchedule("0 * * * *");
 {{- else }}
         builder.AddLoader("{{ .appId }}")
             .Subscribes(Topics.{{ .topicField }})
 {{- if .connectorField }}
             .To(Connectors.{{ .connectorField }})
-{{- end }}
-            .Uses(Services.Idempotency)
-            .Uses(Services.BusinessIncidents);
+{{- end }};
 {{- end }}
 {{- end }}
     }
