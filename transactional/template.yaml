@@ -50,9 +50,3 @@ spec:
     # transport are never asked for at scaffold time).
     fromConnector: '{{ .name | kebabcase | replace "." "-" }}-source'
     toConnector: '{{ .name | kebabcase | replace "." "-" }}-destination'
-    # The component-owned internal hop: the receive side publishes each
-    # source file for the send side to process. Deliberately not recorded in
-    # scaffold.json — the topic is invisible to the topology, but it must
-    # stay unique per component so two transactional integrations under one
-    # host never cross wires.
-    internalTopic: '{{ .name | kebabcase | replace "." "-" }}-in'
