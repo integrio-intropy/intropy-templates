@@ -42,7 +42,7 @@ declaration — an Aspire run backend and a generation backend.
   fields; blocks attach them in `Define()` via `.Uses(...)`.
 - `mocks/` — the OpenAPI 3.0.x documents backing the platform-service mocks,
   served by Microcks during `task run`.
-{{- if .sharedContracts }}
+{{- if hasKey . "sharedContracts" }}
 - `{{ .sharedContracts.name }}/` — the contract records carried on topics and APIs,
   shared by this host and every component project (csproj reference:
   `{{ .sharedContracts.include }}`).

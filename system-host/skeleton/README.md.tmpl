@@ -53,7 +53,7 @@ and connector file resolutions) to the graph document.
 - `mocks/` — the OpenAPI documents backing the local service mocks
 - `sample-data/sample-order.json` — the sample order used by `task seed` and
   `task publish`
-{{- if .sharedContracts }}
+{{- if hasKey . "sharedContracts" }}
 - `{{ .sharedContracts.name }}/` — the contract records the topics carry
   (referenced from the csproj as rendered: `{{ .sharedContracts.include }}`)
 {{- end }}
