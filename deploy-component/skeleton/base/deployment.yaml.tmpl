@@ -36,6 +36,12 @@ spec:
 {{- end }}
           ports:
             - containerPort: 8080
+          env:
+            # OTLP/HTTP endpoint on the developer machine (otel-lgtm in
+            # Docker). Per-environment collectors override this in the
+            # environment overlays.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://host.docker.internal:4318
           resources:
             requests:
               cpu: 50m

@@ -5,7 +5,9 @@ metadata:
 spec:
   # The schedule's one and only home: activation cadence is deployment
   # configuration, so the topology carries no schedule to copy from.
-  schedule: "REPLACE-ME-CRON-SCHEDULE"
+  # The default is a once-a-minute dev cadence; change it here per
+  # environment.
+  schedule: "* * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
@@ -27,7 +29,22 @@ spec:
           restartPolicy: Never
           containers:
             - name: {{ .name }}
+{{- if eq .env "local" }}
+              # The pinned local reference, same contract as deployment.yaml:
+              # local/<name>, rewritten to local/<name>:dev by the root
+              # kustomization intropy manifests render writes.
+              image: local/{{ .name }}
+{{- else }}
+              # The tag tracks the freshest CI build. `intropy deploy` replaces
+              # it with a digest when a deployment must be pinned.
               image: {{ .imageRepo }}:{{ .imageTag }}
+{{- end }}
+              env:
+                # OTLP/HTTP endpoint on the developer machine (otel-lgtm in
+                # Docker). Per-environment collectors override this in the
+                # environment overlays.
+                - name: OTEL_EXPORTER_OTLP_ENDPOINT
+                  value: http://host.docker.internal:4318
               resources:
                 requests:
                   cpu: 50m

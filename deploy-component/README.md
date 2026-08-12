@@ -17,17 +17,10 @@ This is not an invention: the hand-written manifests in two customer
 repositories already run their extractors as CronJobs. The topology's block kind
 is what lets the CLI derive it.
 
-The CronJob's schedule is a `REPLACE-ME-CRON-SCHEDULE` placeholder — and its
-one and only home. Activation cadence is deployment configuration, so the
-topology carries no schedule to copy from; fill it in here and edit it here.
-
-The local cluster is the one exception: a local render is applied without a
-review step, so the job must run on first install. `base/cronjob-local.yaml`
-carries a low-frequency dev cadence for it, and the `spec.files` rules pick
-between the two files on `.env` — the schedule may not be templated on `.env`
-inside one file, because everything outside `overlays/` must render
-identically per environment (the CLI's mergeRendered refuses the render
-otherwise). `base/kustomization.yaml` names the picked variant.
+The CronJob's schedule defaults to `* * * * *` — a once-a-minute dev cadence
+— and is its one and only home. Activation cadence is deployment
+configuration, so the topology carries no schedule to copy from; change it
+here per environment.
 
 ## The image tracks the dev tag
 
@@ -49,10 +42,10 @@ merge so the workload and `component.yaml` name the same image repository.
 
 `overlays/local/` is rendered by `intropy manifests render --env local`: a
 one-off render for the local development cluster, piped straight to
-`kubectl apply -f -`. It differs from the environment overlays in three ways.
+`kubectl apply -f -`. It differs from the environment overlays in two ways.
 
 **The image reference is pinned to a `local/` name.** `deployment.yaml` and
-`cronjob-local.yaml` render `image: local/{{ .name }}` — the prefix the k3s
+`cronjob.yaml` render `image: local/{{ .name }}` — the prefix the k3s
 setup scripts tag every side-loaded image under, no tag — exactly when `.env`
 is `local`. `intropy manifests render` writes a root kustomization whose
 `images[]` entries rewrite that reference to `local/<name>:dev`, the tag the

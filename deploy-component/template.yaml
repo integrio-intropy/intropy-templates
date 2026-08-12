@@ -80,15 +80,11 @@ spec:
     imageTag: "dev"
 
   files:
-    # The CronJob's schedule is deployment configuration that differs between
-    # the local cluster (a dev cadence, applied unreviewed) and every other
-    # environment (a REPLACE-ME a human fills in), and .env may only vary
-    # under overlays/ — so the variant is picked here, per file, and
-    # base/kustomization.yaml names the picked file. First match decides.
+    # One CronJob file: the schedule is deployment configuration with a
+    # once-a-minute default, and the local image reference is an .env
+    # conditional inside the file, same as deployment.yaml.
     - path: base/cronjob.yaml.tmpl
-      when: '{{ and (eq .workload "cronjob") (ne .env "local") }}'
-    - path: base/cronjob-local.yaml.tmpl
-      when: '{{ and (eq .workload "cronjob") (eq .env "local") }}'
+      when: '{{ eq .workload "cronjob" }}'
     - path: base/deployment.yaml.tmpl
       when: '{{ eq .workload "deployment" }}'
 

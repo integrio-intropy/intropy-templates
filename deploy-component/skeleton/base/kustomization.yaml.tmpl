@@ -3,14 +3,7 @@ kind: Kustomization
 
 resources:
 {{- if eq .workload "cronjob" }}
-  # The schedule is env-dependent, so the file rules pick the CronJob variant
-  # and this list names the variant file: local gets a dev cadence, every
-  # other environment the REPLACE-ME scaffold a human fills in.
-{{- if eq .env "local" }}
-  - cronjob-local.yaml
-{{- else }}
   - cronjob.yaml
-{{- end }}
 {{- else }}
   - deployment.yaml
 {{- end }}
