@@ -19,11 +19,13 @@
         <PackageReference Include="Intropy.Topology.Generation" Version="0.3.0-beta.1" />
     </ItemGroup>
 
+{{- if .sharedContracts }}
     <ItemGroup>
         <!-- Shared contracts project (the workspace's shared-library scaffold).
              IsAspireProjectResource="false" keeps the Aspire AppHost from
              treating the class library as an orchestrated resource. -->
         <ProjectReference Include="{{ .sharedContracts.include }}" IsAspireProjectResource="false" />
     </ItemGroup>
+{{- end }}
 
 </Project>

@@ -1,5 +1,7 @@
 using Intropy.Topology;
+{{- if .sharedContracts }}
 using {{ .sharedContracts.name }};
+{{- end }}
 
 /// <summary>The system's topics, each defined once and shared by every component that touches it.</summary>
 public static class Topics

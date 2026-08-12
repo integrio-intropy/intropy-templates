@@ -53,8 +53,10 @@ and connector file resolutions) to the graph document.
 - `mocks/` — the OpenAPI documents backing the local service mocks
 - `sample-data/sample-order.json` — the sample order used by `task seed` and
   `task publish`
+{{- if .sharedContracts }}
 - `{{ .sharedContracts.name }}/` — the contract records the topics carry
   (referenced from the csproj as rendered: `{{ .sharedContracts.include }}`)
+{{- end }}
 - `Program.cs` — one entry point, two backends; not meant to be edited
 
 Components live as sibling folders of this project, one folder per component,

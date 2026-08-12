@@ -25,7 +25,6 @@ spec:
       - topics
       - connectors
       - components
-      - sharedContracts
     properties:
       name:
         type: string
@@ -51,6 +50,9 @@ spec:
         items:
           type: object
           additionalProperties: true
+      # Optional: present only when the workspace has a shared-library
+      # scaffold. A topics-free system (e.g. only transactional
+      # integrations) renders with no contracts reference.
       sharedContracts:
         type: object
         additionalProperties: true
