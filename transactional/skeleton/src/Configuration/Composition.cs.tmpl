@@ -6,7 +6,9 @@ using {{ .name }}.Send;
 using Intropy.BusinessIncidentService.Client;
 {{- end }}
 using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Blocks.TransactionalIntegration.Receive;
+using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
 using Intropy.Framework.Core.Configuration;
 using Intropy.Framework.Hosting.TransactionalIntegration.Job;
 {{- if not .empty }}
@@ -28,7 +30,16 @@ namespace {{ .name }}.Configuration;
 public static class Composition
 {
     /// <summary>Registers every service the integration job needs.</summary>
-    public static IServiceCollection ConfigureServices(IServiceCollection services)
+    /// <param name="receiveEnqueuerOverride">
+    /// Optional factory for the receive pipeline's enqueue step. Production
+    /// leaves this null; the integration suite substitutes
+    /// <c>FakeEnqueueStep&lt;Context&gt;</c> so the pipeline is still built by the
+    /// exact production builder chain with only the broker edge faked. Forwarded
+    /// to <c>Receive.ServiceCollectionExtensions.AddReceivePipeline</c>.
+    /// </param>
+    public static IServiceCollection ConfigureServices(
+        IServiceCollection services,
+        Func<IServiceProvider, EnqueueStep<Context>>? receiveEnqueuerOverride = null)
     {
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 
@@ -76,7 +87,7 @@ public static class Composition
 
         services.AddSingleton<ISourceLister, SourceLister>();
 
-        services.AddReceivePipeline();
+        services.AddReceivePipeline(receiveEnqueuerOverride);
         services.AddSendPipeline();
 
         return services;

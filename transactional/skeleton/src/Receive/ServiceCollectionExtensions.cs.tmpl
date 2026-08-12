@@ -6,6 +6,7 @@ using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Blocks.TransactionalIntegration;
+using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
 using Intropy.Framework.Core.Configuration;
 using Intropy.Framework.Hosting.TransactionalIntegration.Job;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +15,15 @@ namespace {{ .name }}.Receive;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddReceivePipeline(this IServiceCollection services)
+    /// <param name="enqueuerOverride">
+    /// Optional factory for the enqueue step, resolved from the same provider as
+    /// the production wiring. Production leaves this null; the integration suite
+    /// substitutes <c>FakeEnqueueStep&lt;Context&gt;</c> here so the receive pipeline
+    /// is still built by this exact builder chain — only the broker edge is faked.
+    /// </param>
+    public static IServiceCollection AddReceivePipeline(
+        this IServiceCollection services,
+        Func<IServiceProvider, EnqueueStep<Context>>? enqueuerOverride = null)
     {
         services.AddReceivePipeline<Context>("{{ .name }}.Receive", (builder, provider) =>
         {
@@ -22,12 +31,14 @@ public static class ServiceCollectionExtensions
             var daprClient = provider.GetRequiredService<DaprClient>();
             var tiOptions = provider.GetRequiredService<TransactionalIntegrationOptions>();
             var frameworkOptions = provider.GetRequiredService<FrameworkOptions>();
+            var enqueuer = enqueuerOverride?.Invoke(provider)
+                ?? new Enqueuer(daprClient, tiOptions, frameworkOptions);
 {{- if not .empty }}
             var incidentClient = provider.GetRequiredService<IBusinessIncidentServiceClient>();
 
             return builder
                 .WithReceiver(new Receiver(sourceAdapter))
-                .WithEnqueuer(new Enqueuer(daprClient, tiOptions, frameworkOptions))
+                .WithEnqueuer(enqueuer)
                 .WithCompleter(new Completer(sourceAdapter))
                 .WithBusinessIncidents(
                     incidentClient,
@@ -37,7 +48,7 @@ public static class ServiceCollectionExtensions
 
             return builder
                 .WithReceiver(new Receiver(sourceAdapter))
-                .WithEnqueuer(new Enqueuer(daprClient, tiOptions, frameworkOptions))
+                .WithEnqueuer(enqueuer)
                 .WithCompleter(new Completer(sourceAdapter));
 {{- end }}
         });

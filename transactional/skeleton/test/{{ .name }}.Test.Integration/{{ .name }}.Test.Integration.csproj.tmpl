@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- Intentional: Intropy.Framework.Testing 0.3.0-beta.5 (the first build
+         shipping FakeEnqueueStep) declares a framework floor of 0.3.0-beta.5,
+         while this project pins the framework at 0.3.0-beta.4 — an intentional
+         downgrade. The transactional block types Testing builds on are identical
+         across beta.4 and beta.5, so the beta.4 direct references are correct.
+         NU1605 (package downgrade) is suppressed for that deliberate pairing. -->
+    <NoWarn>$(NoWarn);NU1605</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- coverlet.collector: enables the "XPlat Code Coverage" collector used by `task coverage`. -->
+    <PackageReference Include="coverlet.collector" Version="10.0.1">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Intropy.Framework.Adapters" Version="0.3.0-beta.4" />
+    <PackageReference Include="Intropy.Framework.Blocks" Version="0.3.0-beta.4" />
+    <PackageReference Include="Intropy.Framework.Core" Version="0.3.0-beta.4" />
+    <PackageReference Include="Intropy.Framework.Hosting" Version="0.3.0-beta.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <!-- NSubstitute appears exactly once in the suite: the DaprClient publish
+         seam in EnqueuePublishTests (the one edge the testing library
+         deliberately leaves to a mocking framework). -->
+    <PackageReference Include="NSubstitute" Version="6.1.0" />
+    <!-- Hand-rolled fakes (InMemoryFileAdapter, FakeEnqueueStep, service-client
+         fakes, PublishedMessageCapture) for component-level integration tests.
+         Pinned at 0.3.0-beta.5 — the first published build that ships
+         FakeEnqueueStep — while the framework packages stay on 0.3.0-beta.4
+         (see the NoWarn note above for the deliberate NU1605 suppression). -->
+    <PackageReference Include="Intropy.Framework.Testing" Version="0.3.0-beta.5" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/{{ .name }}.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
