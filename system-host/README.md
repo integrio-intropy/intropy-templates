@@ -44,6 +44,12 @@ Intropy.Topology at runtime: `intropy sys create` creates `test/<connector>`
 after rendering, and `task seed` `mkdir -p`s its target on demand. When
 rendering outside `sys create`, create them by hand.
 
+A transactional integration's internal pub/sub hop — the receive side
+publishes each source file for the send side to process — is component-owned:
+the topic lives in the component's own constants and is deliberately invisible
+to the topology, so `Topics.cs` and the payload's `topics` list never mention
+it. The host declares only the two connectors.
+
 ## The payload contract
 
 `spec.parameters` declares the payload as required: an older CLI that
@@ -58,7 +64,7 @@ skeleton stays a flat `range` over the lists — no lookups in templates.
 | `name` | string | DNS-1123 system name; becomes `SystemName`. |
 | `topics` | list of `{pubsub, name, contract, field}` | `contract` is the shared-contracts record; `field` its PascalCase `Topics` identifier. Sorted by (pubsub, name). |
 | `connectors` | list of `{name, field}` | `field` is the PascalCase `Connectors` identifier. Sorted by name. |
-| `components` | list of `{appId, kind, topicField, connectorField}` | `kind` is `extractor` or `loader`; `topicField`/`connectorField` are the pre-joined `Topics`/`Connectors` identifiers the component touches (`connectorField` empty when the component has no connector). |
+| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. The wiring fields follow the component's shape: a topic block carries `topicField` plus `connectorField` when it has a connector (empty when it has none); a transactional integration — connector-to-connector, no topic — carries `fromField`/`toField`. All are pre-joined `Topics`/`Connectors` identifiers. |
 | `sharedContracts` | `{name, include}` | `name` is the contracts project/namespace (the `using` in `Topics.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. |
 
 Derived `projectName`/`systemClass` (`order-flow` → `OrderFlow` /
@@ -86,8 +92,10 @@ cd ~/dev/intropy/tooling/intropy-topology
 dotnet pack -p:Version=0.3.0 -o ~/dev/intropy/local-nuget
 ```
 
-Do not lower the pin below 0.4.0. From that version the topology carries only
-minted facts: connector identity is the name alone (no declared transport),
-and activation cadence lives in deployment configuration. Earlier versions
-require a declared `Transport` on every `ConnectorRef` and cannot compile
-this skeleton's declarations.
+Do not lower the pin below 0.4.1. From that version the topology carries only
+minted facts (connector identity is the name alone, no declared transport;
+activation cadence lives in deployment configuration), the transactional
+integration builder exists (`From`/`To` connectors, enforced by a
+completeness rule), and the Aspire host treats run-to-completion kinds'
+finished sidecars as their intended terminal state. Earlier versions cannot
+compile or run this skeleton's declarations.

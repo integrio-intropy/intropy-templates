@@ -25,7 +25,7 @@ tasks:
 
   # ── Trigger a run ─────────────────────────────────────────────────
   seed:
-    desc: Drop the sample order into a connector folder (needs the host running to pick it up)
+    desc: Drop the sample order into a connector folder (run-to-completion components sweep it at host start)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     vars:
       # Folder the connector resolves to — must match the Files(...).RootPath(...)

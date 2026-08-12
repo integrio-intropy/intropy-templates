@@ -16,6 +16,12 @@ public sealed class {{ .systemClass }} : ISystemDefinition
             .Publishes(Topics.{{ .topicField }})
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
+{{- else if eq .kind "transactional-integration" }}
+        builder.AddTransactionalIntegration("{{ .appId }}")
+            .From(Connectors.{{ .fromField }})
+            .To(Connectors.{{ .toField }})
+            .Uses(Services.Idempotency)
+            .Uses(Services.BusinessIncidents);
 {{- else }}
         builder.AddLoader("{{ .appId }}")
             .Subscribes(Topics.{{ .topicField }})
