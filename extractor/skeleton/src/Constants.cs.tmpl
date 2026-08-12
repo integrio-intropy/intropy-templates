@@ -11,7 +11,7 @@ public static class Constants
     // The source connector's Dapr binding. "binding.<connector>" is the
     // derived component name the system host generates, so the overlay can
     // swap the local folder for the system-level one without touching code.
-    public const string InboundBindingName = "binding.{{ .connector }}";
+    public const string InboundBindingName = "{{ .connector }}";
 
     public const string SourceFileAdapterKey = "source";
 

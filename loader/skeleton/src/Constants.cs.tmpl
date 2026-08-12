@@ -11,7 +11,7 @@ public static class Constants
     // The destination connector's Dapr binding. "binding.<connector>" is the
     // derived component name the system host generates, so the overlay can
     // swap the local folder for the system-level one without touching code.
-    public const string DestinationBindingName = "binding.{{ .connector }}";
+    public const string DestinationBindingName = "{{ .connector }}";
 
     public const string DestinationFileAdapterKey = "destination";
 
