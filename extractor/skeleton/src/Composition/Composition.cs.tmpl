@@ -44,8 +44,15 @@ public static class Composition
         // Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
         // contributes its own DaprClient registration (camelCase JSON + string enums),
         // and the last registration wins for GetRequiredService<DaprClient>().
-        services.AddIdempotencyServiceClient();      // Dapr app id / HTTPEndpoint name: idempotency-service
-        services.AddBusinessIncidentServiceClient(); // Dapr app id / HTTPEndpoint name: business-incident-service
+        services.AddIdempotencyServiceClient(c =>
+        {
+            c.AppId = "idempotency-service.services";
+        });
+
+        services.AddBusinessIncidentServiceClient(c =>
+        {
+            c.AppId = "business-incident-service.services";
+        });
 
         services.AddIntropyFramework(x =>
         {
