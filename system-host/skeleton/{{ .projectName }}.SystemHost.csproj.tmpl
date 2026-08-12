@@ -19,7 +19,7 @@
         <PackageReference Include="Intropy.Topology.Generation" Version="0.3.0-beta.1" />
     </ItemGroup>
 
-{{- if .sharedContracts }}
+{{- if hasKey . "sharedContracts" }}
     <ItemGroup>
         <!-- Shared contracts project (the workspace's shared-library scaffold).
              IsAspireProjectResource="false" keeps the Aspire AppHost from
