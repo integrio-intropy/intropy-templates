@@ -13,11 +13,15 @@ metadata:
     intropy.dev/template-role: system-host
 
 spec:
-  # `intropy sys create` renders this template with the full value payload
-  # and --no-input. The payload parameters are required so an older CLI
-  # that only sets `name` fails validation loudly instead of rendering an
-  # empty system. They are supplied programmatically — never via --set or
-  # prompts — so they carry no title/description.
+  # `intropy sys create` renders this template with the facts-only value
+  # payload and --no-input: topic and connector names, component wiring, and
+  # the detected contracts sibling when one exists. The skeleton derives
+  # everything that exists only inside the generated files — the
+  # Topics/Connectors field identifiers and the joins from components to
+  # them. The payload parameters are required so an older CLI that only sets
+  # `name` fails validation loudly instead of rendering an empty system.
+  # They are supplied programmatically — never via --set or prompts — so
+  # they carry no title/description.
   parameters:
     type: object
     required:
@@ -25,17 +29,16 @@ spec:
       - topics
       - connectors
       - components
-      - sharedContracts
     properties:
       name:
         type: string
         title: System name
         description: DNS-1123 name of the integration system (e.g. order-flow). Becomes the SystemName. The pub/sub component is always named `pubsub` (system-independent), so a component runs the same standalone or under this host.
         pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
-      # The payload below. The CLI pre-joins every reference (each
-      # component carries the Topics/Connectors field identifiers it
-      # touches), so the skeleton is a flat range over these lists — no
-      # lookups. Empty lists render a valid empty system, so no minItems.
+      # The payload below. Each component carries the raw topic/connector
+      # names it touches; the skeleton joins them to the fields Topics.cs
+      # and Connectors.cs declare. Empty lists render a valid empty system,
+      # so no minItems.
       topics:
         type: array
         items:
@@ -51,9 +54,29 @@ spec:
         items:
           type: object
           additionalProperties: true
+      # Optional: present only when the workspace has a shared-library
+      # scaffold. A topics-free system (e.g. only transactional
+      # integrations) renders with no contracts reference; a topic-bearing
+      # system without one gets the project from the dependency below.
       sharedContracts:
         type: object
         additionalProperties: true
+  files:
+    # A topic-free system has no contract types to declare; Connectors.cs
+    # stays (connectors exist without topics).
+    - path: Topics.cs.tmpl
+      when: '{{ gt (len .topics) 0 }}'
+  dependencies:
+    # The system's contract types. Skipped when the workspace already has a
+    # shared-library scaffold (the CLI passes it as sharedContracts) or when
+    # there are no topics to type. The dependency machinery reuses the
+    # sibling rather than overwriting it when several components declared it.
+    - template: shared-contracts
+      when: '{{ and (gt (len .topics) 0) (not (hasKey . "sharedContracts")) }}'
+      output: Contracts
+      values:
+        name: Contracts
+        contract: '{{ (index .topics 0).contract }}'
   values:
     # Must match the CLI's pascalCase(name): the CLI's payload assembly
     # derives the same project name for its result summary, and a

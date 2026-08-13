@@ -10,17 +10,17 @@ them; everything the host does is a backend over that declaration.
 task run        # the whole system under the Aspire dashboard; Ctrl+C to stop
 ```
 
-Extractors are run-to-completion jobs: a host run executes each one once at
-startup, so seed inbound folders before starting — seeding into a live system
-needs a host restart to be picked up. Activation cadence lives in deployment
-configuration, not in the topology: in production the schedule is a Kubernetes
-CronJob in the GitOps repo. Loaders are long-running services and stay up for
-the whole host run.
+Extractors and transactional integrations are run-to-completion jobs: a host
+run executes each one once at startup, so seed inbound folders before
+starting — seeding into a live system needs a host restart to be picked up.
+Activation cadence lives in deployment configuration, not in the topology: in
+production the schedule is a Kubernetes CronJob in the GitOps repo. Loaders
+are long-running services and stay up for the whole host run.
 
 ## Trigger a component
 
 ```bash
-task seed       # drop the sample order into the connector folder (extractors sweep it)
+task seed       # drop the sample order into the connector folder (run-to-completion components sweep it)
 task publish    # publish the sample order to the topic through a running sidecar
 ```
 
@@ -53,8 +53,10 @@ and connector file resolutions) to the graph document.
 - `mocks/` — the OpenAPI documents backing the local service mocks
 - `sample-data/sample-order.json` — the sample order used by `task seed` and
   `task publish`
+{{- if hasKey . "sharedContracts" }}
 - `{{ .sharedContracts.name }}/` — the contract records the topics carry
   (referenced from the csproj as rendered: `{{ .sharedContracts.include }}`)
+{{- end }}
 - `Program.cs` — one entry point, two backends; not meant to be edited
 
 Components live as sibling folders of this project, one folder per component,

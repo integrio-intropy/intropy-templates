@@ -1,0 +1,57 @@
+using System.Text;
+using {{ .name }}.Configuration;
+using {{ .name }}.Receive;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Blocks.TransactionalIntegration.Receive;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+
+namespace {{ .name }}.Test.Unit.Receive;
+
+public class ReceiverTests
+{
+    [Fact]
+    public async Task ExecuteAsync_WithReadableFile_ReturnsSourceItemAndStampsFileName()
+    {
+        // Arrange
+        var fileAdapter = Substitute.For<IFileAdapter>();
+        var content = Encoding.UTF8.GetBytes("""{"orderId":"ORD-1001"}""");
+        fileAdapter.GetContentAsync("order-1.json").Returns(content);
+        var receiver = new Receiver(fileAdapter);
+        var context = new Context(new Dictionary<string, string>());
+
+        // Act
+        var (result, resultContext) = await receiver.ExecuteAsync(
+            new SourceItemInfo("order-1.json"), context, CancellationToken.None);
+
+        // Assert
+        var success = Assert.IsType<BusinessStepResult<SourceItem>.Success>(result);
+        Assert.Equal("order-1.json", success.Value.Id);
+        Assert.Equal(content, success.Value.Data);
+        Assert.Equal("order-1.json", resultContext.Metadata[Constants.ContextKeyFileName]);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenReadThrows_ReturnsBusinessFailureKeyedOnFileName()
+    {
+        // Arrange: the Dapr binding throws on a missing/corrupt file; the
+        // Receiver converts that into a business incident keyed on the file name.
+        var fileAdapter = Substitute.For<IFileAdapter>();
+        fileAdapter.GetContentAsync("corrupt.json")
+            .Throws(new InvalidOperationException("Source refuses reads"));
+        var receiver = new Receiver(fileAdapter);
+        var context = new Context(new Dictionary<string, string>());
+
+        // Act
+        var (result, resultContext) = await receiver.ExecuteAsync(
+            new SourceItemInfo("corrupt.json"), context, CancellationToken.None);
+
+        // Assert
+        var failure = Assert.IsType<BusinessStepResult<SourceItem>.Failure>(result);
+        Assert.Equal("Failed to get file content", failure.Value.Description);
+        Assert.Equal("corrupt.json", failure.Value.Context!["fileName"]);
+        Assert.Equal("corrupt.json", resultContext.Metadata[Constants.ContextKeyFileName]);
+    }
+}

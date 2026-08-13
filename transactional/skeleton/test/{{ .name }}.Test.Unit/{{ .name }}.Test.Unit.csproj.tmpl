@@ -8,19 +8,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Intropy.Framework.Adapters" Version="0.2.3" />
-    <PackageReference Include="Intropy.Framework.Blocks" Version="0.2.3" />
-    <PackageReference Include="Intropy.Framework.Core" Version="0.2.3" />
-    <PackageReference Include="Intropy.Framework.Hosting" Version="0.2.3" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+    <PackageReference Include="Intropy.Framework.Adapters" Version="0.3.0-beta.4" />
+    <PackageReference Include="Intropy.Framework.Blocks" Version="0.3.0-beta.4" />
+    <PackageReference Include="Intropy.Framework.Core" Version="0.3.0-beta.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <!-- NSubstitute appears exactly once per step seam in the unit suite: the
+         Receiver and Sender steps' IFileAdapter constructor seams
+         (InMemoryFileAdapter belongs to the integration suite, which owns the
+         framework's testing fakes). -->
     <PackageReference Include="NSubstitute" Version="6.1.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../src/{{ .name }}.csproj" />
+    <ProjectReference Include="../../src/{{ .name }}.csproj" />
   </ItemGroup>
 
   <ItemGroup>

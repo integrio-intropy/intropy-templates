@@ -42,9 +42,11 @@ declaration — an Aspire run backend and a generation backend.
   fields; blocks attach them in `Define()` via `.Uses(...)`.
 - `mocks/` — the OpenAPI 3.0.x documents backing the platform-service mocks,
   served by Microcks during `task run`.
+{{- if hasKey . "sharedContracts" }}
 - `{{ .sharedContracts.name }}/` — the contract records carried on topics and APIs,
   shared by this host and every component project (csproj reference:
   `{{ .sharedContracts.include }}`).
+{{- end }}
 
 ## The folder convention
 
@@ -81,6 +83,13 @@ originate here too:
   development definition, conventionally `test/<connector-name>`; the default
   targets `test/order-extractor-source`). Seeding into a live system needs a
   host restart to be picked up.
+- **Transactional integrations**: also run-to-completion — each one sweeps its
+  `From` connector's folder once when the host starts. Trigger the same way:
+  seed the source connector folder before `task run`
+  (`task seed CONNECTOR_DIR=./test/<from-connector>`), restart to re-run. Its
+  internal pub/sub hop (the receive side publishes for the send side to
+  process) is component-owned and invisible to the topology — the host
+  declares only the two connectors.
 - **Loaders**: `task publish` publishes the sample order to the topic through
   a running component's sidecar (override `PUBLISH_APP_ID` and `TOPIC`; the
   dapr CLI resolves the sidecar from the app-id).
@@ -106,11 +115,12 @@ originate here too:
   `obj/dapr-components/<component>/`, generated from the declaration on every
   start — components ship no Dapr YAML of their own. Change the declaration,
   not the artifacts.
-- Component lifecycles differ. Extractors are run-to-completion jobs: the
-  host runs each one once at startup, and activation cadence lives in
-  deployment configuration, not in the topology — in production the schedule
-  is a Kubernetes CronJob in the GitOps repo, its one and only home. Loaders
-  are long-running ASP.NET services and stay up for the whole host run.
+- Component lifecycles differ. Extractors and transactional integrations are
+  run-to-completion jobs: the host runs each one once at startup, and
+  activation cadence lives in deployment configuration, not in the topology —
+  in production the schedule is a Kubernetes CronJob in the GitOps repo, its
+  one and only home. Loaders are long-running ASP.NET services and stay up
+  for the whole host run.
 
 ## Framework guidance
 

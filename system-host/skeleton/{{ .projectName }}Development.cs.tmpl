@@ -8,8 +8,8 @@ public sealed class {{ .projectName }}Development : IDevelopmentDefinition
     {
         development.Mock(Services.Idempotency).FromOpenApi("mocks/idempotency-service.openapi.yaml");
         development.Mock(Services.BusinessIncidents).FromOpenApi("mocks/business-incident-service.openapi.yaml");
-{{- range .connectors }}
-        development.Files(Connectors.{{ .field }}).RootPath("./test/{{ .name }}");
+{{- range $c := .connectors }}
+        development.Files(Connectors.{{ regexReplaceAll "[-._]" $c.name " " | title | replace " " "" }}).RootPath("./test/{{ $c.name }}");
 {{- end }}
     }
 }

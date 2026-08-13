@@ -1,0 +1,149 @@
+using System.Text;
+using {{ .name }}.Configuration;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Blocks.TransactionalIntegration.Send;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Intropy.Framework.Testing.Adapters;
+using Microsoft.Extensions.DependencyInjection;
+{{- if not .empty }}
+using Intropy.Contracts.IdempotencyService;
+using Intropy.Framework.Testing.Services;
+using Action = Intropy.Contracts.IdempotencyService.Action;
+{{- end }}
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The full send pipeline (deserialize → idempotency → extract → validate →
+/// transform → serialize → send), resolved from the real DI graph with only
+/// the externals faked (see <see cref="FakeEdges"/>). These tests pin the send
+/// pipeline's consumption contract: a valid message is written and committed;
+/// a duplicate is consumed without rewriting or recommitting; a validation
+/// failure routes an incident and is consumed; a destination fault surfaces
+/// as a <em>business</em> failure (the transactional <c>SendStep</c> is a
+/// <c>BusinessStep</c>), routing an incident rather than a technical retry.
+/// </summary>
+public class SendPipelineIntegrationTests
+{
+{{- if .empty }}
+    // Test-owned valid input: the scaffold's In/Out records are empty shells
+    // until the real contract is defined, so this file deliberately uses its
+    // own field names instead of guessing the eventual shape. Replace it with
+    // real payload samples as the steps land.
+    private const string ValidRecordJson =
+        """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    // Every test in this suite fails from the start: the framework's
+    // BusinessStep wrapper routes the throwing Deserializer as a business
+    // incident, so the pipeline consumes the input with nothing written — the
+    // exact opposite of the written/committed outcomes these tests pin. Each
+    // failure flips green as the steps are implemented — no test edits needed.
+
+    [Fact]
+    public async Task Execute_WithValidMessage_WritesOutput()
+    {
+        // Arrange
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            Encoding.UTF8.GetBytes(ValidRecordJson), NewContext(), CancellationToken.None);
+
+        // Assert
+        Assert.IsType<StepResult<string>.Success>(result);
+        Assert.Single(edges.DestinationFiles.Files);
+    }
+{{- else }}
+    private const string ValidOrderJson =
+        """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    [Fact]
+    public async Task Execute_WithValidMessage_WritesOutputAndCommitsIdempotency()
+    {
+        // Arrange
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            Encoding.UTF8.GetBytes(ValidOrderJson), NewContext(), CancellationToken.None);
+
+        // Assert
+        Assert.IsType<StepResult<string>.Success>(result);
+        Assert.Contains("\"OrderId\":\"ORD-1001\"", edges.DestinationFiles.GetString("ORD-1001.json"));
+        Assert.Single(edges.Idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task Execute_WithDuplicate_WritesNothingAndDoesNotCommit()
+    {
+        // Arrange: the idempotency service has already seen this order.
+        var edges = new FakeEdges();
+        edges.Idempotency.NextStatus = new StatusResponse(Action.Ignore, Reason.SameData);
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            Encoding.UTF8.GetBytes(ValidOrderJson), NewContext(), CancellationToken.None);
+
+        // Assert: the duplicate cancels as a traceable no-op — consumed, but
+        // never written or committed again.
+        Assert.IsType<StepResult<string>.Cancelled>(result);
+        Assert.Empty(edges.DestinationFiles.Files);
+        Assert.Empty(edges.Idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task Execute_WithValidationFailure_RoutesIncidentAndConsumesWithoutCommit()
+    {
+        // Arrange: no lines — the Validator's "Order must contain at least one
+        // line" branch. A business failure never retries the poison message,
+        // and never commits idempotency (a corrected redelivery must not cancel
+        // as seen-before).
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+        const string noLines =
+            """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            Encoding.UTF8.GetBytes(noLines), NewContext(), CancellationToken.None);
+
+        // Assert
+        Assert.IsType<StepResult<string>.Success>(result);
+        Assert.Empty(edges.DestinationFiles.Files);
+        Assert.Empty(edges.Idempotency.Committed);
+        var incident = Assert.Single(edges.Incidents.Incidents);
+        Assert.Equal("Order must contain at least one line", incident.Data.Description);
+    }
+
+    [Fact]
+    public async Task Execute_WhenDestinationThrows_RoutesIncidentRatherThanTechnicalRetry()
+    {
+        // Arrange: the transactional SendStep is a BusinessStep, so a fault at
+        // the destination adapter surfaces as a business failure with an
+        // incident routed — not as a technical failure the broker would retry.
+        var edges = new FakeEdges();
+        edges.DestinationFiles.WriteException = new InvalidOperationException("Destination unreachable");
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            Encoding.UTF8.GetBytes(ValidOrderJson), NewContext(), CancellationToken.None);
+
+        // Assert: consumed with an incident routed; nothing written or committed.
+        Assert.IsType<StepResult<string>.Success>(result);
+        Assert.Empty(edges.DestinationFiles.Files);
+        Assert.Empty(edges.Idempotency.Committed);
+        Assert.Single(edges.Incidents.Incidents);
+    }
+{{- end }}
+
+    private static Context NewContext() => new(new Dictionary<string, string>());
+}

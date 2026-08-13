@@ -5,11 +5,19 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "pubsub";
-    public const string TopicName = "orders";
+    // The component-owned internal hop: receive publishes each source file
+    // here for the send side to process. The names mirror what the topology
+    // mints for this component (decision 0011): the pubsub component is
+    // generated as internal-<component>, scoped to this component alone, so
+    // two integrations under one host cannot cross wires and the hop stays
+    // invisible to the system topology.
+    public const string PubSubName = "internal-{{ .name | kebabcase | replace "." "-" }}";
+    public const string TopicName = "hop";
 
-    public const string InboundBindingName = "inbound-storage";
-    public const string OutboundBindingName = "outbound-storage";
+    // The Dapr binding names the system host derives from the component's
+    // From/To connectors: binding.<connector-name>.
+    public const string InboundBindingName = "binding.{{ .fromConnector }}";
+    public const string OutboundBindingName = "binding.{{ .toConnector }}";
 
     public const string SourceFileAdapterKey = "source";
     public const string DestinationFileAdapterKey = "destination";

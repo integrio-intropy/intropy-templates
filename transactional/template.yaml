@@ -11,7 +11,8 @@ metadata:
     - transactional
   labels:
     intropy.io/template-level: example
-    intropy.dev/block-kind: loader
+    intropy.dev/block-kind: transactional-integration
+    intropy.dev/data-flow: "both"
 
 spec:
   parameters:
@@ -37,3 +38,15 @@ spec:
         default: false
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
+    # The component's .NET project name, recorded in .intropy/scaffold.json
+    # for workspace-level tooling (e.g. solution file assembly).
+    projectName: '{{ .name }}'
+    # The integration's source and destination connectors — the local ports
+    # it reads and writes the outside world through. Derived like appId so
+    # they stay unique per component. Recorded in .intropy/scaffold.json;
+    # `intropy sys create` reads them back to declare the component's
+    # From/To connectors in the system host, whose development definition
+    # resolves each to a local folder by default (external system and
+    # transport are never asked for at scaffold time).
+    fromConnector: '{{ .name | kebabcase | replace "." "-" }}-source'
+    toConnector: '{{ .name | kebabcase | replace "." "-" }}-destination'

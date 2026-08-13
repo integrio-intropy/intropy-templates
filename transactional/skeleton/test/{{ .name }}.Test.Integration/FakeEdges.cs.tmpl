@@ -1,0 +1,87 @@
+using {{ .name }}.Configuration;
+using {{ .name }}.Receive;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Blocks.TransactionalIntegration.Receive;
+using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
+using Intropy.Framework.Core.Configuration;
+using Intropy.Framework.Testing.Adapters;
+using Intropy.Framework.Testing.Topics;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+{{- if not .empty }}
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Contracts.IdempotencyService;
+using Intropy.Framework.Testing.Services;
+{{- end }}
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The externals every integration test fakes, plus the DI wiring that swaps
+/// them into the real <see cref="Composition.ConfigureServices"/> graph.
+/// Centralised so the receive- and send-pipeline suites cannot drift apart
+/// when the set of externals changes.
+/// </summary>
+public sealed class FakeEdges
+{
+    /// <summary>The keyed source adapter (<see cref="Constants.SourceFileAdapterKey"/>).</summary>
+    public InMemoryFileAdapter SourceFiles { get; } = new();
+
+    /// <summary>The keyed destination adapter (<see cref="Constants.DestinationFileAdapterKey"/>).</summary>
+    public InMemoryFileAdapter DestinationFiles { get; } = new();
+{{- if not .empty }}
+
+    public FakeIdempotencyServiceClient Idempotency { get; } = new();
+    public FakeBusinessIncidentServiceClient Incidents { get; } = new();
+{{- end }}
+
+    /// <summary>
+    /// The receive pipeline's enqueue edge. Set only when <see cref="CreateServices"/>
+    /// is called with <paramref name="fakeEnqueue"/> — the fake is created by the
+    /// override seam so it shares the pipeline's <c>FrameworkOptions</c>.
+    /// </summary>
+    public FakeEnqueueStep<Context>? Enqueue { get; private set; }
+
+    /// <summary>
+    /// The production service collection with the externals swapped for the
+    /// fakes. Adapter and client swaps remove the production registrations
+    /// before adding the fakes, so the override never depends on registration
+    /// order (last-wins) — a reordered <see cref="Composition.ConfigureServices"/>
+    /// cannot silently shadow a fake.
+    /// </summary>
+    /// <param name="fakeEnqueue">
+    /// When true, the receive pipeline's enqueuer is swapped for
+    /// <see cref="FakeEnqueueStep{TCtx}"/> (exposed via <see cref="Enqueue"/>).
+    /// The swap goes through the component's own <c>AddReceivePipeline</c>
+    /// override seam — the pipeline is still built by the exact production
+    /// builder chain; only the broker edge is faked.
+    /// </param>
+    public IServiceCollection CreateServices(bool fakeEnqueue = false)
+    {
+        Func<IServiceProvider, EnqueueStep<Context>>? enqueuerOverride = null;
+        if (fakeEnqueue)
+        {
+            enqueuerOverride = provider =>
+            {
+                var fake = new FakeEnqueueStep<Context>(provider.GetRequiredService<FrameworkOptions>());
+                Enqueue = fake;
+                return fake;
+            };
+        }
+
+        var services = Composition.ConfigureServices(new ServiceCollection(), enqueuerOverride);
+
+        services.RemoveAllKeyed<IFileAdapter>(Constants.SourceFileAdapterKey);
+        services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (_, _) => SourceFiles);
+        services.RemoveAllKeyed<IFileAdapter>(Constants.DestinationFileAdapterKey);
+        services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationFileAdapterKey, (_, _) => DestinationFiles);
+{{- if not .empty }}
+        services.RemoveAll<IIdempotencyServiceClient>();
+        services.AddSingleton<IIdempotencyServiceClient>(Idempotency);
+        services.RemoveAll<IBusinessIncidentServiceClient>();
+        services.AddSingleton<IBusinessIncidentServiceClient>(Incidents);
+{{- end }}
+        return services;
+    }
+}

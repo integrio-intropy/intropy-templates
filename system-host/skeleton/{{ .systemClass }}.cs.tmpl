@@ -1,3 +1,14 @@
+{{- /* Join each component's wiring names to the fields Topics.cs and
+Connectors.cs declare, keyed by the raw names so the derivation matches the
+declaration templates exactly. */ -}}
+{{- $topicField := dict -}}
+{{- range $t := .topics -}}
+{{- $_ := set $topicField (printf "%s/%s" $t.pubsub $t.name) (regexReplaceAll "[-._]" $t.name " " | title | replace " " "") -}}
+{{- end -}}
+{{- $connField := dict -}}
+{{- range $c := .connectors -}}
+{{- $_ := set $connField $c.name (regexReplaceAll "[-._]" $c.name " " | title | replace " " "") -}}
+{{- end -}}
 using Intropy.Topology;
 
 /// <summary>The {{ .name }} system: what exists, and what connects it.</summary>
@@ -10,17 +21,23 @@ public sealed class {{ .systemClass }} : ISystemDefinition
 {{- range .components }}
 {{- if eq .kind "extractor" }}
         builder.AddExtractor("{{ .appId }}")
-{{- if .connectorField }}
-            .From(Connectors.{{ .connectorField }})
+{{- if hasKey . "connector" }}
+            .From(Connectors.{{ index $connField .connector }})
 {{- end }}
-            .Publishes(Topics.{{ .topicField }})
+            .Publishes(Topics.{{ index $topicField (printf "%s/%s" .topic.pubsub .topic.name) }})
+            .Uses(Services.Idempotency)
+            .Uses(Services.BusinessIncidents);
+{{- else if eq .kind "transactional-integration" }}
+        builder.AddTransactionalIntegration("{{ .appId }}")
+            .From(Connectors.{{ index $connField .from }})
+            .To(Connectors.{{ index $connField .to }})
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
 {{- else }}
         builder.AddLoader("{{ .appId }}")
-            .Subscribes(Topics.{{ .topicField }})
-{{- if .connectorField }}
-            .To(Connectors.{{ .connectorField }})
+            .Subscribes(Topics.{{ index $topicField (printf "%s/%s" .topic.pubsub .topic.name) }})
+{{- if hasKey . "connector" }}
+            .To(Connectors.{{ index $connField .connector }})
 {{- end }}
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);

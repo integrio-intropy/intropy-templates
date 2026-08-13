@@ -1,13 +1,21 @@
+{{- $seen := dict -}}
 using Intropy.Topology;
+{{- if hasKey . "sharedContracts" }}
 using {{ .sharedContracts.name }};
+{{- end }}
 
 /// <summary>The system's topics, each defined once and shared by every component that touches it.</summary>
 public static class Topics
 {
 {{- range $i, $t := .topics }}
+{{- $field := regexReplaceAll "[-._]" $t.name " " | title | replace " " "" }}
+{{- if hasKey $seen $field }}
+{{- fail (printf "topics %q and %q both derive the Topics.cs field %s — rename one topic in the components' scaffold records" (index $seen $field) $t.name $field) }}
+{{- end }}
+{{- $_ := set $seen $field $t.name }}
 {{- if $i }}
 {{ end }}
     /// <summary>{{ $t.contract }} messages on topic '{{ $t.name }}' (pubsub '{{ $t.pubsub }}').</summary>
-    public static readonly TopicRef<{{ $t.contract }}> {{ $t.field }} = TopicRef<{{ $t.contract }}>.Define("{{ $t.pubsub }}", "{{ $t.name }}");
+    public static readonly TopicRef<{{ $t.contract }}> {{ $field }} = TopicRef<{{ $t.contract }}>.Define("{{ $t.pubsub }}", "{{ $t.name }}");
 {{- end }}
 }

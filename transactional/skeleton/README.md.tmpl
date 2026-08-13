@@ -14,9 +14,17 @@ task test
 
 The job does not run standalone. It runs via its system host, which provides
 the storage bindings, pub/sub, and platform services, and carries the sample
-data used to seed a run. `task test` covers the component-level loop:
-send-pipeline unit tests plus a composition smoke test proving the DI graph
-builds without a sidecar.
+data used to seed a run. `task test` covers the component-level loop across two
+projects (`task test:unit` / `task test:integration` run them separately):
+
+- `test/{{ .name }}.Test.Unit` — pipeline-step unit tests. Pure xUnit; the only
+  fakes are NSubstitute at the Receiver/Sender `IFileAdapter` seams. No Dapr.
+- `test/{{ .name }}.Test.Integration` — the receive and send pipelines built
+  exactly as production composition does, with only the externals faked via
+  `Intropy.Framework.Testing` (`InMemoryFileAdapter` at both keyed adapter seams,
+  `FakeEnqueueStep` at the broker edge, service-client fakes). No Dapr sidecar.
+  Includes a composition smoke test proving the DI graph builds without a
+  sidecar, and `EnqueuePublishTests` pinning the Dapr publish wiring.
 
 ## Container image
 
@@ -32,7 +40,7 @@ app — the Dapr sidecar and components come from the deployment environment.
 **Receive** (per source file):
 
 1. `Receiver` reads bytes from the inbound binding.
-2. `Enqueuer` publishes the payload to `pubsub` / `orders`.
+2. `Enqueuer` publishes the payload to the internal hop (`internal-{{ .appId }}` / `hop`).
 3. `Completer` deletes the source file.
 
 **Send** (per pub/sub delivery):

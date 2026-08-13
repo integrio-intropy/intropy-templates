@@ -1,0 +1,128 @@
+using {{ .name }}.Configuration;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Blocks.TransactionalIntegration.Receive;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The full receive pipeline (receive → enqueue → complete), resolved from the
+/// real DI graph with the source adapter faked and the broker edge swapped for
+/// <see cref="Intropy.Framework.Testing.Topics.FakeEnqueueStep{TCtx}"/> through
+/// the component's own override seam (see <see cref="FakeEdges"/>). These tests
+/// pin the receive pipeline's consumption contract: a valid item is enqueued
+/// and its source file deleted; an unreadable source routes an incident keyed
+/// on the file name; a dead broker is a technical failure that leaves the file;
+/// and a delete failure after a successful enqueue leaves the file for
+/// redelivery — with the item already enqueued.
+/// </summary>
+public class ReceivePipelineIntegrationTests
+{
+    private const string ValidOrderJson =
+        """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+{{- if .empty }}
+
+    // The enqueue/delete/fault-semantics tests start green: the receive steps
+    // (Receiver, Completer) are fully scaffolded, so the pipeline's framework
+    // contract holds out of the box. The unreadable-file test stays red: empty
+    // mode wires no `.WithBusinessIncidents(...)`, so the read fault surfaces as
+    // a BusinessFailure rather than the incident-routed Success the test pins.
+    // It flips green once you add `.WithBusinessIncidents(...)` to the receive
+    // pipeline — at which point the guarded incident assertion below should be
+    // enabled too.
+{{- end }}
+
+    [Fact]
+    public async Task Execute_WithValidFile_EnqueuesAndDeletesSourceFile()
+    {
+        // Arrange
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices(fakeEnqueue: true).BuildServiceProvider();
+        var pipeline = provider.GetRequiredService<IReceivePipeline<Context>>();
+        edges.SourceFiles.AddFile("order-1.json", ValidOrderJson);
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            new SourceItemInfo("order-1.json"), NewContext(), CancellationToken.None);
+
+        // Assert
+        Assert.IsType<StepResult<SourceItem>.Success>(result);
+        var captured = Assert.Single(edges.Enqueue!.Captured);
+        Assert.Equal("order-1.json", captured.Item.Id);
+        Assert.Empty(edges.SourceFiles.Files);
+    }
+
+    [Fact]
+    public async Task Execute_WithUnreadableFile_RoutesIncidentKeyedOnFileName()
+    {
+        // Arrange: a listed-but-unreadable file. The ReceiveStep is a
+        // BusinessStep, so the read fault routes a business incident keyed on
+        // the file name rather than surfacing as a technical retry.
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices(fakeEnqueue: true).BuildServiceProvider();
+        var pipeline = provider.GetRequiredService<IReceivePipeline<Context>>();
+        edges.SourceFiles.AddUnreadableFile("corrupt.json");
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            new SourceItemInfo("corrupt.json"), NewContext(), CancellationToken.None);
+
+        // Assert: incident routed, nothing enqueued, source file left in place.
+        Assert.IsType<StepResult<SourceItem>.Success>(result);
+        Assert.Equal(0, edges.Enqueue!.Count);
+{{- if not .empty }}
+        var incident = Assert.Single(edges.Incidents.Incidents);
+        Assert.Equal("corrupt.json", incident.Data.Context!["fileName"]);
+{{- else }}
+        // Add `.WithBusinessIncidents(...)` to the receive pipeline, then assert
+        // the routed incident here (keyed on the file name).
+{{- end }}
+    }
+
+    [Fact]
+    public async Task Execute_WhenBrokerIsDown_LeavesFileForNextRun()
+    {
+        // Arrange: SendException surfaces as a technical failure, matching a
+        // dead broker. The complete step never runs, so the source file stays.
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices(fakeEnqueue: true).BuildServiceProvider();
+        var pipeline = provider.GetRequiredService<IReceivePipeline<Context>>();
+        edges.SourceFiles.AddFile("order-1.json", ValidOrderJson);
+        edges.Enqueue!.SendException = new InvalidOperationException("Broker unreachable");
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            new SourceItemInfo("order-1.json"), NewContext(), CancellationToken.None);
+
+        // Assert: technical failure; nothing enqueued, file left for the next run.
+        Assert.IsType<StepResult<SourceItem>.TechnicalFailure>(result);
+        Assert.Equal(0, edges.Enqueue.Count);
+        Assert.True(edges.SourceFiles.Files.ContainsKey("order-1.json"));
+    }
+
+    [Fact]
+    public async Task Execute_WhenDeleteFails_ItemIsEnqueuedButFileLeftForRedelivery()
+    {
+        // Arrange: the enqueue succeeds but the completer's delete fails. The
+        // item is already on the queue; the file stays and is re-processed next
+        // run — send-side idempotency must absorb the resulting duplicate.
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices(fakeEnqueue: true).BuildServiceProvider();
+        var pipeline = provider.GetRequiredService<IReceivePipeline<Context>>();
+        edges.SourceFiles.AddFile("order-1.json", ValidOrderJson);
+        edges.SourceFiles.SetDeleteException("order-1.json", new InvalidOperationException("Source refuses deletes"));
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            new SourceItemInfo("order-1.json"), NewContext(), CancellationToken.None);
+
+        // Assert: the item WAS enqueued (assert on the capture even though the
+        // completer failed), and the source file is left for redelivery.
+        var captured = Assert.Single(edges.Enqueue!.Captured);
+        Assert.Equal("order-1.json", captured.Item.Id);
+        Assert.True(edges.SourceFiles.Files.ContainsKey("order-1.json"));
+    }
+
+    private static Context NewContext() => new(new Dictionary<string, string>());
+}
