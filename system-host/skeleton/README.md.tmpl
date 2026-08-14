@@ -20,13 +20,13 @@ are long-running services and stay up for the whole host run.
 ## Trigger a component
 
 ```bash
-task seed       # drop the sample order into the connector folder (run-to-completion components sweep it)
+task seed       # drop the sample order into the port folder (run-to-completion components sweep it)
 task publish    # publish the sample order to the topic through a running sidecar
 ```
 
-`task seed CONNECTOR_DIR=./test/<connector>` targets the folder the connector
-resolves to in the development definition (conventionally `test/<connector-name>`,
-e.g. `test/order-extractor-source`) — the default assumes that connector name. `task publish` takes overrides for
+`task seed PORT_DIR=./test/<port>` targets the folder the port
+resolves to in the development definition (conventionally `test/<port-name>`,
+e.g. `test/order-extractor-source`) — the default assumes that port name. `task publish` takes overrides for
 the publishing component (`PUBLISH_APP_ID`) and the topic (`TOPIC`) — the dapr
 CLI resolves the sidecar from the app-id.
 
@@ -39,16 +39,16 @@ task generate   # write Dapr YAML + per-component runtime config to ./out
 ```
 
 `dotnet run -- graph --development` adds a development section (service mocks
-and connector file resolutions) to the graph document.
+and port file resolutions) to the graph document.
 
 ## Layout
 
 - `{{ .systemClass }}.cs` — the system definition (`ISystemDefinition`)
 - `Topics.cs` — the system's topics as typed refs
-- `Connectors.cs` — the system's connectors (the name is the whole identity;
+- `Ports.cs` — the system's ports (the name is the whole identity;
   the deployed binding type and connection values are deployment configuration)
 - `{{ .projectName }}Development.cs` — the local-run substitutions: OpenAPI
-  mocks for platform services and a folder under `test/` per connector
+  mocks for platform services and a folder under `test/` per port
 - `Services.cs` — the platform services the blocks call via `.Uses(...)`
 - `mocks/` — the OpenAPI documents backing the local service mocks
 - `sample-data/sample-order.json` — the sample order used by `task seed` and

@@ -57,9 +57,9 @@ any built Deployment image has no tag, as a second net.
 **The fixture bindings live here.** `overlays/local/fixtures/` carries one
 Dapr binding skeleton per fixture type — the closed catalog declared in
 `spec.local.fixtures` (`sftp`, `http`, `file`, `blob`). Only fixture files selected by a
-local connector binding render; each selected file renders one `Component`
-per matching topology connector. Repeat
-`--binding <connector>=<fixture>` for reproducible renders; an interactive
+local port binding render; each selected file renders one `Component`
+per matching topology port. Repeat
+`--binding <port>=<fixture>` for reproducible renders; an interactive
 terminal asks for omitted choices with a Huh selector. Choices are validated
 against the catalog and never persisted.
 
@@ -69,7 +69,7 @@ conventional fixture server the k3s setup scripts always install —
 `/home/intropy`), `http.fixtures.svc.cluster.local:8080`
 (wiremock-style stub), `garage.fixtures.svc.cluster.local:3900`
 (S3-compatible, bucket `dev-fixtures`, pinned dev key pair) for `blob`, and
-`/data/<connector>` in the component's own container for `file`. That fixture
+`/data/<port>` in the component's own container for `file`. That fixture
 contract — namespace, service names, ports, credentials, the `local/` image
 reference above — is owned and verified by the `intropy-dev-env` repo (the
 k3s setup scripts install the fixture servers) and is the only coupling
@@ -85,7 +85,7 @@ deploy-host pins `hostPublicKey` and never renders the flag.
 The local fixture catalog and deploy-host's GitOps binding catalog
 (`spec.gitops.bindingKinds`) are separate contracts, kept deliberately:
 fixture files carry dev values next to the component, GitOps adapters carry
-reviewed, Secret-backed Components on the host. A connector kind must exist
+reviewed, Secret-backed Components on the host. A binding kind must exist
 in the catalog for its side of the render to offer it; today both catalogs
 are `sftp`, `http`, `file`, `blob`.
 
@@ -93,14 +93,14 @@ The overlay renders no namespace and no image override of its own: the CLI's
 root kustomization sets both, so the same overlay serves any `--namespace`
 and any `--image` override without re-rendering.
 
-### Why a connector's binding lives with the component
+### Why a port's binding lives with the component
 
 `intropy manifests create` renders bindings on the host because
 customer-cluster credentials are environment-owned and shared at the system
 level. The local
 cluster needs no secret material — fixture credentials are public dev values —
 and the catalog files *can* live on the host (they render
-identically there). They live here anyway: a connector is scoped to exactly
+identically there). They live here anyway: a port is scoped to exactly
 the app-ids that use it, and keeping the binding beside the block that
 resolves it keeps one component's fixture choices out of every other
 component's render. The host's `base/bindings/` adapters are not rendered
@@ -121,4 +121,4 @@ There is no path segment in the generator to match on.
 `.env`, `.topology`, `.gitops`, `.component` (this block's derived record),
 `.scaffold` (its `.intropy/scaffold.json` values, or `{}`) and — local
 renders only — `.local`, the ephemeral bindings for this render:
-`.local.bindings` maps connector name to fixture name.
+`.local.bindings` maps port name to fixture name.

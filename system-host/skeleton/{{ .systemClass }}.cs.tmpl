@@ -1,13 +1,13 @@
 {{- /* Join each component's wiring names to the fields Topics.cs and
-Connectors.cs declare, keyed by the raw names so the derivation matches the
+Ports.cs declare, keyed by the raw names so the derivation matches the
 declaration templates exactly. */ -}}
 {{- $topicField := dict -}}
 {{- range $t := .topics -}}
 {{- $_ := set $topicField (printf "%s/%s" $t.pubsub $t.name) (regexReplaceAll "[-._]" $t.name " " | title | replace " " "") -}}
 {{- end -}}
-{{- $connField := dict -}}
-{{- range $c := .connectors -}}
-{{- $_ := set $connField $c.name (regexReplaceAll "[-._]" $c.name " " | title | replace " " "") -}}
+{{- $portField := dict -}}
+{{- range $c := .ports -}}
+{{- $_ := set $portField $c.name (regexReplaceAll "[-._]" $c.name " " | title | replace " " "") -}}
 {{- end -}}
 using Intropy.Topology;
 
@@ -21,23 +21,23 @@ public sealed class {{ .systemClass }} : ISystemDefinition
 {{- range .components }}
 {{- if eq .kind "extractor" }}
         builder.AddExtractor("{{ .appId }}")
-{{- if hasKey . "connector" }}
-            .From(Connectors.{{ index $connField .connector }})
+{{- if hasKey . "port" }}
+            .From(Ports.{{ index $portField .port }})
 {{- end }}
             .Publishes(Topics.{{ index $topicField (printf "%s/%s" .topic.pubsub .topic.name) }})
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
 {{- else if eq .kind "transactional-integration" }}
         builder.AddTransactionalIntegration("{{ .appId }}")
-            .From(Connectors.{{ index $connField .from }})
-            .To(Connectors.{{ index $connField .to }})
+            .From(Ports.{{ index $portField .fromPort }})
+            .To(Ports.{{ index $portField .toPort }})
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
 {{- else }}
         builder.AddLoader("{{ .appId }}")
             .Subscribes(Topics.{{ index $topicField (printf "%s/%s" .topic.pubsub .topic.name) }})
-{{- if hasKey . "connector" }}
-            .To(Connectors.{{ index $connField .connector }})
+{{- if hasKey . "port" }}
+            .To(Ports.{{ index $portField .port }})
 {{- end }}
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);

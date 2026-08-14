@@ -27,7 +27,7 @@ Its `component.yaml` declares `kind: shared`, which is how `intropy deploy` and
 | condition | effect |
 |---|---|
 | `pubsub` | only the matching `base/dapr/pubsub-<broker>.yaml` |
-| a connector selects a binding kind | that kind's `base/bindings/<adapter>.yaml` |
+| a port selects a binding kind | that kind's `base/bindings/<adapter>.yaml` |
 
 `base/kustomization.yaml` references `dapr/pubsub-{{ .pubsub }}.yaml`, so the
 list needs no conditional — the file name follows the parameter.
@@ -60,8 +60,8 @@ reference the platform-owned Secret named by the template.
 
 ## Binding kinds
 
-`intropy manifests create --binding <connector>=<kind>` renders the shared
-GitOps binding Component for that connector from the adapter file for the
+`intropy manifests create --binding <port>=<kind>` renders the shared
+GitOps binding Component for that port from the adapter file for the
 selected kind. The selection is independent of `manifests render --env local`,
 which resolves local fixture bindings without reading or writing the GitOps
 repository. The GitOps catalog (`spec.gitops.bindingKinds`) and the local
@@ -70,7 +70,7 @@ contracts: the GitOps side renders reviewed, Secret-backed Components; the
 local side renders dev-valued fixtures.
 
 `base/bindings/` carries one file per adapter, each emitting one
-`Component` per connector that selected it:
+`Component` per port that selected it:
 
 | kind | Dapr type | required metadata |
 |---|---|---|
@@ -92,16 +92,16 @@ an S3-compatible store is the reviewer's per-environment addition.
 With no auth block, `secretKeyRef` resolves against a plain Kubernetes
 Secret in this namespace. That Secret is platform-owned (synced from Key
 Vault, Vault, or applied by hand) — the template only declares the name and
-the connector-specific keys the platform must provide:
+the port-specific keys the platform must provide:
 
 | key | used by |
 |---|---|
-| `<connector>-sftp-username` | `sftp` |
-| `<connector>-sftp-password` | `sftp` (password profile) |
-| `<connector>-sftp-private-key` | `sftp` (private-key profile) |
-| `<connector>-sftp-host-public-key` | `sftp` |
-| `<connector>-s3-access-key` | `blob` |
-| `<connector>-s3-secret-key` | `blob` |
+| `<port>-sftp-username` | `sftp` |
+| `<port>-sftp-password` | `sftp` (password profile) |
+| `<port>-sftp-private-key` | `sftp` (private-key profile) |
+| `<port>-sftp-host-public-key` | `sftp` |
+| `<port>-s3-access-key` | `blob` |
+| `<port>-s3-secret-key` | `blob` |
 
 Endpoints (`address`, `url`, `bucket`, `region`, `rootPath`) remain
 `REPLACE-ME` values for the reviewer; credentials never render as values.
@@ -116,10 +116,10 @@ bypass may never travel into GitOps output.
 
 ### Which adapter files exist
 
-`spec.files` renders an adapter file only when at least one connector
+`spec.files` renders an adapter file only when at least one port
 selected its kind — an unselected adapter would render zero documents, and
 an empty multi-doc file in a kustomize `resources` list breaks the build.
-`base/kustomization.yaml` collects the same kind set from the connectors,
+`base/kustomization.yaml` collects the same kind set from the ports,
 deduplicated, so its references always match the rendered files. Adding a
 binding kind is a new adapter file, a `spec.files` rule, a `bindingKinds`
 entry, a kustomization reference, and a row in the table above — a template
@@ -132,7 +132,7 @@ is an ordinary thin overlay: `resources: - ../../base` and no namespace line —
 the CLI's root kustomization sets the namespace, so the overlay serves any
 `--namespace` without re-rendering.
 
-What it deliberately does not carry is connector bindings. The fixture
+What it deliberately does not carry is port bindings. The fixture
 catalog (the local counterpart of `base/bindings/`) lives on deploy-component,
 next to the block that resolves each binding; deploy-component's README
 explains why, and declares the catalog in `spec.local.fixtures`. The fixture
@@ -149,7 +149,7 @@ Beyond the declared parameters, the CLI injects:
 - `.env` — the environment being rendered. Only meaningful under `overlays/`; the
   CLI refuses a skeleton where it changes anything else.
 - `.topology` — the derived system model: `pubsubs` (with `appIds` for `scopes:`),
-  `connectors` (name, directions, appIds and a selected binding kind), `topics`,
+  `ports` (name, directions, appIds and a selected binding kind), `topics`,
   `components`. GitOps binding metadata remains `REPLACE-ME` for reviewers to
   complete.
 - `.gitops` — `domain`, `system`, `component`, `host`, `registry`,

@@ -1,16 +1,16 @@
-# The http adapter: one Dapr `bindings.http` Component per connector whose
+# The http adapter: one Dapr `bindings.http` Component per port whose
 # topology binding selected `http`, as a multi-document file. Metadata
 # contract per dapr/components-contrib bindings/http/metadata.yaml — `url` is
 # the only required field; mTLS, token, and timeout metadata stay
 # reviewer-added options.
 #
 # Multi-doc rather than a file each: kustomize reads it natively, and adding a
-# connector stays a one-file diff. The topology mints only the connector's
+# port stays a one-file diff. The topology mints only the port's
 # name, label, and scopes. The endpoint is environment-owned GitOps
 # configuration, so create-only onboarding leaves an explicit REPLACE-ME
 # placeholder for the reviewer. The name must not change: blocks resolve the
-# binding as binding.<connector-name>.
-{{- range .topology.connectors }}
+# binding as binding.<port-name>.
+{{- range .topology.ports }}
 {{- if eq .binding "http" }}
 ---
 apiVersion: dapr.io/v1alpha1
@@ -18,7 +18,7 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
-    intropy.io/connector: {{ .name }}
+    intropy.io/port: {{ .name }}
 spec:
   type: bindings.http
   version: v1

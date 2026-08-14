@@ -43,11 +43,11 @@ send pipeline wires in, in non-empty mode).
 
 The template declares `intropy.dev/block-kind: transactional-integration`, so
 `intropy sys create` assembles it into the system host as a
-connector-to-connector block with no system topic. The scaffold record
+port-to-port block with no system topic. The scaffold record
 (`.intropy/scaffold.json`) carries the derived wiring values the host needs:
-`fromConnector`/`toConnector` (the two connectors, `<app-id>-source` /
+`fromPort`/`toPort` (the two ports, `<app-id>-source` /
 `<app-id>-destination`; the skeleton's binding names follow the host's
-`binding.<connector-name>` derivation) and `appId`/`projectName`. The
+`binding.<port-name>` derivation) and `appId`/`projectName`. The
 internal pub/sub hop between the receive and send pipelines is
 component-owned: its topic (`<app-id>-in`) is unique per component and
 deliberately not recorded — invisible to the topology, so two transactional

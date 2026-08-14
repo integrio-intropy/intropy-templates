@@ -1,18 +1,18 @@
-# The http fixture: one Dapr binding per connector bound to `http` for the
+# The http fixture: one Dapr binding per port bound to `http` for the
 # local environment, pointing at the wiremock-style HTTP stub the k3s setup
 # scripts always install. The address is the fixture contract (see
 # deploy-component/README.md) — a dev value, not a placeholder.
 #
-# The binding travels on the connector itself: manifest rendering injects the
+# The binding travels on the port itself: manifest rendering injects the
 # explicit or interactive choice for this run. The $recorded fallback keeps a
 # CLI older than that field working with the flat bindings map under .local.
 #
 # Owner, not user: this overlay renders once per component, and a
-# connector's Component may exist exactly once in the build, so the component
-# whose app-id is first in the connector's scopes emits it — scopes still
+# port's Component may exist exactly once in the build, so the component
+# whose app-id is first in the port's scopes emits it — scopes still
 # list every app-id that may use it.
 {{- $recorded := dig "local" "bindings" dict . -}}
-{{- range .topology.connectors }}
+{{- range .topology.ports }}
 {{- $conn := . }}
 {{- $b := dig "binding" "" . -}}
 {{- if and (or (eq $b "http") (and (not $b) (eq (index $recorded .name) "http"))) (eq $.component.appId (index $conn.appIds 0)) }}
@@ -22,7 +22,7 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
-    intropy.io/connector: {{ .name }}
+    intropy.io/port: {{ .name }}
 spec:
   type: bindings.http
   version: v1

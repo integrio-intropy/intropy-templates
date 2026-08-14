@@ -133,7 +133,7 @@ Notes:
     - path: base/dapr/pubsub-rabbitmq.yaml.tmpl
       when: '{{ eq .pubsub "rabbitmq" }}'
     - path: base/bindings/**
-      when: '{{ gt (len .topology.connectors) 0 }}'
+      when: '{{ gt (len .topology.ports) 0 }}'
   ```
 
   Rules:

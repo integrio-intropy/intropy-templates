@@ -2,7 +2,7 @@
 # from the tutorial's order-flow workspace (one extractor, one loader, one
 # transactional integration, the shared Contracts project). The payload
 # parameters are required and pre-joined: each component carries the
-# Topics/Connectors field identifiers it touches, and sharedContracts.include
+# Topics/Ports field identifiers it touches, and sharedContracts.include
 # is the ProjectReference path from the host's output directory to the
 # contracts csproj.
 #   intropy int create system-host -o /tmp/system-host-out -f system-host/examples/minimal.yaml --version main --no-input
@@ -12,7 +12,7 @@ topics:
     name: orders
     contract: Order
     field: Orders
-connectors:
+ports:
   - name: erp-destination
     field: ErpDestination
   - name: erp-source
@@ -25,12 +25,12 @@ components:
   - appId: order-extractor
     kind: extractor
     topicField: Orders
-    connectorField: OrderExtractorSource
+    portField: OrderExtractorSource
   - appId: order-loader
     kind: loader
     topicField: Orders
-    connectorField: OrderLoaderDestination
-  # A transactional integration: connector-to-connector, no topic. Its wiring
+    portField: OrderLoaderDestination
+  # A transactional integration: port-to-port, no topic. Its wiring
   # fields follow its shape — fromField/toField instead of topicField.
   - appId: erp-sync
     kind: transactional-integration
