@@ -89,10 +89,10 @@ the intropy-topology repo to a local folder feed:
 
 ```bash
 cd ~/dev/intropy/tooling/intropy-topology
-dotnet pack -p:Version=0.3.0 -o ~/dev/intropy/local-nuget
+dotnet pack -p:Version=0.4.0 -o ~/dev/intropy/local-nuget
 ```
 
-Do not lower the pin below 0.4.1. From that version the topology carries only
+Do not lower the pin below 0.4.0. From that version the topology carries only
 minted facts (port identity is the name alone, no declared transport;
 activation cadence lives in deployment configuration), the transactional
 integration builder exists (`From`/`To` ports, enforced by a
