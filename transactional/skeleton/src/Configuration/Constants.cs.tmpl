@@ -15,9 +15,9 @@ public static class Constants
     public const string TopicName = "hop";
 
     // The Dapr binding names the system host derives from the component's
-    // From/To connectors: binding.<connector-name>.
-    public const string InboundBindingName = "binding.{{ .fromConnector }}";
-    public const string OutboundBindingName = "binding.{{ .toConnector }}";
+    // From/To ports: binding.<port-name>.
+    public const string InboundBindingName = "binding.{{ .fromPort }}";
+    public const string OutboundBindingName = "binding.{{ .toPort }}";
 
     public const string SourceFileAdapterKey = "source";
     public const string DestinationFileAdapterKey = "destination";

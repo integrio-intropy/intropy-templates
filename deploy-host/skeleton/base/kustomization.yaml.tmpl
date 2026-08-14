@@ -5,12 +5,12 @@ kind: Kustomization
 # only the matching pubsub-*.yaml is rendered at all.
 #
 # Binding references follow the same rule per adapter: spec.files renders an
-# adapter file only when a connector selects it, so this list collects the
-# kinds the topology's connectors selected — deduplicated, since several
-# connectors may share one adapter — and must stay empty when no connector
+# adapter file only when a port selects it, so this list collects the
+# kinds the topology's ports selected — deduplicated, since several
+# ports may share one adapter — and must stay empty when no port
 # selected any binding (a reference to an unrendered file breaks the build).
 {{- $kinds := dict -}}
-{{- range .topology.connectors }}
+{{- range .topology.ports }}
 {{- if .binding }}{{- $_ := set $kinds .binding true -}}{{- end }}
 {{- end }}
 resources:

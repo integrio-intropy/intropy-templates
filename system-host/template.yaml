@@ -14,10 +14,10 @@ metadata:
 
 spec:
   # `intropy sys create` renders this template with the facts-only value
-  # payload and --no-input: topic and connector names, component wiring, and
+  # payload and --no-input: topic and port names, component wiring, and
   # the detected contracts sibling when one exists. The skeleton derives
   # everything that exists only inside the generated files — the
-  # Topics/Connectors field identifiers and the joins from components to
+  # Topics/Ports field identifiers and the joins from components to
   # them. The payload parameters are required so an older CLI that only sets
   # `name` fails validation loudly instead of rendering an empty system.
   # They are supplied programmatically — never via --set or prompts — so
@@ -27,7 +27,7 @@ spec:
     required:
       - name
       - topics
-      - connectors
+      - ports
       - components
     properties:
       name:
@@ -35,16 +35,16 @@ spec:
         title: System name
         description: DNS-1123 name of the integration system (e.g. order-flow). Becomes the SystemName. The pub/sub component is always named `pubsub` (system-independent), so a component runs the same standalone or under this host.
         pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
-      # The payload below. Each component carries the raw topic/connector
+      # The payload below. Each component carries the raw topic/port
       # names it touches; the skeleton joins them to the fields Topics.cs
-      # and Connectors.cs declare. Empty lists render a valid empty system,
+      # and Ports.cs declare. Empty lists render a valid empty system,
       # so no minItems.
       topics:
         type: array
         items:
           type: object
           additionalProperties: true
-      connectors:
+      ports:
         type: array
         items:
           type: object
@@ -62,8 +62,8 @@ spec:
         type: object
         additionalProperties: true
   files:
-    # A topic-free system has no contract types to declare; Connectors.cs
-    # stays (connectors exist without topics).
+    # A topic-free system has no contract types to declare; Ports.cs
+    # stays (ports exist without topics).
     - path: Topics.cs.tmpl
       when: '{{ gt (len .topics) 0 }}'
   dependencies:

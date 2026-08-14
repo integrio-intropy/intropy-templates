@@ -16,11 +16,11 @@ writes the transformed result to a second file binding.
 - Topic: `hop` — the component-owned internal hop (receive publishes each
   source file for the send side to process). Invisible to the system
   topology; uniqueness comes from the pubsub scope, not the topic name
-- Source binding: `binding.{{ .fromConnector }}` — the name must match the
-  binding the system host generates for this component's From connector
-  (`binding.<connector-name>`)
-- Destination binding: `binding.{{ .toConnector }}` — same: generated and
-  resolved by the system host from the To connector
+- Source binding: `binding.{{ .fromPort }}` — the name must match the
+  binding the system host generates for this component's From port
+  (`binding.<port-name>`)
+- Destination binding: `binding.{{ .toPort }}` — same: generated and
+  resolved by the system host from the To port
 {{- if not .empty }}
 - Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
 - Business Incident Service: reached via Dapr service invocation, app id

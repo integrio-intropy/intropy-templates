@@ -1,19 +1,19 @@
-# The file fixture: one Dapr binding per connector selected as `file` for this
+# The file fixture: one Dapr binding per port selected as `file` for this
 # render, rooted at a conventional directory in the component's own container —
-# the one fixture with no server behind it, for connectors
+# the one fixture with no server behind it, for ports
 # whose local fidelity is a directory drop. The path is the fixture contract
 # (see deploy-component/README.md) — a dev value, not a placeholder.
 #
-# The binding travels on the connector itself: manifest rendering injects the
+# The binding travels on the port itself: manifest rendering injects the
 # explicit or interactive choice for this run. The $recorded fallback keeps a
 # CLI older than that field working with the flat bindings map under .local.
 #
 # Owner, not user: this overlay renders once per component, and a
-# connector's Component may exist exactly once in the build, so the component
-# whose app-id is first in the connector's scopes emits it — scopes still
+# port's Component may exist exactly once in the build, so the component
+# whose app-id is first in the port's scopes emits it — scopes still
 # list every app-id that may use it.
 {{- $recorded := dig "local" "bindings" dict . -}}
-{{- range .topology.connectors }}
+{{- range .topology.ports }}
 {{- $conn := . }}
 {{- $b := dig "binding" "" . -}}
 {{- if and (or (eq $b "file") (and (not $b) (eq (index $recorded .name) "file"))) (eq $.component.appId (index $conn.appIds 0)) }}
@@ -23,7 +23,7 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
-    intropy.io/connector: {{ .name }}
+    intropy.io/port: {{ .name }}
 spec:
   type: bindings.localstorage
   version: v1

@@ -25,16 +25,16 @@ tasks:
 
   # ── Trigger a run ─────────────────────────────────────────────────
   seed:
-    desc: Drop the sample order into a connector folder (run-to-completion components sweep it at host start)
+    desc: Drop the sample order into a port folder (run-to-completion components sweep it at host start)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     vars:
-      # Folder the connector resolves to — must match the Files(...).RootPath(...)
-      # resolution in the development definition (conventionally test/<connector-name>).
-      CONNECTOR_DIR: '{{ "{{" }}.CONNECTOR_DIR | default "./test/order-extractor-source"}}'
+      # Folder the port resolves to — must match the Files(...).RootPath(...)
+      # resolution in the development definition (conventionally test/<port-name>).
+      PORT_DIR: '{{ "{{" }}.PORT_DIR | default "./test/order-extractor-source"}}'
     cmds:
-      - mkdir -p {{ "{{" }}.CONNECTOR_DIR}}
-      - cp ./sample-data/sample-order.json {{ "{{" }}.CONNECTOR_DIR}}/
-      - echo "Seeded {{ "{{" }}.CONNECTOR_DIR}} with sample-order.json"
+      - mkdir -p {{ "{{" }}.PORT_DIR}}
+      - cp ./sample-data/sample-order.json {{ "{{" }}.PORT_DIR}}/
+      - echo "Seeded {{ "{{" }}.PORT_DIR}} with sample-order.json"
 
   publish:
     desc: Publish the sample order to a topic via a component's sidecar (needs the host running)

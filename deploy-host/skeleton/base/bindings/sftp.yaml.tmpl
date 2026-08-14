@@ -1,16 +1,16 @@
-# The sftp adapter: one Dapr `bindings.sftp` Component per connector whose
+# The sftp adapter: one Dapr `bindings.sftp` Component per port whose
 # topology binding selected `sftp`, as a multi-document file. Metadata
 # contract per dapr/components-contrib bindings/sftp/metadata.yaml.
 #
 # Multi-doc rather than a file each: kustomize reads it natively, and adding a
-# connector stays a one-file diff. The topology mints only the connector's
+# port stays a one-file diff. The topology mints only the port's
 # name, label, and scopes. Endpoint and credentials are environment-owned
 # GitOps configuration, so create-only onboarding leaves explicit REPLACE-ME
 # placeholders for the reviewer. The name must not change: blocks resolve the
-# binding as binding.<connector-name>.
+# binding as binding.<port-name>.
 #
 # Secrets live in the platform-owned {{ .secretName }} Secret — the template
-# only declares the connector-specific keys the platform must provide.
+# only declares the port-specific keys the platform must provide.
 #
 # Host validation is mandatory: the binding pins the server's host key via
 # hostPublicKey. Never set insecureIgnoreHostKey here — a GitOps Component
@@ -18,7 +18,7 @@
 #
 # Authentication is either password or private-key, not both (the binding's
 # two authentication profiles). The reviewer deletes the profile not in use.
-{{- range .topology.connectors }}
+{{- range .topology.ports }}
 {{- if eq .binding "sftp" }}
 ---
 apiVersion: dapr.io/v1alpha1
@@ -26,7 +26,7 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
-    intropy.io/connector: {{ .name }}
+    intropy.io/port: {{ .name }}
 spec:
   type: bindings.sftp
   version: v1

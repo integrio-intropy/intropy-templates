@@ -62,12 +62,12 @@ spec:
     # (Constants.cs). Recorded in .intropy/scaffold.json for
     # `intropy sys create`, together with the contract parameter above.
     pubsub: 'pubsub'
-    # The loader's destination connector — the local port it writes the
+    # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`
     # resolves it to a local file transport by default (external system and
     # transport are never asked for at scaffold time).
-    connector: '{{ .name | kebabcase | replace "." "-" }}-destination'
+    port: '{{ .name | kebabcase | replace "." "-" }}-destination'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'

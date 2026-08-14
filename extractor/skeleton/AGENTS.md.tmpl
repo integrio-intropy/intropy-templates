@@ -20,8 +20,8 @@ production); locally the system host runs the block once at startup.
   `{{ .name }}.Sweep` (the sidecar-free one-shot sweep) and reports a
   `JobRunSummary`.
 - App id: `{{ .appId }}`
-- Source binding: `binding.{{ .connector }}` — named after the source
-  connector; the system host generates the binding and resolves it to a local
+- Source binding: `binding.{{ .port }}` — named after the source
+  port; the system host generates the binding and resolves it to a local
   folder in development
 - Pub/sub component: `pubsub`
 - Topic: `{{ .topic }}` — the extractor's half of the system contract; the

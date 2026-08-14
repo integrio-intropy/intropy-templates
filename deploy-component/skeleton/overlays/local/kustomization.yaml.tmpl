@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 # The local overlay. Unlike the environment overlays it carries the fixture
-# bindings: every connector's Dapr binding lives next to the component that
+# bindings: every port's Dapr binding lives next to the component that
 # uses it, switched on the ephemeral choice for this render
 # (spec.local.fixtures declares the catalog). It has no namespace line and no
 # image override on purpose — intropy manifests render sets both on the root
@@ -12,7 +12,7 @@ kind: Kustomization
 # tag; pinned in the README) to local/<name>:dev.
 {{- $recorded := dig "local" "bindings" dict . -}}
 {{- $fixtures := dict -}}
-{{- range .topology.connectors }}
+{{- range .topology.ports }}
 {{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}
 {{- if $binding }}{{- $_ := set $fixtures $binding true -}}{{- end }}
 {{- end }}

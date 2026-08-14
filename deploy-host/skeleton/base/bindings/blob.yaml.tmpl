@@ -1,18 +1,18 @@
-# The blob adapter: one Dapr `bindings.aws.s3` Component per connector whose
+# The blob adapter: one Dapr `bindings.aws.s3` Component per port whose
 # topology binding selected `blob`, as a multi-document file. (The catalog
 # name is `blob`; the Dapr type is bindings.aws.s3 — there is no
 # bindings.blob.) Metadata contract per dapr/components-contrib
 # bindings/aws/s3/metadata.yaml.
 #
 # Multi-doc rather than a file each: kustomize reads it natively, and adding a
-# connector stays a one-file diff. The topology mints only the connector's
+# port stays a one-file diff. The topology mints only the port's
 # name, label, and scopes. Bucket and region are environment-owned GitOps
 # configuration, so create-only onboarding leaves explicit REPLACE-ME
 # placeholders for the reviewer. The name must not change: blocks resolve the
-# binding as binding.<connector-name>.
+# binding as binding.<port-name>.
 #
 # Credentials live in the platform-owned {{ .secretName }} Secret — the
-# template only declares the connector-specific keys the platform must
+# template only declares the port-specific keys the platform must
 # provide. On EKS with an IAM policy already attached to the node or pod, do
 # not set accessKey/secretKey at all; the binding picks the credentials up
 # from the environment.
@@ -21,7 +21,7 @@
 # for ordinary AWS S3. An S3-compatible store (MinIO, Garage, LocalStack)
 # instead needs endpoint, forcePathStyle "true", and usually disableSSL or
 # insecureSSL — the reviewer adds those per environment.
-{{- range .topology.connectors }}
+{{- range .topology.ports }}
 {{- if eq .binding "blob" }}
 ---
 apiVersion: dapr.io/v1alpha1
@@ -29,7 +29,7 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
-    intropy.io/connector: {{ .name }}
+    intropy.io/port: {{ .name }}
 spec:
   type: bindings.aws.s3
   version: v1

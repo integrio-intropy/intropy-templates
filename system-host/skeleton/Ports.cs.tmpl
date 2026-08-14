@@ -1,0 +1,18 @@
+{{- $seen := dict -}}
+using Intropy.Topology;
+
+/// <summary>The system's ports: the named interfaces its edge blocks reach the outside world through. The name is each port's whole identity — the Dapr binding component's name is derived (<c>binding.&lt;port-name&gt;</c>), and its deployed type, address, and credentials are environment-owned deployment configuration. The development definition resolves each port to a local folder under test/ so the system runs with zero external configuration.</summary>
+public static class Ports
+{
+{{- range $i, $c := .ports }}
+{{- $field := regexReplaceAll "[-._]" $c.name " " | title | replace " " "" }}
+{{- if hasKey $seen $field }}
+{{- fail (printf "ports %q and %q both derive the Ports.cs field %s — rename one port in the components' scaffold records" (index $seen $field) $c.name $field) }}
+{{- end }}
+{{- $_ := set $seen $field $c.name }}
+{{- if $i }}
+{{ end }}
+    /// <summary>Locally resolved to <c>./test/{{ $c.name }}</c>; the deployed binding type is environment-owned deployment configuration.</summary>
+    public static readonly PortRef {{ $field }} = PortRef.Define("{{ $c.name }}");
+{{- end }}
+}

@@ -8,10 +8,10 @@ public static class Constants
     public const string PubSubName = "pubsub";
     public const string TopicName = "{{ .topic }}";
 
-    // The source connector's Dapr binding. "binding.<connector>" is the
+    // The source port's Dapr binding. "binding.<port>" is the
     // derived component name the system host generates, so the overlay can
     // swap the local folder for the system-level one without touching code.
-    public const string InboundBindingName = "binding.{{ .connector }}";
+    public const string InboundBindingName = "binding.{{ .port }}";
 
     public const string SourceFileAdapterKey = "source";
 

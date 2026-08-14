@@ -64,7 +64,7 @@ spec:
         default: ""
   # The closed fixture catalog for the local development cluster: one Dapr
   # binding skeleton per fixture type in overlays/local/fixtures/, switched on
-  # the connector's binding for this render. Local manifest rendering fails a
+  # the port's binding for this render. Local manifest rendering fails a
   # release that ships a local overlay without this list and validates explicit
   # or interactive choices against it. Adding a fixture is a skeleton file, an
   # entry here, and the fixture server in the k3s setup scripts — a template PR,
@@ -90,17 +90,17 @@ spec:
 
     # The local overlay is static rather than named by .env, so its files must
     # only render during the local pass. A fixture file exists only when one
-    # connector selected it; otherwise the kustomization must not reference it.
+    # port selected it; otherwise the kustomization must not reference it.
     - path: overlays/local/kustomization.yaml.tmpl
       when: '{{ eq .env "local" }}'
     - path: overlays/local/fixtures/sftp.yaml.tmpl
-      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "sftp" }}true{{- end }}{{- end }}'
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.ports }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "sftp" }}true{{- end }}{{- end }}'
     - path: overlays/local/fixtures/http.yaml.tmpl
-      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "http" }}true{{- end }}{{- end }}'
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.ports }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "http" }}true{{- end }}{{- end }}'
     - path: overlays/local/fixtures/file.yaml.tmpl
-      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "file" }}true{{- end }}{{- end }}'
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.ports }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "file" }}true{{- end }}{{- end }}'
     - path: overlays/local/fixtures/blob.yaml.tmpl
-      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.connectors }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "blob" }}true{{- end }}{{- end }}'
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.ports }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "blob" }}true{{- end }}{{- end }}'
 
     # The generic environment overlay never renders for the local environment:
     # it and overlays/local/ would both land at overlays/local/, and the walk
