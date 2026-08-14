@@ -1,0 +1,38 @@
+# The environment's in-cluster collector: Tempo in the monitoring namespace,
+# OTLP/gRPC on 4317. The base pins the developer-machine endpoint
+# (host.docker.internal:4318, HTTP); deployed environments override it here.
+# One document only: the base renders exactly one workload kind, and a
+# strategic-merge patch whose kind matches nothing fails the kustomize build.
+{{- if eq .workload "cronjob" }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .name }}
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: {{ .name }}
+              env:
+                - name: OTEL_EXPORTER_OTLP_ENDPOINT
+                  value: http://tempo.monitoring.svc.cluster.local:4317
+                - name: OTEL_EXPORTER_OTLP_PROTOCOL
+                  value: grpc
+{{- else }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+spec:
+  template:
+    spec:
+      containers:
+        - name: {{ .name }}
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://tempo.monitoring.svc.cluster.local:4317
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+{{- end }}
