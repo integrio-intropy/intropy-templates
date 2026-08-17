@@ -37,11 +37,12 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            # OTLP/HTTP endpoint on the developer machine (otel-lgtm in
-            # Docker). Per-environment collectors override this in the
-            # environment overlays.
+            # The in-cluster collector in every environment, local included:
+            # Tempo in the monitoring namespace, OTLP/gRPC on 4317.
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://host.docker.internal:4318
+              value: http://tempo.monitoring.svc.cluster.local:4317
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
           resources:
             requests:
               cpu: 50m
