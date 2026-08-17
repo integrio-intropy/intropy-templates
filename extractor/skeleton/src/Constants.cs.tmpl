@@ -16,7 +16,7 @@ public static class Constants
     // The Dapr binding component name the system host derives from the port:
     // "binding.<port>". The name never changes between environments — the
     // environment swaps the binding's type (local folder, SFTP, …) behind it.
-    public const string InboundBindingName = "binding." + SourcePort;
+    public const string InboundBindingName = SourcePort;
 
     public const string SourceFileAdapterKey = "source";
 
