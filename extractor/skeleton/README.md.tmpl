@@ -8,6 +8,36 @@ outside the block — activation cadence is deployment configuration (a
 Kubernetes CronJob in production); locally the system host runs the block
 once at startup.
 
+## How a run flows
+
+```
+scheduled run (CronJob / host)
+   │
+   ▼
+sweep inbound folder ──▶ per file:
+   │
+   ▼
+read ──▶ deserialize ──▶ validate ──▶ transform
+   │
+   ▼
+idempotency check
+   │
+   ▼
+publish CloudEvent to '{{ .topic }}'
+   │
+   ▼
+delete source file ──▶ next file
+   │
+   ▼
+exit 0
+```
+
+Off the happy path: duplicates cancel without publishing, business failures
+route an incident (and both consume the file), a technical failure keeps the
+file for the next run and fails the run with exit 1 — the CronJob records it.
+Scheduling itself is deployment configuration: production runs the block as
+a CronJob; locally the system host runs it once at startup.
+
 ## Build and test
 
 ```bash

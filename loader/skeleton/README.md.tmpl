@@ -6,6 +6,28 @@ subscription endpoint, which runs it through the Intropy loader pipeline and
 writes the result as `{orderId}.json` through the destination binding. The
 loader is a long-running service (a Deployment in production).
 
+## How a message flows
+
+```
+sidecar POSTs CloudEvent from '{{ .topic }}'
+   │
+   ▼
+deserialize ──▶ validate ──▶ transform
+   │
+   ▼
+idempotency check
+   │
+   ▼
+write {orderId}.json to the destination
+   │
+   ▼
+ack SUCCESS ──▶ message consumed
+```
+
+Off the happy path: duplicates and routed business incidents also ack SUCCESS
+(the message is consumed, never written); a technical failure acks RETRY and
+the sidecar redelivers until the destination recovers.
+
 ## Build and test
 
 ```bash
