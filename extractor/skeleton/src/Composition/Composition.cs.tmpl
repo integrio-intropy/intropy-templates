@@ -65,6 +65,27 @@ public static class Composition
                 sp.GetRequiredService<DaprClient>(),
                 new FileAdapterOptions(Constants.InboundBindingName)));
 
+        // The port name never changes between environments — deployment
+        // swaps the binding's type behind "binding.<port>", so rebinding the
+        // port is a configuration act, not a build. Today the adapter class
+        // must still match the deployed binding type (each binding speaks
+        // its own Dapr operation metadata), so a different adapter is a
+        // same-name class switch, e.g. when the production environment
+        // resolves this port to an SFTP binding:
+        //
+        // services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
+        //     environment == "Development"
+        //         ? (IFileAdapter)new LocalFileAdapter(
+        //             sp.GetRequiredService<DaprClient>(),
+        //             new FileAdapterOptions(Constants.InboundBindingName))
+        //         : new SftpAdapter(
+        //             sp.GetRequiredService<DaprClient>(),
+        //             new FileAdapterOptions(Constants.InboundBindingName)));
+        //
+        // The SFTP binding's address and credentials live in the
+        // environment's Dapr component (GitOps values), resolved out of the
+        // cluster's secret store — never hard-code them here.
+
         // The publish edge is a service like the other externals (source adapter,
         // platform clients): tests swap it for a FakeTopic via RemoveAll/AddSingleton,
         // exactly as they swap the others — no special seam in BuildPipeline.

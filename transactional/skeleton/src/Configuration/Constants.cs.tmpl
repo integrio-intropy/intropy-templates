@@ -14,10 +14,19 @@ public static class Constants
     public const string PubSubName = "internal-{{ .name | kebabcase | replace "." "-" }}";
     public const string TopicName = "hop";
 
-    // The Dapr binding names the system host derives from the component's
-    // From/To ports: binding.<port-name>.
-    public const string InboundBindingName = "binding.{{ .fromPort }}";
-    public const string OutboundBindingName = "binding.{{ .toPort }}";
+    // The From/To ports: the named interfaces this component reads and
+    // writes the outside world through. The name is each port's whole
+    // identity — declared in the system host's Ports.cs, resolved per
+    // environment by the deployment.
+    public const string SourcePort = "{{ .fromPort }}";
+    public const string DestinationPort = "{{ .toPort }}";
+
+    // The Dapr binding component names the system host derives from the
+    // ports: "binding.<port>". The names never change between environments —
+    // the environment swaps each binding's type (local folder, SFTP, …)
+    // behind its name.
+    public const string InboundBindingName = "binding." + SourcePort;
+    public const string OutboundBindingName = "binding." + DestinationPort;
 
     public const string SourceFileAdapterKey = "source";
     public const string DestinationFileAdapterKey = "destination";

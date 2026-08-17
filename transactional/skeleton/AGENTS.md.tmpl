@@ -16,11 +16,15 @@ writes the transformed result to a second file binding.
 - Topic: `hop` — the component-owned internal hop (receive publishes each
   source file for the send side to process). Invisible to the system
   topology; uniqueness comes from the pubsub scope, not the topic name
-- Source binding: `binding.{{ .fromPort }}` — the name must match the
-  binding the system host generates for this component's From port
-  (`binding.<port-name>`)
-- Destination binding: `binding.{{ .toPort }}` — same: generated and
-  resolved by the system host from the To port
+- Source port: `{{ .fromPort }}` — the named interface the component
+  reads the outside world through; the system host declares it in
+  `Ports.cs` and derives the Dapr binding `binding.{{ .fromPort }}`,
+  resolved to a local folder in development. In production the same name
+  resolves to the environment's binding (e.g. SFTP) from the deploy
+  overlay's GitOps values — rebinding the port is a deployment change,
+  never a code change
+- Destination port: `{{ .toPort }}` — same, for the write side: declared
+  as the To port, bound per environment behind `binding.{{ .toPort }}`
 {{- if not .empty }}
 - Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
 - Business Incident Service: reached via Dapr service invocation, app id

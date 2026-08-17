@@ -114,6 +114,38 @@ come from the deployment environment.
 
 Per delivered message (`src/Endpoints/LoaderEndpoints.cs` rebuilds the
 envelope into a CloudEvent and drives this):
+
+```text
+// Loader pipeline transitions:
+//
+//         ┌─────────────────────────────┐
+//         │ 1. Deserializer             │
+//         └──────────────┬──────────────┘
+//                        │ CloudEvent.Data → shared {{ .contract }}; stamps context
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 2. Validator                ├──── failure ───► Business Incident Service
+//         └──────────────┬──────────────┘
+//                        │ required fields + business rules pass
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 3. Idempotency check        ├──── duplicate ─► [[Cancelled]]
+//         └──────────────┬──────────────┘
+//                        │ Subject / Time is new
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 4. Transformer              │
+//         └──────────────┬──────────────┘
+//                        │ shared {{ .contract }} → Out
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 5. Sender                   │
+//         └─────────────────────────────┘
+//                        writes {orderId}.json through destination binding
+//
+// Success, duplicates, and business incidents return [[AckSuccess]].
+// Technical failures from any step return [[AckRetry]] for sidecar redelivery.
+```
 {{- if .empty }}
 
 1. `Deserializer` parses `CloudEvent.Data` into the shared `{{ .contract }}` contract.

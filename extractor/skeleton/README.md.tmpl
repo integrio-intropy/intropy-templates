@@ -135,6 +135,42 @@ Per swept file (`src/Sweep.cs` drives this once per run, hosted by the
 framework's `RunToCompletionRunner`, which owns the sidecar lifecycle, tracing,
 and the 0/1/2 exit-code mapping — success / job failure / infrastructure
 failure — via `src/ExtractJob.cs`):
+
+```text
+// Extractor pipeline transitions:
+//
+//         ┌─────────────────────────────┐
+//         │ 1. Deserializer             │
+//         └──────────────┬──────────────┘
+//                        │ parses JSON into Source{{ .contract }}; stamps order_id
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 2. Validator                ├──── failure ───► Business Incident Service
+//         └──────────────┬──────────────┘
+//                        │ required fields + business rules pass
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 3. Idempotency check        ├──── duplicate ─► [[Cancelled]]
+//         └──────────────┬──────────────┘
+//                        │ OrderId / OrderDate is new
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 4. Transformer              │
+//         └──────────────┬──────────────┘
+//                        │ Source{{ .contract }} → canonical {{ .contract }} (../{{ .contracts }})
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 5. CloudEventSerializeStep  │
+//         └──────────────┬──────────────┘
+//                        │ wraps {{ .contract }}; validates Subject = order id, Time = order date
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 6. Dapr topic publisher     │
+//         └─────────────────────────────┘
+//                        sends source/type envelope to pubsub / {{ .topic }}
+//
+// Technical failures from any step leave the source file in place for retry.
+```
 {{- if .empty }}
 
 1. `Deserializer` parses the JSON into `Source{{ .contract }}`.

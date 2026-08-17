@@ -75,6 +75,21 @@ public static class Composition
             options.DaprTopicName = Constants.TopicName;
         });
 
+        // The port names never change between environments — deployment
+        // swaps each binding's type behind "binding.<port>", so rebinding a
+        // port is a configuration act, not a build. Today the adapter class
+        // must still match the deployed binding type (each binding speaks
+        // its own Dapr operation metadata), so a different adapter is a
+        // same-name class switch, e.g. when the production environment
+        // resolves the source port to an SFTP binding:
+        //
+        // environment == "Development"
+        //     ? (IFileAdapter)new LocalFileAdapter(dapr, new FileAdapterOptions(Constants.InboundBindingName))
+        //     : new SftpAdapter(dapr, new FileAdapterOptions(Constants.InboundBindingName));
+        //
+        // A binding's address and credentials live in the environment's Dapr
+        // component (GitOps values), resolved out of the cluster's secret
+        // store — never hard-code them here.
         services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
             new LocalFileAdapter(
                 sp.GetRequiredService<DaprClient>(),

@@ -8,10 +8,16 @@ public static class Constants
     public const string PubSubName = "pubsub";
     public const string TopicName = "{{ .topic }}";
 
-    // The destination port's Dapr binding. "binding.<port>" is the
-    // derived component name the system host generates, so the overlay can
-    // swap the local folder for the system-level one without touching code.
-    public const string DestinationBindingName = "binding.{{ .port }}";
+    // The destination port: the named interface this component writes the
+    // outside world through. The name is the port's whole identity —
+    // declared in the system host's Ports.cs, resolved per environment by
+    // the deployment.
+    public const string DestinationPort = "{{ .port }}";
+
+    // The Dapr binding component name the system host derives from the port:
+    // "binding.<port>". The name never changes between environments — the
+    // environment swaps the binding's type (local folder, SFTP, …) behind it.
+    public const string DestinationBindingName = "binding." + DestinationPort;
 
     public const string DestinationFileAdapterKey = "destination";
 

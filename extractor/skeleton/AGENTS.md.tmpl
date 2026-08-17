@@ -20,9 +20,13 @@ production); locally the system host runs the block once at startup.
   `{{ .name }}.Sweep` (the sidecar-free one-shot sweep) and reports a
   `JobRunSummary`.
 - App id: `{{ .appId }}`
-- Source binding: `binding.{{ .port }}` — named after the source
-  port; the system host generates the binding and resolves it to a local
-  folder in development
+- Source port: `{{ .port }}` — the named interface the extractor reads
+  the outside world through; the system host declares it in `Ports.cs`
+  and derives the Dapr binding `binding.{{ .port }}`, resolved to a
+  local folder in development. In production the same name resolves to
+  the environment's binding (e.g. SFTP) from the deploy overlay's GitOps
+  values — rebinding the port is a deployment change, never a code
+  change
 - Pub/sub component: `pubsub`
 - Topic: `{{ .topic }}` — the extractor's half of the system contract; the
   consuming loader subscribes to the same topic

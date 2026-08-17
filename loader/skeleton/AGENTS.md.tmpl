@@ -23,9 +23,13 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
   published from there
 - Topic: `{{ .topic }}` — the loader's half of the system contract; the
   publishing extractor uses the same topic
-- Destination binding: `binding.{{ .port }}` — named after the
-  destination port; the system host generates the binding and resolves
-  it to a local folder in development
+- Destination port: `{{ .port }}` — the named interface the loader
+  writes the outside world through; the system host declares it in
+  `Ports.cs` and derives the Dapr binding `binding.{{ .port }}`,
+  resolved to a local folder in development. In production the same name
+  resolves to the environment's binding (e.g. SFTP) from the deploy
+  overlay's GitOps values — rebinding the port is a deployment change,
+  never a code change
 - Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
 - Business Incident Service: reached via Dapr service invocation, app id
   `business-incident-service`
