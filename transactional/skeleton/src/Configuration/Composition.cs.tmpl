@@ -34,8 +34,8 @@ public static class Composition
     /// Optional factory for the receive pipeline's enqueue step. Production
     /// leaves this null; the integration suite substitutes
     /// <c>FakeEnqueueStep&lt;Context&gt;</c> so the pipeline is still built by the
-    /// exact production builder chain with only the broker edge faked. Forwarded
-    /// to <c>Receive.ServiceCollectionExtensions.AddReceivePipeline</c>.
+    /// exact production builder chain with only the broker interaction faked.
+    /// Forwarded to <c>Receive.ServiceCollectionExtensions.AddReceivePipeline</c>.
     /// </param>
     public static IServiceCollection ConfigureServices(
         IServiceCollection services,
@@ -43,6 +43,9 @@ public static class Composition
     {
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 
+        // Register host-level platform plumbing first: diagnostics, Dapr, framework
+        // services, and shared platform clients. Keeping these together makes the
+        // ordering-sensitive DaprClient registrations obvious.
         services.AddLogging(builder => builder.AddConsole());
 
         services.AddOpenTelemetry(conf =>
@@ -75,6 +78,10 @@ public static class Composition
             options.DaprTopicName = Constants.TopicName;
         });
 
+        // Bind each adapter implementation to the component's stable port names.
+        // Deployment swaps the Dapr binding behind a port name; these keyed
+        // registrations are where code chooses the adapter classes that can speak them.
+        //
         // The port names never change between environments — deployment
         // swaps each binding's type behind "binding.<port>", so rebinding a
         // port is a configuration act, not a build. Today the adapter class
@@ -102,6 +109,8 @@ public static class Composition
 
         services.AddSingleton<ISourceLister, SourceLister>();
 
+        // Register the pipelines last, after every adapter and platform service
+        // they resolve from DI has been added to the service collection.
         services.AddReceivePipeline(receiveEnqueuerOverride);
         services.AddSendPipeline();
 

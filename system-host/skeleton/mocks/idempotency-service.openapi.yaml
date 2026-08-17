@@ -3,8 +3,8 @@ info:
   title: Idempotency Service
   version: 1.0.0
 # Schemas are inlined (no $ref): the development-definition validation requires
-# a self-contained document, and topology versions before 0.4.0 misread quoted
-# internal $refs as external ones.
+# a self-contained document, and older topology versions misread quoted internal
+# $refs as external ones.
 paths:
   /status:
     post:

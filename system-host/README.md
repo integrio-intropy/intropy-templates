@@ -84,18 +84,12 @@ intropy int create system-host -o /tmp/system-host-out \
 
 `examples/empty.yaml` covers the empty-system render. Building a render
 requires the `Intropy.Topology.Aspire` / `Intropy.Topology.Generation`
-packages to be resolvable from a NuGet feed; until they are published, pack
-the intropy-topology repo to a local folder feed:
+packages to be resolvable from the configured NuGet feeds.
 
-```bash
-cd ~/dev/intropy/tooling/intropy-topology
-dotnet pack -p:Version=0.4.0 -o ~/dev/intropy/local-nuget
-```
-
-Do not lower the pin below 0.4.0. From that version the topology carries only
-minted facts (port identity is the name alone, no declared transport;
-activation cadence lives in deployment configuration), the transactional
-integration builder exists (`From`/`To` ports, enforced by a
-completeness rule), and the Aspire host treats run-to-completion kinds'
-finished sidecars as their intended terminal state. Earlier versions cannot
-compile or run this skeleton's declarations.
+Do not lower the pin below 0.4.1. The topology carries only minted facts
+(port identity is the name alone, no declared transport; activation cadence
+lives in deployment configuration), the transactional integration builder
+exists (`From`/`To` ports, enforced by a completeness rule), and the Aspire
+host treats run-to-completion kinds' finished sidecars as their intended
+terminal state. Earlier versions cannot compile or run this skeleton's
+declarations.

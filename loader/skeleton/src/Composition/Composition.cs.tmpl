@@ -29,6 +29,9 @@ public static class Composition
     {
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 
+        // Register host-level platform plumbing first: diagnostics, Dapr, framework
+        // services, and shared platform clients. Keeping these together makes the
+        // ordering-sensitive DaprClient registrations obvious.
         services.AddLogging(builder => builder.AddConsole());
 
         services.AddOpenTelemetry(conf =>
@@ -59,6 +62,9 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
+        // Bind the destination adapter implementation to the component's stable
+        // outbound port. Deployment swaps the Dapr binding behind the port name;
+        // this keyed registration is where code chooses the adapter class that can speak it.
         services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationFileAdapterKey, (sp, _) =>
             new LocalFileAdapter(
                 sp.GetRequiredService<DaprClient>(),
@@ -85,13 +91,15 @@ public static class Composition
         // environment's Dapr component (GitOps values), resolved out of the
         // cluster's secret store — never hard-code them here.
 
-        // The load edge is a service like the other externals (destination
-        // adapter, platform clients): tests swap it for their own
+        // The destination sender is a service like the other externals
+        // (destination adapter, platform clients): tests swap it for their own
         // SendStep<Out, Context> via RemoveAll/AddSingleton, exactly as they
         // swap the others — no special seam in BuildPipeline.
         services.AddSingleton<SendStep<Out, Context>>(sp =>
             new Sender(sp.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationFileAdapterKey)));
 
+        // Register the pipeline last, after every adapter, sender, and platform
+        // client it resolves from DI has been added to the service collection.
         AddLoadPipeline(services);
 
         return services;
@@ -105,7 +113,7 @@ public static class Composition
         services.AddSingleton(provider => BuildPipeline(provider));
 
     /// <summary>
-    /// Builds the load pipeline against the DI graph. Every external edge —
+    /// Builds the load pipeline against the DI graph. Every external dependency —
     /// destination adapter, sender, idempotency, business incidents — resolves
     /// from the provider, so a test swaps any of them by swapping its
     /// registration.
@@ -122,7 +130,7 @@ public static class Composition
             // implementation (property reflection + SHA256).
             .WithIdempotency()
             .WithTransformer(new Transformer())
-            // The sender resolves from DI like every other external edge;
+            // The sender resolves from DI like every other external dependency;
             // tests swap the SendStep<Out, Context> registration.
             .WithSender(provider.GetRequiredService<SendStep<Out, Context>>())
             .WithBusinessIncidents(

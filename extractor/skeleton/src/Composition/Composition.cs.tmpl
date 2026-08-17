@@ -30,6 +30,9 @@ public static class Composition
     {
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 
+        // Register host-level platform plumbing first: diagnostics, Dapr, framework
+        // services, and shared platform clients. Keeping these together makes the
+        // ordering-sensitive DaprClient registrations obvious.
         services.AddLogging(builder => builder.AddConsole());
 
         services.AddOpenTelemetry(conf =>
@@ -60,6 +63,9 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
+        // Bind the source adapter implementation to the component's stable inbound
+        // port. Deployment swaps the Dapr binding behind the port name; this keyed
+        // registration is where code chooses the adapter class that can speak it.
         services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
             new LocalFileAdapter(
                 sp.GetRequiredService<DaprClient>(),
@@ -86,7 +92,7 @@ public static class Composition
         // environment's Dapr component (GitOps values), resolved out of the
         // cluster's secret store — never hard-code them here.
 
-        // The publish edge is a service like the other externals (source adapter,
+        // The publisher is a service like the other externals (source adapter,
         // platform clients): tests swap it for a FakeTopic via RemoveAll/AddSingleton,
         // exactly as they swap the others — no special seam in BuildPipeline.
         services.AddSingleton<SendStep<Context>>(sp => new DaprTopicPublisher<Context>(
@@ -96,6 +102,8 @@ public static class Composition
             new Uri(Constants.EventSource),
             Constants.EventType));
 
+        // Register the pipeline and runner last, after every adapter, publisher,
+        // and platform client it resolves from DI has been added to the service collection.
         AddExtractPipeline(services);
         services.AddSingleton<Sweep>();
 
@@ -117,7 +125,7 @@ public static class Composition
         services.AddSingleton(provider => BuildPipeline(provider));
 
     /// <summary>
-    /// Builds the extract pipeline against the DI graph. Every external edge —
+    /// Builds the extract pipeline against the DI graph. Every external dependency —
     /// source adapter, sender, idempotency, business incidents — resolves from
     /// the provider, so a test swaps any of them by swapping its registration.
     /// </summary>
@@ -152,7 +160,7 @@ public static class Composition
                 subject: order => order.OrderId,
                 time: order => order.OrderDate))
 {{- end }}
-            // The sender resolves from DI like every other external edge;
+            // The sender resolves from DI like every other external dependency;
             // tests swap the SendStep<Context> registration for a FakeTopic.
             .WithSender(provider.GetRequiredService<SendStep<Context>>())
             .WithBusinessIncidents(
