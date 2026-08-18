@@ -9,7 +9,7 @@
 # name, label, and scopes. The endpoint is environment-owned GitOps
 # configuration, so create-only onboarding leaves an explicit REPLACE-ME
 # placeholder for the reviewer. The name must not change: blocks resolve the
-# binding as binding.<port-name>.
+# binding by the port name.
 {{- range .topology.ports }}
 {{- if eq .binding "http" }}
 ---

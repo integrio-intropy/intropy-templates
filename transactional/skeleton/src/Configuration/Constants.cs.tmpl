@@ -21,12 +21,11 @@ public static class Constants
     public const string SourcePort = "{{ .fromPort }}";
     public const string DestinationPort = "{{ .toPort }}";
 
-    // The Dapr binding component names the system host derives from the
-    // ports: "binding.<port>". The names never change between environments —
-    // the environment swaps each binding's type (local folder, SFTP, …)
-    // behind its name.
-    public const string InboundBindingName = "binding." + SourcePort;
-    public const string OutboundBindingName = "binding." + DestinationPort;
+    // The Dapr binding component names are the port names. The names never
+    // change between environments — the environment swaps each binding's type
+    // (local folder, SFTP, …) behind its name.
+    public const string InboundBindingName = SourcePort;
+    public const string OutboundBindingName = DestinationPort;
 
     public const string SourceFileAdapterKey = "source";
     public const string DestinationFileAdapterKey = "destination";

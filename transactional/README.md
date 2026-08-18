@@ -46,8 +46,8 @@ The template declares `intropy.dev/block-kind: transactional-integration`, so
 port-to-port block with no system topic. The scaffold record
 (`.intropy/scaffold.json`) carries the derived wiring values the host needs:
 `fromPort`/`toPort` (the two ports, `<app-id>-source` /
-`<app-id>-destination`; the skeleton's binding names follow the host's
-`binding.<port-name>` derivation) and `appId`/`projectName`. The
+`<app-id>-destination`; the Dapr binding names are the same port names) and
+`appId`/`projectName`. The
 internal pub/sub hop between the receive and send pipelines is
 component-owned: its topic (`<app-id>-in`) is unique per component and
 deliberately not recorded — invisible to the topology, so two transactional

@@ -22,11 +22,10 @@ production); locally the system host runs the block once at startup.
 - App id: `{{ .appId }}`
 - Source port: `{{ .port }}` — the named interface the extractor reads
   the outside world through; the system host declares it in `Ports.cs`
-  and derives the Dapr binding `binding.{{ .port }}`, resolved to a
-  local folder in development. In production the same name resolves to
-  the environment's binding (e.g. SFTP) from the deploy overlay's GitOps
-  values — rebinding the port is a deployment change, never a code
-  change
+  and the Dapr binding uses the same name, resolved to a local folder in
+  development. In production the same name resolves to the environment's
+  binding (e.g. SFTP) from the deploy overlay's GitOps values — rebinding
+  the port is a deployment change, never a code change
 - Pub/sub component: `pubsub`
 - Topic: `{{ .topic }}` — the extractor's half of the system contract; the
   consuming loader subscribes to the same topic

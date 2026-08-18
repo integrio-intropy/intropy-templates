@@ -14,9 +14,9 @@ public static class Constants
     // the deployment.
     public const string DestinationPort = "{{ .port }}";
 
-    // The Dapr binding component name the system host derives from the port:
-    // "binding.<port>". The name never changes between environments — the
-    // environment swaps the binding's type (local folder, SFTP, …) behind it.
+    // The Dapr binding component name is the port name. The name never changes
+    // between environments — the environment swaps the binding's type (local
+    // folder, SFTP, …) behind it.
     public const string DestinationBindingName = DestinationPort;
 
     public const string DestinationFileAdapterKey = "destination";

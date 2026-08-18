@@ -83,7 +83,7 @@ public static class Composition
         // registrations are where code chooses the adapter classes that can speak them.
         //
         // The port names never change between environments — deployment
-        // swaps each binding's type behind "binding.<port>", so rebinding a
+        // swaps each binding's type behind that same name, so rebinding a
         // port is a configuration act, not a build. Today the adapter class
         // must still match the deployed binding type (each binding speaks
         // its own Dapr operation metadata), so a different adapter is a

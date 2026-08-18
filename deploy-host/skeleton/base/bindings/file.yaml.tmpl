@@ -7,7 +7,7 @@
 # Multi-doc rather than a file each: kustomize reads it natively, and adding a
 # port stays a one-file diff. The topology mints only the port's
 # name, label, and scopes. The name must not change: blocks resolve the
-# binding as binding.<port-name>.
+# binding by the port name.
 #
 # Local storage means the daprd container's filesystem: a Kubernetes
 # deployment must mount suitable storage (a PVC, a hostPath, an NFS share) at

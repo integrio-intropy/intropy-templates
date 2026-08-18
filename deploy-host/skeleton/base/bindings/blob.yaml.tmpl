@@ -9,7 +9,7 @@
 # name, label, and scopes. Bucket and region are environment-owned GitOps
 # configuration, so create-only onboarding leaves explicit REPLACE-ME
 # placeholders for the reviewer. The name must not change: blocks resolve the
-# binding as binding.<port-name>.
+# binding by the port name.
 #
 # Credentials live in the platform-owned {{ .secretName }} Secret — the
 # template only declares the port-specific keys the platform must

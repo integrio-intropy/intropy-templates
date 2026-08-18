@@ -71,7 +71,7 @@ public static class Composition
                 new FileAdapterOptions(Constants.DestinationBindingName)));
 
         // The port name never changes between environments — deployment
-        // swaps the binding's type behind "binding.<port>", so rebinding the
+        // swaps the binding's type behind that same name, so rebinding the
         // port is a configuration act, not a build. Today the adapter class
         // must still match the deployed binding type (each binding speaks
         // its own Dapr operation metadata), so a different adapter is a

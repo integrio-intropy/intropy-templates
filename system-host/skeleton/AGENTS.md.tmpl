@@ -27,11 +27,10 @@ declaration — an Aspire run backend and a generation backend.
   the same way once components declare APIs.
 - `Ports.cs` — the system's ports as refs (`PortRef`), declared as
   static fields. Same regenerate-then-yours lifecycle. The name is each
-  port's whole identity: the Dapr binding component's name is derived
-  (`binding.<port-name>`), and the deployed binding's type, address, and
-  credentials are environment-owned deployment configuration the topology
-  deliberately does not repeat. Local runs resolve the port through the
-  development definition instead.
+  port's whole identity: the Dapr binding component uses the same name, and
+  the deployed binding's type, address, and credentials are environment-owned
+  deployment configuration the topology deliberately does not repeat. Local
+  runs resolve the port through the development definition instead.
 - `{{ .projectName }}Development.cs` — the `IDevelopmentDefinition` (at most one per
   assembly): local substitutions for the outside world. Same
   regenerate-then-yours lifecycle. `Mock(...).FromOpenApi(...)` stands in an

@@ -1,7 +1,7 @@
 {{- $seen := dict -}}
 using Intropy.Topology;
 
-/// <summary>The system's ports: the named interfaces its edge blocks reach the outside world through. The name is each port's whole identity — the Dapr binding component's name is derived (<c>binding.&lt;port-name&gt;</c>), and its deployed type, address, and credentials are environment-owned deployment configuration. The development definition resolves each port to a local folder under test/ so the system runs with zero external configuration.</summary>
+/// <summary>The system's ports: the named interfaces its edge blocks reach the outside world through. The name is each port's whole identity — the Dapr binding component uses the same name, while its deployed type, address, and credentials are environment-owned deployment configuration. The development definition resolves each port to a local folder under test/ so the system runs with zero external configuration.</summary>
 public static class Ports
 {
 {{- range $i, $c := .ports }}
