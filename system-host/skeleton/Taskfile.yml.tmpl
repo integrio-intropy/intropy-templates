@@ -1,3 +1,14 @@
+{{- /* The seed default follows the first extractor with a port —
+extractors sweep their source folder once at host start, so that folder is
+the one to seed before `task run`. Other components' folders stay reachable
+via the PORT_DIR override. A system without a port-bearing extractor gets a
+placeholder default; PORT_DIR is required there. */ -}}
+{{- $seedPort := "<port>" -}}
+{{- range .components -}}
+{{- if and (eq .kind "extractor") (hasKey . "port") -}}
+{{- $seedPort = .port -}}
+{{- end -}}
+{{- end -}}
 version: "3"
 
 # Local-dev tasks for the {{ .name }} SystemHost — the Aspire host that holds the
@@ -30,7 +41,7 @@ tasks:
     vars:
       # Folder the port resolves to — must match the Files(...).RootPath(...)
       # resolution in the development definition (conventionally test/<port-name>).
-      PORT_DIR: '{{ "{{" }}.PORT_DIR | default "./test/order-extractor-source"}}'
+      PORT_DIR: '{{ "{{" }}.PORT_DIR | default "./test/{{ $seedPort }}"}}'
     cmds:
       - mkdir -p {{ "{{" }}.PORT_DIR}}
       - cp ./sample-data/sample-order.json {{ "{{" }}.PORT_DIR}}/

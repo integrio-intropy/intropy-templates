@@ -56,16 +56,17 @@ it. The host declares only the two ports.
 renders this release with only `name` fails validation loudly instead of
 producing an empty system.
 
-The payload is **pre-joined**: the CLI resolves every reference so the
-skeleton stays a flat `range` over the lists — no lookups in templates.
+The payload is **facts-only**: each component carries the raw topic/port
+names it touches, and the skeleton derives the `Topics`/`Ports` field
+identifiers and the joins from components to them.
 
 | key | shape | notes |
 |---|---|---|
 | `name` | string | DNS-1123 system name; becomes `SystemName`. |
-| `topics` | list of `{pubsub, name, contract, field}` | `contract` is the shared-contracts record; `field` its PascalCase `Topics` identifier. Sorted by (pubsub, name). |
-| `ports` | list of `{name, field}` | `field` is the PascalCase `Ports` identifier. Sorted by name. |
-| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. The wiring fields follow the component's shape: a topic block carries `topicField` plus `portField` when it has a port (empty when it has none); a transactional integration — port-to-port, no topic — carries `fromField`/`toField`. All are pre-joined `Topics`/`Ports` identifiers. |
-| `sharedContracts` | `{name, include}` — always emitted, possibly empty | `name` is the contracts project/namespace (the `using` in `Topics.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A topics-free system (e.g. only transactional integrations) has no shared library: the CLI emits an empty object and the render omits the `using`, the `ProjectReference`, and the contracts paragraphs. The key is always present (never omitted) because the renderer runs `missingkey=error` — an absent key fails even an `{{ if }}` guard, an empty object evaluates false. |
+| `topics` | list of `{pubsub, name, contract}` | `contract` is the shared-contracts record. The skeleton derives the PascalCase `Topics` identifier. Sorted by (pubsub, name). |
+| `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
+| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. The wiring fields follow the component's shape: a topic block carries `topic: {pubsub, name}` plus `port` when it has a port; a transactional integration — port-to-port, no topic — carries `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Topics`/`Ports` fields. |
+| `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Topics.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A topics-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
 
 Derived `projectName`/`systemClass` (`order-flow` → `OrderFlow` /
 `OrderFlowSystem`) must keep matching the CLI's `pascalCase` derivation —

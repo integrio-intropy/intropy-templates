@@ -25,8 +25,8 @@ task publish    # publish the sample order to the topic through a running sideca
 ```
 
 `task seed PORT_DIR=./test/<port>` targets the folder the port
-resolves to in the development definition (conventionally `test/<port-name>`,
-e.g. `test/order-extractor-source`) — the default assumes that port name. `task publish` takes overrides for
+resolves to in the development definition (conventionally `test/<port-name>`);
+the default targets the first declared extractor's port folder. `task publish` takes overrides for
 the publishing component (`PUBLISH_APP_ID`) and the topic (`TOPIC`) — the dapr
 CLI resolves the sidecar from the app-id.
 

@@ -1,41 +1,40 @@
 # Render fixture: the full value payload, as `intropy sys create` assembles it
 # from the tutorial's order-flow workspace (one extractor, one loader, one
-# transactional integration, the shared Contracts project). The payload
-# parameters are required and pre-joined: each component carries the
-# Topics/Ports field identifiers it touches, and sharedContracts.include
-# is the ProjectReference path from the host's output directory to the
-# contracts csproj.
+# transactional integration, the shared Contracts project). The payload is
+# facts-only: each component carries the raw topic/port names it touches, and
+# the skeleton derives the Topics/Ports field identifiers and the joins.
+# sharedContracts.include is the ProjectReference path from the host's output
+# directory to the contracts csproj.
 #   intropy int create system-host -o /tmp/system-host-out -f system-host/examples/minimal.yaml --version main --no-input
 name: order-flow
 topics:
   - pubsub: pubsub
     name: orders
     contract: Order
-    field: Orders
 ports:
   - name: erp-destination
-    field: ErpDestination
   - name: erp-source
-    field: ErpSource
   - name: order-extractor-source
-    field: OrderExtractorSource
   - name: order-loader-destination
-    field: OrderLoaderDestination
 components:
   - appId: order-extractor
     kind: extractor
-    topicField: Orders
-    portField: OrderExtractorSource
+    topic:
+      pubsub: pubsub
+      name: orders
+    port: order-extractor-source
   - appId: order-loader
     kind: loader
-    topicField: Orders
-    portField: OrderLoaderDestination
+    topic:
+      pubsub: pubsub
+      name: orders
+    port: order-loader-destination
   # A transactional integration: port-to-port, no topic. Its wiring
-  # fields follow its shape — fromField/toField instead of topicField.
+  # fields follow its shape — fromPort/toPort instead of topic.
   - appId: erp-sync
     kind: transactional-integration
-    fromField: ErpSource
-    toField: ErpDestination
+    fromPort: erp-source
+    toPort: erp-destination
 sharedContracts:
   name: Contracts
   include: ../Contracts/Contracts.csproj

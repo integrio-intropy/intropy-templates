@@ -80,8 +80,10 @@ originate here too:
   port folder (override with `task seed PORT_DIR=./test/<port>`
   — the folder must match the `Files(...).RootPath(...)` resolution in the
   development definition, conventionally `test/<port-name>`; the default
-  targets `test/order-extractor-source`). Seeding into a live system needs a
-  host restart to be picked up.
+  targets the first declared extractor's port folder — a system without a
+  port-bearing extractor renders a `test/<port>` placeholder, so pass
+  `PORT_DIR` there). Seeding into a live system needs a host restart to be
+  picked up.
 - **Transactional integrations**: also run-to-completion — each one sweeps its
   `From` port's folder once when the host starts. Trigger the same way:
   seed the source port folder before `task run`
