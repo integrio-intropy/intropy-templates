@@ -13,6 +13,9 @@ metadata:
     intropy.dev/template-role: shared-library
 
 spec:
+  files:
+    - path: OrderLine.cs.tmpl
+      when: '{{ ne .mode "batch" }}'
   parameters:
     type: object
     required:
@@ -29,6 +32,15 @@ spec:
         description: PascalCase name of the canonical contract record the system's topics carry — the record this library is scaffolded around. Component templates pass their own contract parameter down.
         pattern: "^[A-Z][A-Za-z0-9]*$"
         default: Order
+      mode:
+        type: string
+        title: Contract shape
+        description: >-
+          sweep (default): the canonical record is a per-message payload (an
+          order). batch: the canonical record is a batch summary (batch id +
+          per-file record/reject counts) with a nested per-file record.
+        enum: [sweep, batch]
+        default: sweep
       empty:
         type: boolean
         title: Empty bodies
