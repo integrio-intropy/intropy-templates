@@ -1,0 +1,171 @@
+using {{ .contracts }};
+using Dapr.Client;
+using {{ .name }}.Batch;
+using {{ .name }}.Batch.Steps;
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using {{ .name }}.Process.Streamed;
+using Intropy.BusinessIncidentService.Client;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Batch;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Blocks.Streamed;
+using Intropy.Framework.Core.Configuration;
+using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.Framework.Streaming;
+using Intropy.IdempotencyService.Client;
+using Intropy.Telemetry.ConsoleApp;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Composition;
+
+/// <summary>
+/// The component's service registrations, shared by the entrypoint
+/// (<c>Program.cs</c>) and the composition smoke test. Everything the runner
+/// needs — telemetry, Dapr clients, the source adapter, the streamed
+/// extractors, the batch pipeline — is registered here so the test can prove
+/// the whole graph builds without a sidecar.
+/// </summary>
+public static class Composition
+{
+    /// <summary>Registers every service the extractor needs.</summary>
+    public static IServiceCollection ConfigureServices(IServiceCollection services)
+    {
+        var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+
+        // Configuration: appsettings.json + environment overlay + env vars. Based on the
+        // binary directory, not the CWD — a host (or `dapr run`) may launch the app from a
+        // different working directory. Registered so options binding and tests resolve the
+        // same instance.
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
+            .AddEnvironmentVariables()
+            .Build();
+        services.AddSingleton<IConfiguration>(configuration);
+
+        // Register host-level platform plumbing first: diagnostics, Dapr, framework
+        // services, and shared platform clients. Keeping these together makes the
+        // ordering-sensitive DaprClient registrations obvious.
+        services.AddLogging(builder => builder.AddConsole());
+
+        services.AddOpenTelemetry(conf =>
+        {
+            conf.ServiceNamespace = Constants.Organization;
+            conf.ServiceName = Constants.ComponentName;
+            conf.Environment = environment;
+        });
+
+        services.AddSingleton(_ => new DaprClientBuilder().Build());
+
+        // Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
+        // contributes its own DaprClient registration (camelCase JSON + string enums),
+        // and the last registration wins for GetRequiredService<DaprClient>().
+        services.AddIdempotencyServiceClient(c =>
+        {
+            c.AppId = configuration["PlatformServices:IdempotencyServiceAppId"]
+                      ?? "idempotency-service.services";
+        });
+
+        services.AddBusinessIncidentServiceClient(c =>
+        {
+            c.AppId = configuration["PlatformServices:BusinessIncidentServiceAppId"]
+                      ?? "business-incident-service.services";
+        });
+
+        services.AddIntropyFramework(x =>
+        {
+            x.ComponentName = Constants.ComponentName;
+            x.ServiceNamespace = Constants.Organization;
+        });
+
+        // Batch layout options (prefixes + ready-marker name), bound from configuration.
+        services.AddSingleton(configuration.GetSection(IngestOptions.SectionName).Get<IngestOptions>()!);
+
+        // The source adapter: one keyed registration behind the component's stable
+        // inbound port. Batch mode registers the streaming contract — the same
+        // instance also satisfies IFileAdapter, so non-streaming consumers resolve
+        // through the base interface. Deployment swaps the binding behind the port
+        // name; a production blob source swaps the local adapter for the SDK one
+        // (Intropy.Framework.Adapters.Azure) here, credentials from configuration:
+        //
+        // services.AddKeyedSingleton<IFileStreamAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
+        //     new AzureBlobStorageStreamAdapter(
+        //         sp.GetRequiredService<IConfiguration>()
+        //           .GetSection("AzureBlobStorage").Get<AzureBlobStorageOptions>()!));
+        services.AddKeyedSingleton<IFileStreamAdapter>(Constants.SourceFileAdapterKey, (_, _) =>
+            new LocalFileStreamAdapter(Constants.InboundBindingName));
+
+        // The publisher is a service like the other externals: tests swap it for a
+        // FakeTopic via RemoveAll/AddSingleton, exactly as they swap the others.
+        services.AddSingleton<SendStep<{{ .contract }}BatchContext>>(sp => new DaprTopicPublisher<{{ .contract }}BatchContext>(
+            sp.GetRequiredService<DaprClient>(),
+            Constants.PubSubName,
+            Constants.TopicName,
+            new Uri(Constants.EventSource),
+            Constants.EventType));
+
+        // One streamed extractor per entity type in the batch. Duplicate the
+        // registration per entity; SubPipelineStep resolves the set and matches
+        // each file by entity type.
+        services.AddStreamedExtractor<StreamedContext>(
+            "{{ .name }}.Process.Streamed",
+            entityType: Constants.SampleEntityType,
+            (eb, sp) => eb
+                .WithDeserializer(new Deserializer(sp.GetRequiredService<ILogger<Deserializer>>()))
+                .WithProcessor(new {{ .contract }}ProcessStep(sp.GetRequiredService<ILogger<{{ .contract }}ProcessStep>>())));
+
+        // The batch pipeline and runner last, after every adapter, publisher, and
+        // platform client it resolves from DI has been registered.
+        AddBatchPipeline(services);
+
+        // The framework's run-to-completion host owns the Dapr sidecar lifecycle,
+        // tracing, and exit-code mapping; BatchJob adapts the pipeline to it.
+        services.AddRunToCompletionJob<BatchJob>(options => options.JobName = Constants.ComponentName);
+
+        return services;
+    }
+
+    /// <summary>The single composition entrypoint for the pipeline: registers
+    /// <see cref="BuildBatchPipeline"/> as the pipeline factory.</summary>
+    private static void AddBatchPipeline(IServiceCollection services) =>
+        services.AddBatchPipeline<{{ .contract }}Batch, {{ .contract }}BatchContext>("{{ .name }}.Batch",
+            (pb, sp) => BuildBatchPipeline(pb, sp));
+
+    /// <summary>
+    /// Builds the batch pipeline against the DI graph. Every external dependency —
+    /// source adapter, sender, platform clients — resolves from the provider, so a
+    /// test swaps any of them by swapping its registration. Public so the
+    /// integration suite builds the pipeline exactly as production composition does.
+    /// </summary>
+    public static BatchPipelineBuilder<{{ .contract }}Batch, {{ .contract }}BatchContext> BuildBatchPipeline(
+        BatchPipelineBuilder<{{ .contract }}Batch, {{ .contract }}BatchContext> pb, IServiceProvider sp) =>
+        pb
+            .WithReceiver(new DetectStep(
+                sp.GetRequiredKeyedService<IFileStreamAdapter>(Constants.SourceFileAdapterKey),
+                sp.GetRequiredService<IngestOptions>(),
+                sp.GetRequiredService<ILogger<DetectStep>>()))
+            .WithSubPipeline(new SubPipelineStep(
+                sp.GetRequiredKeyedService<IFileStreamAdapter>(Constants.SourceFileAdapterKey),
+                sp.GetServices<IStreamedExtractor>(),
+                sp.GetRequiredService<IngestOptions>(),
+                sp.GetRequiredService<ILogger<SubPipelineStep>>()))
+            .WithSerializer(new SerializeSummaryStep(
+                sp.GetRequiredService<ILogger<SerializeSummaryStep>>()))
+            // The sender resolves from DI like every other external dependency;
+            // tests swap the SendStep<TCtx> registration for a FakeTopic.
+            .WithSenderFromServices()
+            .WithCompleter(new ArchiveStep(
+                sp.GetRequiredKeyedService<IFileStreamAdapter>(Constants.SourceFileAdapterKey),
+                sp.GetRequiredService<IngestOptions>(),
+                sp.GetRequiredService<ILogger<ArchiveStep>>()))
+            // Trigger a business incident when the run fails and resolve it when it
+            // succeeds. Keyed on the batch id so routing is stable across CronJob retries.
+            .WithBusinessIncidents(
+                messageIdExtractor: ctx => ctx.Batch?.BatchId ?? "unknown",
+                subjectExtractor: ctx => ctx.Batch?.BatchId ?? "unknown");
+}

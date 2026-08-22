@@ -1,0 +1,27 @@
+namespace {{ .name }}.Configuration;
+
+/// <summary>
+/// Batch layout on the source: where deliveries arrive, where processed
+/// output is written, where consumed inputs are archived, and which file
+/// marks a batch as complete and ready to process. Bound from the
+/// <c>Ingest</c> configuration section; every value is a prefix or name the
+/// source adapter resolves behind the component's source port.
+/// </summary>
+public record IngestOptions
+{
+    public const string SectionName = "Ingest";
+
+    /// <summary>Prefix the producer delivers batches under (e.g. "incoming").</summary>
+    public required string IncomingPrefix { get; init; }
+
+    /// <summary>Prefix streamed entity output is written under (e.g. "output").</summary>
+    public required string OutputPrefix { get; init; }
+
+    /// <summary>Prefix consumed inputs are archived under after a successful run
+    /// (e.g. "processed").</summary>
+    public required string ProcessedPrefix { get; init; }
+
+    /// <summary>Name of the marker file whose presence claims a batch is
+    /// complete (e.g. "Ready.json"). Batches without it are left for the next run.</summary>
+    public required string ReadyMarkerName { get; init; }
+}

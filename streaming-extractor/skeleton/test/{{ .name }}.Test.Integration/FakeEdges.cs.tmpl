@@ -1,0 +1,55 @@
+using {{ .name }}.Batch;
+using {{ .name }}.Model;
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Contracts.IdempotencyService;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Batch;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Testing.Adapters;
+using Intropy.Framework.Testing.Services;
+using Intropy.Framework.Testing.Topics;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The four externals every integration test fakes, plus the DI wiring that
+/// swaps them into the real <see cref="Composition.Composition.ConfigureServices"/> graph.
+/// Centralised so the batch tests cannot drift apart when the set of externals
+/// changes.
+/// </summary>
+public sealed class FakeEdges
+{
+    public InMemoryFileAdapter Files { get; } = new();
+    public FakeTopic<{{ .contract }}BatchContext> Topic { get; } = new();
+    public FakeIdempotencyServiceClient Idempotency { get; } = new();
+    public FakeBusinessIncidentServiceClient Incidents { get; } = new();
+
+    /// <summary>
+    /// The production service collection with the four externals swapped for
+    /// the fakes. Removes the production registrations and adds the fakes, so
+    /// the override never depends on registration order (last-wins). The
+    /// publish edge swaps exactly like the other three: the production
+    /// <see cref="SendStep{TCtx}"/> registration is replaced with
+    /// <see cref="Topic"/>.
+    /// </summary>
+    public IServiceCollection CreateServices()
+    {
+        var services = Composition.Composition.ConfigureServices(new ServiceCollection());
+        services.RemoveAllKeyed<IFileStreamAdapter>(Constants.SourceFileAdapterKey);
+        services.AddKeyedSingleton<IFileStreamAdapter>(Constants.SourceFileAdapterKey, (_, _) => Files);
+        services.RemoveAll<IIdempotencyServiceClient>();
+        services.AddSingleton<IIdempotencyServiceClient>(Idempotency);
+        services.RemoveAll<IBusinessIncidentServiceClient>();
+        services.AddSingleton<IBusinessIncidentServiceClient>(Incidents);
+        services.RemoveAll<SendStep<{{ .contract }}BatchContext>>();
+        services.AddSingleton<SendStep<{{ .contract }}BatchContext>>(Topic);
+        return services;
+    }
+
+    /// <summary>Builds the pipeline exactly as production composition does —
+    /// the fakes are already in the DI graph via <see cref="CreateServices"/>.</summary>
+    public BatchPipeline<{{ .contract }}Batch, {{ .contract }}BatchContext> BuildPipeline(IServiceProvider provider) =>
+        provider.GetRequiredService<BatchPipeline<{{ .contract }}Batch, {{ .contract }}BatchContext>>();
+}

@@ -1,0 +1,13 @@
+namespace {{ .name }}.Model;
+
+
+/// <summary>
+/// The source shape of one streamed record — the inbound file's per-record
+/// shape, local to this component (the published summary contract lives in
+/// the sibling <c>{{ .contracts }}</c> project).
+/// </summary>
+public record Source{{ .contract }}Record(
+    string RecordId,
+    string Name,
+    DateTimeOffset OccurredAt);
+

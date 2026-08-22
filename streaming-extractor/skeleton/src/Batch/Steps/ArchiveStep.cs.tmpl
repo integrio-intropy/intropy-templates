@@ -1,0 +1,55 @@
+using CloudNative.CloudEvents;
+using {{ .name }}.Configuration;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Batch.Steps;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Batch.Steps;
+
+/// <summary>
+/// Moves consumed inputs to the processed prefix after a successful publish —
+/// which is also what makes a completed batch invisible to <c>DetectStep</c>
+/// on later runs (the batch idempotency convention). Passes the CloudEvent
+/// through so any finalizer can still see it.
+/// </summary>
+/// <remarks>
+/// A move failure after a successful publish fails the run but is safe: the
+/// next run re-detects the batch, and the producer's delivery is re-processed
+/// — keep the summary event's id stable (the batch id) so downstream consumers
+/// can deduplicate.
+/// </remarks>
+public class ArchiveStep(
+    [FromKeyedServices(Constants.SourceFileAdapterKey)] IFileStreamAdapter files,
+    IngestOptions options,
+    ILogger<ArchiveStep> logger)
+    : BatchCompleteStep<{{ .contract }}BatchContext>
+{
+    /// <inheritdoc />
+    public override async Task<(TechnicalStepResult<CloudEvent> Result, {{ .contract }}BatchContext Context)> ExecuteAsync(
+        CloudEvent input, {{ .contract }}BatchContext context, CancellationToken ct)
+    {
+        var batch = context.Batch
+                    ?? throw new InvalidOperationException(
+                        "Batch context has no batch. Did the receive step run?");
+
+        logger.LogInformation("Archiving batch {BatchId} to {ProcessedPrefix}", batch.BatchId, options.ProcessedPrefix);
+
+        foreach (var file in batch.Files)
+        {
+            var destination = file.FileName.Replace(options.IncomingPrefix, options.ProcessedPrefix,
+                StringComparison.Ordinal);
+            await files.MoveAsync(file.FileName, destination, ct);
+        }
+
+        // The ready marker moves last: its presence under the incoming prefix
+        // is what makes a batch visible, so it must be the last thing to leave.
+        await files.MoveAsync(batch.ReadyMarkerFile,
+            batch.ReadyMarkerFile.Replace(options.IncomingPrefix, options.ProcessedPrefix,
+                StringComparison.Ordinal), ct);
+
+        logger.LogInformation("Archived batch {BatchId}", batch.BatchId);
+        return (new TechnicalStepResult<CloudEvent>.Success(input), context);
+    }
+}

@@ -1,0 +1,193 @@
+# {{ .name }}
+
+.NET streaming extractor integration. One run = one batch: the runner detects
+a complete batch of files on the source, streams each file record-by-record
+in constant memory through its registered streamed extractor, publishes one
+summary CloudEvent to the `{{ .topic }}` topic on the Dapr pub/sub, archives
+the consumed inputs, and exits. Scheduling lives outside the block —
+activation cadence is deployment configuration (a Kubernetes CronJob in
+production); locally the system host runs the block once at startup.
+
+## How a run flows
+
+```
+scheduled run (CronJob / host)
+   │
+   ▼
+detect batch (incoming prefix + ready marker)
+   │  nothing ready ──▶ quiet exit 0
+   ▼
+per file in the batch:
+   │
+   ▼
+stream records ──▶ validate + transform ──▶ JSONL output
+   │
+   ▼
+serialize batch summary (per-file record/reject counts)
+   │
+   ▼
+publish one CloudEvent to '{{ .topic }}' (subject = batch id)
+   │
+   ▼
+archive consumed inputs (incoming/ → processed/)
+   │
+   ▼
+exit 0
+```
+
+Off the happy path: a ready-but-incomplete batch routes a business incident
+(and stays in place), a technical failure (dead source, dead broker) fails
+the run with exit 1 — the CronJob records it — and the batch is re-detected
+on the next run. Batch idempotency is the detect step's contract: an
+archived batch is invisible to detection, so a completed batch never
+re-runs.
+
+`EventSource`/`EventType` in `src/Constants.cs` come from the scaffold
+parameters `eventSource`/`eventType`; unset, they derive as
+`urn:<organization>:<app-id>` and
+`<organization-lower>.<first-topic-segment>.<last-topic-segment>`. Set them
+when migrating an existing component so consumers keep seeing the same
+envelope.
+
+## Configuration
+
+Settings live in `src/appsettings.json`, overridable per environment via
+`appsettings.{Environment}.json` and environment variables; deployment
+overlays the file via ConfigMap. `IConfiguration` is in DI. Batch layout
+(prefixes + ready-marker name) binds to `src/Configuration/IngestOptions.cs`
+from the `Ingest` section.
+
+## Build and test
+
+```bash
+task build
+task test
+```
+
+The extractor does not run standalone. It runs via its system host, which
+runs it once at startup, provides the source binding, pub/sub, and platform
+services, and carries the sample data used to seed a run. A re-run is a host
+restart. `task test` covers the component-level loop: batch-run integration
+tests plus the composition smoke test, all without a sidecar
+(`task test:integration`). `task coverage` runs the integration suite with
+branch coverage (Cobertura report under the integration project's
+`TestResults/`).
+
+## Testing strategy
+
+The integration suite runs against `Intropy.Framework.Testing` fakes — no
+Dapr sidecar, no Testcontainers, no live platform services. The one
+principle throughout: **build the pipeline exactly as production composition
+does, fake only the edges, assert on fake state.**
+
+### Layers
+
+| Layer | Project / files | What it pins |
+|---|---|---|
+| Batch run | `test/{{ .name }}.Test.Integration/BatchRunTests.cs` | The full batch chain (detect → sub-pipelines → serialize → publish → archive) over one detected batch, with `FakeTopic` at the publish edge and an in-memory source adapter. Pins the batch consumption contract: a complete batch publishes one summary event and is archived; nothing-ready is a quiet clean run; a publish failure leaves the batch in place. |
+| Composition | `test/{{ .name }}.Test.Integration/CompositionTests.cs` | The real DI graph from `Composition` builds without a sidecar and the keyed source adapter resolves. |
+
+### The edges and their fakes
+
+- **Source files** — `InMemoryFileAdapter` (implements the streaming
+  `IFileStreamAdapter` contract: commit-on-dispose writes, read-after-N-bytes
+  fault injection). Seeded with batch folders; asserts read file state
+  directly (`Files`).
+- **Topic** — `FakeTopic<TCtx>`, swapped into DI in place of the production
+  `SendStep<TCtx>` registration (a `DaprTopicPublisher`), exactly like the
+  other externals. `Events` exposes exactly what the real publisher would
+  have encoded; `SendException` simulates a dead broker.
+- **Platform services** — `FakeIdempotencyServiceClient` and
+  `FakeBusinessIncidentServiceClient`, swapped the same way.
+
+### Behaviors pinned
+
+- **One summary event per batch.** Per-entity record/reject counts come from
+  the streamed contexts the sub-pipeline step accumulates; the event subject
+  is the batch id.
+- **Archive is the idempotency mechanism.** Consumed inputs move to the
+  processed prefix only after a successful publish; detection never sees an
+  archived batch.
+- **Nothing ready is clean.** A run with no ready marker completes quietly
+  (exit 0) without publishing.
+
+## Shared contracts
+
+The canonical contract types (the `{{ .contract }}` batch summary with its
+nested per-file record) live in the sibling `../{{ .contracts }}` project,
+referenced from `src/{{ .name }}.csproj`. It was scaffolded together with
+this project (or already existed — components in the same parent directory
+share it); the consuming component deserializes exactly those records.
+
+## Container image
+
+```bash
+docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .
+```
+
+Multi-stage build on the .NET 10 chiseled runtime. The shared contracts
+sibling enters the build as the `contracts` named context (it lies outside
+this build context). The image contains only the app — the Dapr sidecar and
+components come from the deployment environment.
+
+## Pipeline
+
+One batch per run (`src/Batch/`, hosted by the framework's
+`RunToCompletionRunner`, which owns the sidecar lifecycle, tracing, and the
+0/1/2 exit-code mapping via `src/Batch/BatchJob.cs`):
+
+```text
+// Batch pipeline transitions:
+//
+//         ┌─────────────────────────────┐
+//         │ 1. DetectStep               ├──── nothing ready ─► [[Cancelled]] (quiet exit)
+//         └──────────────┬──────────────┘
+//                        │ oldest ready batch (ready marker present)
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 2. SubPipelineStep          │  per file: streamed extractor matched
+//         └──────────────┬──────────────┘  by entity type; constant-memory
+//                        │                │  validate+transform → JSONL output
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 3. SerializeSummaryStep     │  one summary CloudEvent
+//         └──────────────┬──────────────┘  (subject = batch id)
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 4. Dapr topic publisher     │
+//         └──────────────┬──────────────┘
+//                        ▼
+//         ┌─────────────────────────────┐
+//         │ 5. ArchiveStep              │  incoming/ → processed/
+//         └─────────────────────────────┘
+//
+// A business failure (e.g. ready-but-incomplete batch) routes an incident;
+// technical failures fail the run and leave the batch for the next one.
+```
+{{- if .empty }}
+
+Every detection/serialize/streamed step body throws `NotImplementedException`
+— this project was scaffolded with empty bodies for a migration agent to fill
+in. The batch chain wiring (sub-pipeline resolution, sender, archive,
+business-incident routing) is already in place; define the producer's
+delivery format in `DetectStep`, the summary shape in `SerializeSummaryStep`,
+and the per-entity record logic in `src/Process/Streamed/`.
+
+The batch-run tests fail from the start by design (the throwing steps route
+the run to a technical/business failure without publishing). The suite flips
+green piece by piece as the steps are implemented — the failing tests are the
+to-do list.
+{{- else }}
+
+1. `DetectStep` scans the incoming prefix for ready markers, picks the oldest
+   ready batch, and stamps the batch id into the context.
+2. `SubPipelineStep` matches each batch file to its registered streamed
+   extractor by entity type and streams it (constant memory) to the output
+   prefix as JSONL, accumulating per-file counts on the context.
+3. `SerializeSummaryStep` builds the one summary CloudEvent from the batch +
+   accumulated counts; subject = batch id.
+4. The Dapr topic publisher sends it to `pubsub` / `{{ .topic }}`.
+5. `ArchiveStep` moves the consumed inputs and the ready marker to the
+   processed prefix — which is also what hides the batch from detection on
+   later runs.
+{{- end }}

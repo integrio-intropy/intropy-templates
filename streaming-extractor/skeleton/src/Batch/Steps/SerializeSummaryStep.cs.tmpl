@@ -1,0 +1,58 @@
+using CloudNative.CloudEvents;
+using {{ .contracts }};
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Batch.Steps;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Batch.Steps;
+
+/// <summary>
+/// Builds the one CloudEvent the batch publishes: the summary of what was
+/// processed, with the batch id as the event's subject. Per-entity record and
+/// reject counts come from the streamed contexts the sub-pipeline step
+/// accumulated on the batch context.
+/// </summary>
+public class SerializeSummaryStep(ILogger<SerializeSummaryStep> logger)
+    : BatchSerializeStep<{{ .contract }}Batch, {{ .contract }}BatchContext>
+{
+    /// <inheritdoc />
+    public override Task<(TechnicalStepResult<CloudEvent> Result, {{ .contract }}BatchContext Context)> ExecuteAsync(
+        {{ .contract }}Batch batch, {{ .contract }}BatchContext context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        // The summary record's per-file entry type (a nested record on the
+        // contract, named after it: {{ .contract }}File).
+        var summary = new {{ .contract }}(
+            BatchId: batch.BatchId,
+            Files: batch.Files.Select(f =>
+            {
+                var streamed = context.ProcessedFiles.GetValueOrDefault(f.EntityType);
+                return new {{ .contract }}.{{ .contract }}File(
+                    EntityType: f.EntityType,
+                    FileName: f.FileName,
+                    RecordCount: streamed?.ValidCount ?? 0,
+                    RejectCount: streamed?.InvalidItems.Count ?? 0);
+            }).ToList());
+
+        // The framework's DaprTopicPublisher sets Source/Type from Constants;
+        // Id/Subject/Time are the envelope this step owns. Subject = batch id
+        // keeps the event addressable and the incident keying stable across retries.
+        var cloudEvent = new CloudEvent
+        {
+            Id = batch.BatchId,
+            Subject = batch.BatchId,
+            Time = DateTimeOffset.UtcNow,
+            Data = summary,
+        };
+
+        logger.LogInformation("Serialized summary for batch {BatchId} ({Files} file(s), {Records} record(s))",
+            batch.BatchId, summary.Files.Count, summary.Files.Sum(f => f.RecordCount));
+
+        return Task.FromResult<(TechnicalStepResult<CloudEvent>, {{ .contract }}BatchContext)>(
+            (new TechnicalStepResult<CloudEvent>.Success(cloudEvent), context));
+{{- end }}
+    }
+}

@@ -1,0 +1,21 @@
+using Intropy.Framework.Blocks.Shared;
+
+namespace {{ .name }}.Batch;
+
+/// <summary>
+/// The batch chain's context: carries the detected batch (set by
+/// <c>DetectStep</c>, read by every later step) and one
+/// <see cref="Intropy.Framework.Streaming.StreamedContext"/> per processed
+/// entity file, accumulated by <c>SubPipelineStep</c> and read by
+/// <c>SerializeSummaryStep</c> for the per-entity record/reject counts in the
+/// published summary event.
+/// </summary>
+public record {{ .contract }}BatchContext() : Context(new Dictionary<string, string>())
+{
+    /// <summary>The batch being processed. Set by the receive step; null
+    /// before it runs.</summary>
+    public Model.{{ .contract }}Batch? Batch { get; set; }
+
+    /// <summary>Per-file streamed outcomes, keyed by entity type.</summary>
+    public Dictionary<string, Intropy.Framework.Streaming.StreamedContext> ProcessedFiles { get; } = new();
+}

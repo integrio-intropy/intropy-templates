@@ -1,0 +1,105 @@
+apiVersion: intropy.dev/v1
+kind: Template
+metadata:
+  name: streaming-extractor
+  title: Streaming Extractor Integration
+  description: Run-to-completion .NET extractor for batched, multi-file deliveries. One run detects a complete batch on the source, streams each file record-by-record in constant memory through a registered streamed extractor, publishes one summary CloudEvent per batch to a Dapr pub/sub topic, archives the consumed inputs, and exits.
+  tags:
+    - example
+    - dotnet
+    - dapr
+    - extractor
+    - streaming
+    - batch
+  labels:
+    intropy.io/template-level: example
+    intropy.dev/block-kind: extractor
+    intropy.dev/data-flow: "in"
+
+spec:
+  parameters:
+    type: object
+    required:
+      - name
+      - organization
+      - topic
+      - contract
+    properties:
+      name:
+        type: string
+        title: Project name
+        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed for nested namespaces (e.g. OrderExtractor or Int1055.OrderExtractor).
+        pattern: "^[A-Z][A-Za-z0-9]*(\\.[A-Z][A-Za-z0-9]*)*$"
+      organization:
+        type: string
+        title: Organization
+        description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
+        pattern: "^[A-Z][A-Za-z0-9]*$"
+      topic:
+        type: string
+        title: Topic
+        description: The pub/sub topic the extractor publishes to. The extractor's half of the system contract — scaffold the consuming component with the same value.
+        pattern: "^[a-z][a-z0-9-]*$"
+      contract:
+        type: string
+        title: Contract type
+        description: PascalCase name of the shared-contracts record the topic carries — in batch mode a summary record (batch id + per-file record/reject counts, with a nested per-file record). The other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with.
+        pattern: "^[A-Z][A-Za-z0-9]*$"
+      idempotencyAppId:
+        type: string
+        title: Idempotency service app-id
+        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment.
+        default: "idempotency-service.services"
+      businessIncidentsAppId:
+        type: string
+        title: Business incident service app-id
+        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment.
+        default: "business-incident-service.services"
+      eventSource:
+        type: string
+        title: CloudEvent source
+        description: Envelope `source` (URI) for published events. The default derives as urn:<organization>:<app-id>; set it to preserve an existing event identity during a migration.
+        default: ""
+      eventType:
+        type: string
+        title: CloudEvent type
+        description: Envelope `type` for published events. The default derives as <organization-lower>.<first-topic-segment>.<last-topic-segment>; set it to preserve an existing event identity during a migration.
+        default: ""
+      empty:
+        type: boolean
+        title: Empty bodies
+        description: When true, strip sample business logic from pipeline step bodies. The resulting project compiles and starts under Dapr, but every step throws NotImplementedException so a migration agent can fill them in. The batch chain wiring stays; detection, serialize, and the streamed step bodies are yours to fill in.
+        default: true
+  values:
+    appId: '{{ .name | kebabcase | replace "." "-" }}'
+    # The component's .NET project name, recorded in .intropy/scaffold.json
+    # for workspace-level tooling (e.g. solution file assembly).
+    projectName: '{{ .name }}'
+    # Name of the sibling shared-contracts project; also drives the dependency
+    # output below and the ProjectReference in the skeleton csproj. Plain
+    # "Contracts" on purpose: the project is scoped to the system directory it
+    # lives in, not to the organization.
+    contracts: 'Contracts'
+    # The pub/sub component name the skeleton publishes through
+    # (Constants.cs). Recorded in .intropy/scaffold.json for
+    # `intropy sys create`, together with the contract parameter above.
+    pubsub: 'pubsub'
+    # The extractor's source port — the named interface it reads the outside
+    # world through. Derived like appId so it stays unique per component.
+    # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to
+    # a local file transport by default (external system and transport are
+    # never asked for at scaffold time).
+    port: '{{ .name | kebabcase | replace "." "-" }}-source'
+    # CloudEvent identity: overridable to preserve an existing identity during a
+    # migration; otherwise derived (type: <org>.<first>.<last> of the kebab topic,
+    # e.g. product-export -> maxbo.product.export).
+    eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
+    eventTypeValue: '{{ printf "%s.%s.%s" (.organization | lower) (index (regexSplit "-" .topic -1) 0) (index (regexSplit "-" .topic -1) (sub (len (regexSplit "-" .topic -1)) 1)) }}'
+  dependencies:
+    - template: shared-contracts
+      output: '{{ .contracts }}'
+      values:
+        name: '{{ .contracts }}'
+        contract: '{{ .contract }}'
+        mode: 'batch'
+        empty: '{{ .empty }}'

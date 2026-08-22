@@ -1,0 +1,69 @@
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Batch.Steps;
+using Intropy.Framework.Blocks.Streamed;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Intropy.Framework.Streaming;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Batch.Steps;
+
+/// <summary>
+/// Runs every file of the detected batch through its registered
+/// <see cref="IStreamedExtractor"/> (matched by entity type), streaming each
+/// file's records in constant memory and collecting the per-file outcome on
+/// the context for the serialize step. Any streamed failure
+/// (business or technical) fails the batch as a whole — partial batches are
+/// not published.
+/// </summary>
+public class SubPipelineStep(
+    [FromKeyedServices(Constants.SourceFileAdapterKey)] IFileStreamAdapter files,
+    IEnumerable<IStreamedExtractor> extractors,
+    IngestOptions options,
+    ILogger<SubPipelineStep> logger)
+    : BatchSubPipelineStep<{{ .contract }}Batch, {{ .contract }}BatchContext>
+{
+    /// <inheritdoc />
+    public override string StepName => "SubPipelines";
+
+    /// <inheritdoc />
+    public override async Task<(TechnicalStepResult<{{ .contract }}Batch> Result, {{ .contract }}BatchContext Context)> ExecuteAsync(
+        {{ .contract }}Batch batch, {{ .contract }}BatchContext context, CancellationToken ct)
+    {
+        foreach (var file in batch.Files)
+        {
+            var extractor = extractors.FirstOrDefault(e => e.EntityType == file.EntityType);
+            if (extractor is null)
+            {
+                logger.LogWarning("No streamed extractor registered for entity type {EntityType} ({FileName})",
+                    file.EntityType, file.FileName);
+                return (new TechnicalStepResult<{{ .contract }}Batch>.Failure(
+                    new Intropy.Framework.Core.Pipeline.Abstractions.Failures.TechnicalFailure(
+                        $"No streamed extractor registered for entity type '{file.EntityType}'")), context);
+            }
+
+            var source = new StreamSource(
+                EntityType: file.EntityType,
+                OpenInputAsync: token => files.OpenReadStreamAsync(file.FileName, token),
+                OpenOutputAsync: token => files.OpenWriteStreamAsync(
+                    $"{options.OutputPrefix}/{batch.BatchId}/{file.EntityType}.jsonl",
+                    "application/x-ndjson", token));
+
+            var (result, streamedContext) = await extractor.Execute(source, new StreamedContext(), ct);
+            context.ProcessedFiles[file.EntityType] = streamedContext;
+
+            if (result is not StepResult<StreamSource>.Success)
+            {
+                logger.LogWarning("Entity {EntityType} failed ({ResultType}); failing the batch",
+                    file.EntityType, result.GetType().Name);
+                return (new TechnicalStepResult<{{ .contract }}Batch>.Failure(
+                    new Intropy.Framework.Core.Pipeline.Abstractions.Failures.TechnicalFailure(
+                        $"Entity '{file.EntityType}' failed: {result.GetType().Name}")), context);
+            }
+        }
+
+        return (new TechnicalStepResult<{{ .contract }}Batch>.Success(batch), context);
+    }
+}

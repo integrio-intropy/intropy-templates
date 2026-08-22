@@ -1,0 +1,158 @@
+# Agent Instructions
+
+This project is a .NET streaming extractor integration built on the Intropy
+framework. One run = one batch: detect a complete batch of files on the
+source (incoming prefix + ready marker), stream each file record-by-record in
+constant memory through its registered streamed extractor, publish one
+summary CloudEvent to a Dapr pub/sub topic, archive the consumed inputs, and
+exit. Scheduling lives outside the block — activation cadence is deployment
+configuration (a Kubernetes CronJob in production); locally the system host
+runs the block once at startup.
+
+## Project overview
+
+- Framework: .NET 10
+- App type: Run-to-completion console job (no web endpoints; one batch
+  detection + processing cycle per run, then exit). Hosted by the framework's
+  `RunToCompletionRunner`, which owns the Dapr sidecar lifecycle, tracing,
+  and the exit-code contract: `0` success / nothing-ready / cancelled, `1`
+  job failure, `2` infrastructure failure (sidecar unavailable).
+- Runner: the framework's `RunToCompletionRunner` (in
+  `Intropy.Framework.Hosting`), driven by `{{ .name }}.Batch.BatchJob` — an
+  `IRunToCompletionJob` that adapts the sidecar-free `BatchPipeline` and
+  reports a `JobRunSummary` (a completed batch = Processed 1; nothing ready =
+  Empty; any failure = Failed 1).
+- App id: `{{ .appId }}`
+- Source port: `{{ .port }}` — the named interface the extractor reads
+  the outside world through; the system host declares it in `Ports.cs`
+  and the Dapr binding uses the same name, resolved to a local folder in
+  development. In production the same name resolves to the environment's
+  binding from the deploy overlay's GitOps values — rebinding
+  the port is a deployment change, never a code change
+- Pub/sub component: `pubsub`
+- Topic: `{{ .topic }}` — the extractor's half of the system contract; the
+  consuming component subscribes to the same topic
+- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ if .eventType }}{{ .eventType }}{{ else }}{{ .eventTypeValue }}{{ end }}`
+- Idempotency Service: reached via Dapr service invocation, app id
+  `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
+- Business Incident Service: reached via Dapr service invocation, app id
+  `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
+- Shared contracts: the published contract (`{{ .contract }}` — a batch
+  summary: batch id + per-file record/reject counts, with a nested per-file
+  record) lives in the sibling project `../{{ .contracts }}` (namespace
+  `{{ .contracts }}`), referenced from `src/{{ .name }}.csproj`. The sibling
+  is scaffolded by this template's dependency declaration; when it already
+  exists (another component created it) the scaffold leaves it untouched.
+  The batch model (`{{ .contract }}Batch`) and the per-record shapes
+  (`Source{{ .contract }}Record`, `{{ .contract }}Record`) stay local in
+  `src/Model/`.
+
+## Important files
+
+- `Taskfile.yml` - build and test tasks (`task build`, `task test`; the
+  integration suite also runs separately via `task test:integration`).
+- `Dockerfile` - multi-stage image build on the .NET chiseled runtime
+  (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
+  the shared contracts sibling enters as a named context); the image contains
+  only the app — the Dapr sidecar and components come from the deployment
+  environment.
+- `src/Program.cs` - entrypoint: builds the service provider via `Composition`
+  and runs the framework `RunToCompletionRunner`.
+- `src/Composition/Composition.cs` - every service registration: the keyed
+  source adapter (`IFileStreamAdapter`), the streamed extractors (one
+  `AddStreamedExtractor` per entity type), the publish edge (the sender is a
+  DI-registered `SendStep<TCtx>` — a `DaprTopicPublisher` in production), and
+  the batch pipeline (`AddBatchPipeline`). `BuildBatchPipeline(builder, sp)`
+  is public so the integration suite builds the pipeline exactly as
+  production composition does. Note the namespace/type collision:
+  `{{ .name }}.Composition` is both namespace and class, so call sites inside
+  nested namespaces use the fully qualified `Composition.Composition.*`.
+- `src/Batch/` - the batch chain: `BatchJob` (runner adapter), `DetectStep`
+  (component-owned detection: incoming prefix + ready marker; also the batch
+  idempotency seam — an archived batch must be invisible to it),
+  `SubPipelineStep` (matches files to streamed extractors by entity type,
+  builds each file's `StreamSource` from the adapter, accumulates per-file
+  counts), `SerializeSummaryStep` (one CloudEvent per batch; subject = batch
+  id), `ArchiveStep` (moves consumed inputs + marker to the processed prefix).
+- `src/Batch/{{ .contract }}BatchContext.cs` - the batch chain's context:
+  carries the detected batch and one `StreamedContext` per processed file.
+- `src/Process/Streamed/` - the sample streamed extractor's steps
+  (`Deserializer` locates the record array in the source envelope;
+  `{{ .contract }}ProcessStep` is the fused validate+transform). Duplicate
+  per entity type.
+- `src/Constants.cs` - component/topic names, keyed-adapter key, CloudEvent
+  envelope values, the sample entity type (root namespace — consumed by both
+  `src` and the tests).
+- `test/{{ .name }}.Test.Integration/` - batch-run and composition tests
+  against `Intropy.Framework.Testing` fakes (`task test:integration`;
+  `task coverage` reports branch coverage).
+
+## Configuration
+
+Settings live in `src/appsettings.json` (copied to the build output),
+overridden by `appsettings.{Environment}.json` and environment variables —
+`Composition` builds `IConfiguration` from the binary directory, registers it
+in DI, and reads the platform-service app ids from `PlatformServices:*`.
+Batch layout (incoming/output/processed prefixes + ready-marker name) binds
+to `src/Configuration/IngestOptions.cs` from the `Ingest` section.
+Deployment overlays the file via ConfigMap.
+
+## Build and test
+
+Components do not run standalone — this extractor runs via its system host,
+which runs it once at startup and provides every Dapr component (source
+binding, pub/sub, platform services). A re-run is a host restart. The
+component-level loop is build and test:
+
+```bash
+task build
+task test
+```
+
+The integration suite builds the pipeline exactly as production composition
+does, fakes only the edges (`InMemoryFileAdapter` — which implements the
+streaming `IFileStreamAdapter` contract — `FakeTopic`,
+`FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` — from
+`Intropy.Framework.Testing`), and asserts on fake state. `task coverage`
+runs the integration suite with branch coverage (Cobertura report under the
+integration project's `TestResults/`).
+
+## Development notes
+
+- The source adapter is registered as a keyed singleton
+  (`Constants.SourceFileAdapterKey`) against `IFileStreamAdapter` — the
+  streaming extension of `IFileAdapter` (open read/write streams, exists,
+  move). Inject it via `[FromKeyedServices(...)]` or resolve via
+  `GetRequiredKeyedService<IFileStreamAdapter>(...)`. The default
+  registration is the zero-dependency `LocalFileStreamAdapter`; production
+  swaps in the SDK adapter (e.g. `Intropy.Framework.Adapters.Azure`'s
+  `AzureBlobStorageStreamAdapter`) at this one registration — credentials
+  from configuration, never hard-coded.
+- Batch idempotency is the detect step's contract, not a framework step: an
+  archived batch is invisible to detection, so a completed batch never
+  re-runs. Keep the summary event's subject/id stable (the batch id) so
+  downstream consumers can deduplicate a re-delivery after a mid-chain crash.
+- One streamed extractor per entity type: duplicate the
+  `AddStreamedExtractor` registration and the `src/Process/Streamed/` steps
+  per entity. `SubPipelineStep` fails the batch when a file's entity type has
+  no registered extractor — partial batches are never published.
+- A technical failure (dead source, dead broker, archive move failure) fails
+  the run with exit 1 and leaves the batch in place for the next scheduled
+  run; a ready-but-incomplete batch is a business failure routed to the
+  Business Incident Service, keyed on the batch id.
+{{- if .empty }}
+- Detection, serialize, and the streamed step bodies are scaffolded empty
+  (`NotImplementedException`). The batch chain wiring (sub-pipeline
+  resolution, sender, archive, business-incident routing) stays in place.
+  When you implement: detection defines the producer's delivery format
+  (folder naming, expected files, ready marker); keep the batch id stable
+  across retries.
+- The integration suite is real and fails out of the box by design — `task
+  test` is red until the steps land (only `CompositionTests` starts green).
+  The pinned behaviors flip green one by one as the implementation
+  progresses; no test edits are needed to get there.
+{{- end }}
+
+## Framework guidance
+
+How-to knowledge for the Intropy framework (pipelines, blocks, endpoints, Dapr components, testing) lives in the Intropy skills collection under `.agents/skills/`. If it is not installed, run `intropy skills collection add --name intropy --ref harbor.intropy.io/skills/index:latest`.

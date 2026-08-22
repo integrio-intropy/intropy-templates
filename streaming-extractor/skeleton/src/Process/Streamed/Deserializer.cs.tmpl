@@ -1,0 +1,24 @@
+using Intropy.Framework.Streaming;
+using Intropy.Framework.Streaming.Json;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Process.Streamed;
+
+/// <summary>
+/// Locates the record array inside the source envelope for the sample entity.
+/// One streamed extractor per entity type; duplicate this step per entity when
+/// the producer's files use different envelope shapes.
+/// </summary>
+public class Deserializer(ILogger<Deserializer> logger) : JsonStreamedDeserializeStep<StreamedContext>(logger)
+{
+{{- if .empty }}
+    // Empty-bodies scaffold: set the path to the record array inside the
+    // source envelope, e.g. ["Data", "Items"].
+    protected override IReadOnlyList<string> JsonArrayPath =>
+        throw new NotImplementedException();
+{{- else }}
+    // Sample: the producer's files carry their records at the root of the
+    // "Data" envelope. Replace with the real path per source format.
+    protected override IReadOnlyList<string> JsonArrayPath => ["Data"];
+{{- end }}
+}

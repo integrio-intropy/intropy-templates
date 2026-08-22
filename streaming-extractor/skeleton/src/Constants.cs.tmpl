@@ -1,0 +1,40 @@
+namespace {{ .name }};
+
+public static class Constants
+{
+    public const string ComponentName = "{{ .name | kebabcase }}";
+    public const string Organization = "{{ .organization }}";
+
+    public const string PubSubName = "pubsub";
+    public const string TopicName = "{{ .topic }}";
+
+    // The source port: the named interface this component reads the outside
+    // world through. The name is the port's whole identity — declared in the
+    // system host's Ports.cs, resolved per environment by the deployment.
+    public const string SourcePort = "{{ .port }}";
+
+    // The Dapr binding component name is the port name. The name never changes
+    // between environments — the environment swaps the binding's type (local
+    // folder, SFTP, …) behind it.
+    public const string InboundBindingName = SourcePort;
+
+    public const string SourceFileAdapterKey = "source";
+
+    // CloudEvent envelope: where the data came from and what kind of event it is.
+{{- if .eventSource }}
+    public const string EventSource = "{{ .eventSource }}";
+{{- else }}
+    public const string EventSource = "{{ .eventSourceValue }}";
+{{- end }}
+{{- if .eventType }}
+    public const string EventType = "{{ .eventType }}";
+{{- else }}
+    public const string EventType = "{{ .eventTypeValue }}";
+{{- end }}
+
+    public const string ContextKeyFileName = "file_name";
+    public const string ContextKeyOrderId = "order_id";
+    public const string ContextKeyBatchId = "batch_id";
+    // The sample streamed extractor's entity type; tests seed files named after it.
+    public const string SampleEntityType = "{{ .contract | lower }}";
+}

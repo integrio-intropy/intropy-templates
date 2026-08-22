@@ -1,0 +1,34 @@
+using CloudNative.CloudEvents;
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Batch;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Intropy.Framework.Hosting.RunToCompletion;
+
+namespace {{ .name }}.Batch;
+
+/// <summary>
+/// Adapts the sidecar-free batch pipeline to the framework's run-to-completion
+/// job contract. The runner (<c>RunToCompletionRunner</c>) owns the Dapr sidecar
+/// lifecycle, tracing, and exit-code mapping; this job only reports what the
+/// batch run did as a <see cref="JobRunSummary"/>.
+/// </summary>
+public class BatchJob(BatchPipeline<{{ .contract }}Batch, {{ .contract }}BatchContext> pipeline) : IRunToCompletionJob
+{
+    /// <summary>Runs one batch detection + processing cycle and maps the outcome:
+    /// nothing ready (<c>Cancelled</c>) is a clean quiet run (<see cref="JobRunSummary.Empty"/>),
+    /// a completed batch counts as one processed item, and a business or technical
+    /// failure counts as one failed item — which the runner maps to a job-failure
+    /// exit code so the scheduler records a failed run.</summary>
+    public async Task<JobRunSummary> ExecuteAsync(CancellationToken ct)
+    {
+        var (result, _) = await pipeline.Execute(new {{ .contract }}BatchContext(), ct);
+
+        return result switch
+        {
+            StepResult<CloudEvent>.Success => new JobRunSummary(Processed: 1, Failed: 0, Cancelled: 0),
+            StepResult<CloudEvent>.Cancelled => JobRunSummary.Empty,
+            StepResult<CloudEvent>.Aborted => JobRunSummary.Empty,
+            _ => new JobRunSummary(Processed: 0, Failed: 1, Cancelled: 0),
+        };
+    }
+}

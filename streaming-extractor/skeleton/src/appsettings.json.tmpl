@@ -1,0 +1,20 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning"
+    }
+  },
+
+  "PlatformServices": {
+    "IdempotencyServiceAppId": "{{ .idempotencyAppId }}",
+    "BusinessIncidentServiceAppId": "{{ .businessIncidentsAppId }}"
+  },
+
+  "Ingest": {
+    "IncomingPrefix": "incoming",
+    "OutputPrefix": "output",
+    "ProcessedPrefix": "processed",
+    "ReadyMarkerName": "Ready.json"
+  }
+}

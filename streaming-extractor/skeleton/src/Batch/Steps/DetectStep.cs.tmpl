@@ -1,0 +1,83 @@
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Batch;
+using Intropy.Framework.Blocks.Batch.Steps;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Batch.Steps;
+
+/// <summary>
+/// Detects the next batch to process: scans the incoming prefix, picks the
+/// oldest fully-delivered batch, and returns it. Detection is also the
+/// batch's idempotency seam — it must never return a batch that has already
+/// completed (consumed inputs are archived by <c>ArchiveStep</c>, so an
+/// archived batch no longer appears under the incoming prefix).
+/// </summary>
+/// <remarks>
+/// Outcome contract: <c>Success(batch)</c> when a batch should run;
+/// <c>Cancelled</c> when nothing is ready (the normal quiet exit for a
+/// scheduled run with no work); <c>BusinessFailure</c> when a batch is
+/// marked ready but incomplete (routed as a business incident); technical
+/// failures (unreachable source) bubble up through the base step wrapper.
+/// </remarks>
+public class DetectStep(
+    [FromKeyedServices(Constants.SourceFileAdapterKey)] IFileStreamAdapter files,
+    IngestOptions options,
+    ILogger<DetectStep> logger)
+    : BatchReceiveStep<{{ .contract }}Batch, {{ .contract }}BatchContext>
+{
+    /// <inheritdoc />
+    public override async Task<(StepResult<{{ .contract }}Batch> Result, {{ .contract }}BatchContext Context)> ExecuteAsync(
+        Unit input, {{ .contract }}BatchContext context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        var incoming = await files.ListAsync();
+        var readyMarkers = incoming
+            .Select(f => f.FileName)
+            .Where(name => name.EndsWith('/' + options.ReadyMarkerName, StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        if (readyMarkers.Count == 0)
+        {
+            logger.LogInformation("No ready batch under {Prefix}; nothing to do", options.IncomingPrefix);
+            return (new StepResult<{{ .contract }}Batch>.Cancelled(), context);
+        }
+
+        // Oldest ready batch first: batch folders sort chronologically when the
+        // producer stamps them with a zero-padded timestamp.
+        var readyMarker = readyMarkers[0];
+
+        // The batch folder (full name) and id (folder without the incoming prefix):
+        // the prefix is delivery configuration, the id is the batch's identity
+        // (event subject, incident key, archive folder).
+        var batchFolder = readyMarker[..^(options.ReadyMarkerName.Length + 1)];
+        var batchId = batchFolder;
+        if (batchId.StartsWith(options.IncomingPrefix + '/', StringComparison.Ordinal))
+            batchId = batchId[(options.IncomingPrefix.Length + 1)..];
+
+        var batchFiles = incoming
+            .Select(f => f.FileName)
+            .Where(name => name.StartsWith(batchFolder + '/', StringComparison.Ordinal)
+                           && !name.EndsWith(options.ReadyMarkerName, StringComparison.Ordinal))
+            .Select(name => new BatchFile(name, EntityTypeOf(name)))
+            .ToList();
+
+        logger.LogInformation("Detected batch {BatchId} with {Count} file(s)", batchId, batchFiles.Count);
+        context.Metadata[Constants.ContextKeyBatchId] = batchId;
+        var batch = new {{ .contract }}Batch(batchId, readyMarker, batchFiles);
+        context.Batch = batch;
+        return (new StepResult<{{ .contract }}Batch>.Success(batch), context);
+
+        // Sample entity mapping: the file name minus extension, lower-cased.
+        // Replace with the producer's real naming convention.
+        static string EntityTypeOf(string fileName) =>
+            Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant();
+{{- end }}
+    }
+}

@@ -1,0 +1,42 @@
+using System.Text.Json;
+using {{ .name }}.Model;
+using Intropy.Framework.Streaming;
+using Intropy.Framework.Streaming.Json;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Process.Streamed;
+
+/// <summary>
+/// The sample entity's fused validate + transform step: streams records one at
+/// a time in constant memory, rejects invalid records into
+/// <see cref="StreamedContext.InvalidItems"/>, and writes valid ones as JSONL.
+/// One streamed extractor per entity type; duplicate per entity.
+/// </summary>
+public class {{ .contract }}ProcessStep(ILogger<{{ .contract }}ProcessStep> logger)
+    : JsonStreamedProcessStep<StreamedContext, Source{{ .contract }}Record, {{ .contract }}Record>(
+        new JsonSerializerOptions(JsonSerializerDefaults.Web), logger)
+{
+    /// <inheritdoc />
+    protected override string? Validate(Source{{ .contract }}Record source)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        if (string.IsNullOrWhiteSpace(source.RecordId))
+            return "RecordId is required";
+        if (source.OccurredAt > DateTimeOffset.UtcNow)
+            return $"OccurredAt {source.OccurredAt:O} is in the future";
+        return null;
+{{- end }}
+    }
+
+    /// <inheritdoc />
+    protected override {{ .contract }}Record Transform(Source{{ .contract }}Record source)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        return new {{ .contract }}Record(source.RecordId, source.Name, source.OccurredAt);
+{{- end }}
+    }
+}
