@@ -1,0 +1,9 @@
+# Render fixture: migration — preserves an existing CloudEvent identity and
+# platform-service app-ids instead of accepting the derived defaults.
+name: Extractor.Perfion
+organization: Maxbo
+topic: product-export
+contract: ExportEvent
+eventSource: "urn:maxbo:perfion"
+eventType: "no.maxbo.product.export"
+empty: false

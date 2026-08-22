@@ -25,9 +25,10 @@ writes the transformed result to a second file binding.
 - Destination port: `{{ .toPort }}` — same, for the write side: declared
   as the To port, bound per environment behind the same port name
 {{- if not .empty }}
-- Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
+- Idempotency Service: reached via Dapr service invocation, app id
+  `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
-  `business-incident-service`
+  `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
 {{- end }}
 
 ## Important files
@@ -54,6 +55,14 @@ writes the transformed result to a second file binding.
 - `test/{{ .name }}.Test.Integration/` - receive/send pipeline and composition
   tests against `Intropy.Framework.Testing` fakes (`task test:integration`;
   `task coverage` reports branch coverage).
+
+## Configuration
+
+Settings live in `src/appsettings.json` (copied to the build output), overridden by
+`appsettings.{Environment}.json` and environment variables — `Composition` builds
+`IConfiguration` from the binary directory, registers it in DI{{- if not .empty }}, and reads the
+platform-service app ids from `PlatformServices:*`{{- end }}. Deployment overlays the file
+via ConfigMap. Components that need typed options bind them themselves.
 
 ## Build and test
 

@@ -11,6 +11,7 @@ using Intropy.Framework.Core.Configuration;
 using Intropy.Framework.Hosting.RunToCompletion;
 using Intropy.IdempotencyService.Client;
 using Intropy.Telemetry.ConsoleApp;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -29,6 +30,18 @@ public static class Composition
     public static IServiceCollection ConfigureServices(IServiceCollection services)
     {
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+
+        // Configuration: appsettings.json + environment overlay + env vars. Based on the
+        // binary directory, not the CWD — a host (or `dapr run`) may launch the app from a
+        // different working directory. Registered so options binding and tests resolve the
+        // same instance.
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
+            .AddEnvironmentVariables()
+            .Build();
+        services.AddSingleton<IConfiguration>(configuration);
 
         // Register host-level platform plumbing first: diagnostics, Dapr, framework
         // services, and shared platform clients. Keeping these together makes the
@@ -49,12 +62,14 @@ public static class Composition
         // and the last registration wins for GetRequiredService<DaprClient>().
         services.AddIdempotencyServiceClient(c =>
         {
-            c.AppId = "idempotency-service.services";
+            c.AppId = configuration["PlatformServices:IdempotencyServiceAppId"]
+                      ?? "idempotency-service.services";
         });
 
         services.AddBusinessIncidentServiceClient(c =>
         {
-            c.AppId = "business-incident-service.services";
+            c.AppId = configuration["PlatformServices:BusinessIncidentServiceAppId"]
+                      ?? "business-incident-service.services";
         });
 
         services.AddIntropyFramework(x =>

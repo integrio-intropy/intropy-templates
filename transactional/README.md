@@ -59,6 +59,8 @@ integrations under one host never cross wires.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderSync`).           |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.               |
+| `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. Only wired when `empty` is false. |
+| `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `empty`        | no       | Strip sample step bodies and the idempotency/business-incident wiring for a migration agent to fill in. |
 
 ## Render

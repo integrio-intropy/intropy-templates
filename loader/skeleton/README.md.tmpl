@@ -28,6 +28,12 @@ Off the happy path: duplicates and routed business incidents also ack SUCCESS
 (the message is consumed, never written); a technical failure acks RETRY and
 the sidecar redelivers until the destination recovers.
 
+Settings live in `src/appsettings.json`, overridable by
+`appsettings.{Environment}.json` and environment variables; deployment
+overlays the file via ConfigMap and `IConfiguration` is in DI. The
+platform-service app ids (`PlatformServices:*`) come from the scaffold
+parameters `idempotencyAppId`/`businessIncidentsAppId`.
+
 ## Build and test
 
 ```bash

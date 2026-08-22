@@ -43,6 +43,26 @@ spec:
         title: Contract type
         description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      idempotencyAppId:
+        type: string
+        title: Idempotency service app-id
+        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment.
+        default: "idempotency-service.services"
+      businessIncidentsAppId:
+        type: string
+        title: Business incident service app-id
+        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment.
+        default: "business-incident-service.services"
+      eventSource:
+        type: string
+        title: CloudEvent source
+        description: Envelope `source` (URI) for published events. The default derives as urn:<organization>:<app-id>; set it to preserve an existing event identity during a migration.
+        default: ""
+      eventType:
+        type: string
+        title: CloudEvent type
+        description: Envelope `type` for published events. The default derives as <organization-lower>.<first-topic-segment>.<last-topic-segment>; set it to preserve an existing event identity during a migration.
+        default: ""
       empty:
         type: boolean
         title: Empty bodies
@@ -68,6 +88,11 @@ spec:
     # a local file transport by default (external system and transport are
     # never asked for at scaffold time).
     port: '{{ .name | kebabcase | replace "." "-" }}-source'
+    # CloudEvent identity: overridable to preserve an existing identity during a
+    # migration; otherwise derived (type: <org>.<first>.<last> of the kebab topic,
+    # e.g. product-export -> maxbo.product.export).
+    eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
+    eventTypeValue: '{{ printf "%s.%s.%s" (.organization | lower) (index (regexSplit "-" .topic -1) 0) (index (regexSplit "-" .topic -1) (sub (len (regexSplit "-" .topic -1)) 1)) }}'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'
