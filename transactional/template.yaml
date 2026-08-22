@@ -31,6 +31,16 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      idempotencyAppId:
+        type: string
+        title: Idempotency service app-id
+        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment. Only wired when empty is false.
+        default: "idempotency-service.services"
+      businessIncidentsAppId:
+        type: string
+        title: Business incident service app-id
+        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment. Only wired when empty is false.
+        default: "business-incident-service.services"
       empty:
         type: boolean
         title: Empty bodies

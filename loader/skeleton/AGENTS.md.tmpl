@@ -29,9 +29,10 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
   folder in development. In production the same name resolves to the
   environment's binding (e.g. SFTP) from the deploy overlay's GitOps
   values — rebinding the port is a deployment change, never a code change
-- Idempotency Service: reached via Dapr service invocation, app id `idempotency-service`
+- Idempotency Service: reached via Dapr service invocation, app id
+  `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
-  `business-incident-service`
+  `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Shared contracts: the consumed contract (`{{ .contract }}`, `OrderLine`) lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
@@ -72,6 +73,14 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
 - `test/{{ .name }}.Test.Integration/` - delivery, boot-smoke, and
   composition tests against `Intropy.Framework.Testing` fakes
   (`task test:integration`; `task coverage` reports branch coverage).
+
+## Configuration
+
+Settings live in `src/appsettings.json` (copied to the build output), overridden by
+`appsettings.{Environment}.json` and environment variables — `Composition` builds
+`IConfiguration` from the binary directory, registers it in DI, and reads the
+platform-service app ids from `PlatformServices:*`. Deployment overlays the file
+via ConfigMap. Components that need typed options bind them themselves.
 
 ## Build and test
 

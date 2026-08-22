@@ -43,6 +43,16 @@ spec:
         title: Contract type
         description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      idempotencyAppId:
+        type: string
+        title: Idempotency service app-id
+        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment.
+        default: "idempotency-service.services"
+      businessIncidentsAppId:
+        type: string
+        title: Business incident service app-id
+        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment.
+        default: "business-incident-service.services"
       empty:
         type: boolean
         title: Empty bodies

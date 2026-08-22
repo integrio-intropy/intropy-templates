@@ -5,6 +5,14 @@ file binding, publishes them onto a Dapr pub/sub topic, processes each one
 through a VETER pipeline, and writes the transformed result to an outbound
 file binding.
 
+Settings live in `src/appsettings.json`, overridable by
+`appsettings.{Environment}.json` and environment variables; deployment
+overlays the file via ConfigMap and `IConfiguration` is in DI.
+{{- if not .empty }}
+The platform-service app ids (`PlatformServices:*`) come from the scaffold
+parameters `idempotencyAppId`/`businessIncidentsAppId`.
+{{- end }}
+
 ## Build and test
 
 ```bash
