@@ -21,8 +21,16 @@ public static class Constants
     public const string SourceFileAdapterKey = "source";
 
     // CloudEvent envelope: where the data came from and what kind of event it is.
-    public const string EventSource = "urn:{{ .organization }}:{{ .name | kebabcase }}";
-    public const string EventType = "{{ .organization | lower }}.{{ .topic }}.extracted";
+{{- if .eventSource }}
+    public const string EventSource = "{{ .eventSource }}";
+{{- else }}
+    public const string EventSource = "{{ .eventSourceValue }}";
+{{- end }}
+{{- if .eventType }}
+    public const string EventType = "{{ .eventType }}";
+{{- else }}
+    public const string EventType = "{{ .eventTypeValue }}";
+{{- end }}
 
     public const string ContextKeyFileName = "file_name";
     public const string ContextKeyOrderId = "order_id";

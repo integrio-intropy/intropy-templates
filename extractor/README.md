@@ -57,6 +57,10 @@ renames its canonical record to match.
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
 | `topic`        | yes      | Pub/sub topic the extractor publishes to (kebab-case); the consuming loader subscribes to the same.   |
 | `contract`     | yes      | PascalCase shared-contracts record the topic carries; the sample uses `Order`. Threaded to the `shared-contracts` dependency, which names its canonical record after it. |
+| `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
+| `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
+| `eventSource`  | no       | CloudEvent `source` for published events. Unset, derives as `urn:<organization>:<app-id>`; set it to preserve an existing event identity during a migration. |
+| `eventType`    | no       | CloudEvent `type` for published events. Unset, derives as `<organization-lower>.<first-topic-segment>.<last-topic-segment>` (e.g. topic `product-export` → `maxbo.product.export`); set it to preserve an existing event identity during a migration. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; extractor lambdas throw).    |
 
 ## Render
@@ -66,4 +70,6 @@ intropy int create extractor -o /tmp/extractor-out \
   -f extractor/examples/minimal.yaml --version main --no-input
 ```
 
-See `examples/empty.yaml` for the empty-bodies fixture.
+See `examples/empty.yaml` for the empty-bodies fixture and
+`examples/migration.yaml` for preserving an existing CloudEvent identity and
+platform-service app-ids.
