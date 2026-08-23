@@ -59,6 +59,13 @@ from the `Ingest` section.
 
 ## Build and test
 
+The framework packages are a preview build (`0.3.0-local.1`) until the next
+published beta. Restore resolves them from the developer-machine
+`intropy-local` feed — a folder source registered in the user-level
+`~/.nuget/NuGet/NuGet.Config`, not in this repo, so each machine points it at
+its own local framework build output. Without that source, restore fails with
+NU1101 (package not found) — add the feed or wait for the published beta.
+
 ```bash
 task build
 task test

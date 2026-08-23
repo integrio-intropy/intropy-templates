@@ -97,8 +97,10 @@ public static class Composition
         //     new AzureBlobStorageStreamAdapter(
         //         sp.GetRequiredService<IConfiguration>()
         //           .GetSection("AzureBlobStorage").Get<AzureBlobStorageOptions>()!));
-        services.AddKeyedSingleton<IFileStreamAdapter>(Constants.SourceFileAdapterKey, (_, _) =>
-            new LocalFileStreamAdapter(Constants.InboundBindingName));
+        // Local: rooted at Ports:<port>:RootPath, injected by the system host (0.4.6+) with
+        // the same absolute path as the port's Dapr binding YAML. Falls back to the port name
+        // as a relative root when run standalone, outside the host.
+        services.AddKeyedLocalFilePort(configuration, Constants.SourcePort, Constants.SourceFileAdapterKey);
 
         // The publisher is a service like the other externals: tests swap it for a
         // FakeTopic via RemoveAll/AddSingleton, exactly as they swap the others.

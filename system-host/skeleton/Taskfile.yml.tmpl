@@ -35,6 +35,13 @@ tasks:
       - dotnet run
 
   # ── Trigger a run ─────────────────────────────────────────────────
+  # The default copies the sample flat into the port folder — the shape a sweep
+  # extractor polls. A batch (streaming) extractor instead expects a ready-marked
+  # batch folder: seed ./test/<port>/incoming/<yyyy-MM-ddTHHmmss>/ with the batch
+  # files plus the ready marker (see the extractor's Ingest options for the
+  # prefix/marker names). Seed BEFORE `task run`: run-to-completion components
+  # sweep once at host start, so a seed dropped afterwards sits until the next
+  # host start.
   seed:
     desc: Drop the sample order into a port folder (run-to-completion components sweep it at host start)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
