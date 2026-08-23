@@ -1,0 +1,15 @@
+{{- if not .empty }}
+namespace {{ .name }}.Test.Unit.Support;
+
+/// Wraps record JSON into the envelope the deserializer descends into:
+/// <c>{ "Data": [ ... ] }</c> — the sample source shape, one record array at
+/// the root of the Data envelope. Adjust when the real producer's envelope
+/// differs.
+public static class Envelope
+{
+    public static string Data(IEnumerable<string> records) =>
+        "{ \"Data\": [ " + string.Join(",", records) + " ] }";
+
+    public static string Data(params string[] records) => Data((IEnumerable<string>)records);
+}
+{{- end }}

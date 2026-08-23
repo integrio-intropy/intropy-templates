@@ -44,7 +44,7 @@ public class BatchRunTests
     {
         // Arrange
         var (pipeline, edges) = CreateSut();
-        edges.Files.AddFile($"incoming/{BatchId}/{{ .contract | lower }}.json", RecordsJson);
+        edges.Files.AddFile($"incoming/{BatchId}/1 - Items.json", RecordsJson);
         edges.Files.AddFile($"incoming/{BatchId}/Ready.json", "{}");
 
         // Act
@@ -80,7 +80,7 @@ public class BatchRunTests
     {
         // Arrange: a dead broker surfaces as a technical failure.
         var (pipeline, edges) = CreateSut();
-        edges.Files.AddFile($"incoming/{BatchId}/{{ .contract | lower }}.json", RecordsJson);
+        edges.Files.AddFile($"incoming/{BatchId}/1 - Items.json", RecordsJson);
         edges.Files.AddFile($"incoming/{BatchId}/Ready.json", "{}");
         edges.Topic.SendException = new InvalidOperationException("Broker unreachable");
 

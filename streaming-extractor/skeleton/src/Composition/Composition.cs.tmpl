@@ -157,6 +157,7 @@ public static class Composition
                 sp.GetRequiredService<IngestOptions>(),
                 sp.GetRequiredService<ILogger<SubPipelineStep>>()))
             .WithSerializer(new SerializeSummaryStep(
+                sp.GetRequiredService<IngestOptions>(),
                 sp.GetRequiredService<ILogger<SerializeSummaryStep>>()))
             // The sender resolves from DI like every other external dependency;
             // tests swap the SendStep<TCtx> registration for a FakeTopic.

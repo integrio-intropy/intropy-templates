@@ -1,0 +1,94 @@
+{{- if not .empty }}
+using CloudNative.CloudEvents;
+using {{ .contracts }};
+using {{ .name }}.Batch;
+using {{ .name }}.Batch.Steps;
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Intropy.Framework.Streaming;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace {{ .name }}.Test.Unit.Batch;
+
+/// Covers the one summary CloudEvent the batch publishes: id/subject = batch
+/// id (the publisher sets source/type from Constants), the location the event
+/// names for the output, and per-file counts from the streamed contexts — an
+/// entity with zero valid records produced no output and is omitted.
+public sealed class SerializeSummaryStepTests
+{
+    private const string BatchId = "2026-06-01T120554";
+    private const string EntityType = Constants.SampleEntityType;
+
+    private static readonly IngestOptions Options = new()
+    {
+        LocationName = "export-container",
+        IncomingPrefix = "incoming",
+        OutputPrefix = "output",
+        ProcessedPrefix = "processed",
+        ReadyMarkerName = "Ready.json",
+    };
+
+    private static {{ .contract }}Batch BatchWithFile() =>
+        new(BatchId, $"incoming/{BatchId}/Ready.json",
+            [new BatchFile($"incoming/{BatchId}/1 - Items.json", EntityType)]);
+
+    private static {{ .contract }}BatchContext ContextWithOutput(
+        {{ .contract }}Batch batch, string output, long valid, long rejected)
+    {
+        var context = new {{ .contract }}BatchContext { Batch = batch };
+        var streamed = new StreamedContext { ValidCount = valid };
+        for (var i = 0; i < rejected; i++)
+        {
+            streamed.InvalidItems.Add(new InvalidItem(EntityType, i, "bad", new object()));
+        }
+
+        context.ProcessedFiles[EntityType] = streamed;
+        context.OutputFiles[EntityType] = output;
+        return context;
+    }
+
+    private static SerializeSummaryStep Step() =>
+        new(Options, NullLogger<SerializeSummaryStep>.Instance);
+
+    [Fact]
+    public async Task BuildsCloudEvent_WithBatchIdIdentity_LocationAndCounts()
+    {
+        var batch = BatchWithFile();
+        var context = ContextWithOutput(batch, $"output/{BatchId}/1 - Items.jsonl", 10, 2);
+
+        var (result, _) = await Step().ExecuteAsync(batch, context, CancellationToken.None);
+
+        var success = Assert.IsType<TechnicalStepResult<CloudEvent>.Success>(result);
+        var cloudEvent = success.Value;
+        Assert.Equal(BatchId, cloudEvent.Id);
+        Assert.Equal(BatchId, cloudEvent.Subject);
+        Assert.NotNull(cloudEvent.Time);
+
+        var summary = Assert.IsType<{{ .contract }}>(cloudEvent.Data);
+        Assert.Equal(BatchId, summary.BatchId);
+        Assert.Equal("export-container", summary.Location);
+
+        var file = Assert.Single(summary.Files);
+        Assert.Equal(EntityType, file.EntityType);
+        Assert.Equal($"output/{BatchId}/1 - Items.jsonl", file.FileName);
+        Assert.Equal(10, file.RecordCount);
+        Assert.Equal(2, file.RejectCount);
+    }
+
+    [Fact]
+    public async Task OmitsEntitiesWithoutRecordedOutput()
+    {
+        // The sub-pipeline step records no output for entities with zero valid
+        // records; the summary must not reference them.
+        var batch = BatchWithFile();
+        var context = new {{ .contract }}BatchContext { Batch = batch };
+
+        var (result, _) = await Step().ExecuteAsync(batch, context, CancellationToken.None);
+
+        var success = Assert.IsType<TechnicalStepResult<CloudEvent>.Success>(result);
+        var summary = Assert.IsType<{{ .contract }}>(success.Value.Data);
+        Assert.Empty(summary.Files);
+    }
+}
+{{- end }}

@@ -1,0 +1,86 @@
+{{- if not .empty }}
+using System.Text.Json;
+using {{ .name }}.Model;
+using {{ .name }}.Process.Streamed;
+using {{ .name }}.Test.Unit.Support;
+using Intropy.Framework.Blocks.Streamed;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Intropy.Framework.Streaming;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace {{ .name }}.Test.Unit.Process;
+
+/// End-to-end tests for the sample entity's streamed pipeline: source envelope in →
+/// deserialize + validate + transform → JSONL out. Focuses on the sample Validate rules
+/// and Transform mapping; the generic streaming mechanics are covered in the framework's
+/// library tests.
+public sealed class {{ .contract }}PipelineTests
+{
+    // Built directly (not through the DI builder) so the test needs no service provider —
+    // the same wiring Composition registers for the sample entity.
+    private static IStreamedExtractor Pipeline() =>
+        new StreamedExtractor<StreamedContext>(
+            "test",
+            Constants.SampleEntityType,
+            NullLogger.Instance,
+            new Deserializer(NullLogger<Deserializer>.Instance),
+            new {{ .contract }}ProcessStep(NullLogger<{{ .contract }}ProcessStep>.Instance));
+
+    private static string Record(string recordId, string name, string occurredAt) =>
+        "{ \"recordId\": \"" + recordId + "\", \"name\": \"" + name +
+        "\", \"occurredAt\": \"" + occurredAt + "\" }";
+
+    // The process step serializes with Web defaults (camelCase); parse with the same.
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public async Task Execute_AllValid_MapsFieldsAndSucceeds()
+    {
+        var io = new InMemoryStreamSource(
+            Envelope.Data(Record("REC-1", "First", "2024-05-01T12:00:00+00:00")),
+            Constants.SampleEntityType);
+
+        var (result, context) = await Pipeline().Execute(io.Source, new StreamedContext(), CancellationToken.None);
+
+        Assert.IsType<StepResult<StreamSource>.Success>(result);
+        Assert.Equal(1, context.ValidCount);
+        Assert.Empty(context.InvalidItems);
+
+        var record = Assert.Single(JsonLines.Parse<{{ .contract }}Record>(io.OutputText, JsonOptions));
+        Assert.Equal("REC-1", record.RecordId);
+        Assert.Equal("First", record.Name);
+    }
+
+    [Fact]
+    public async Task Execute_MissingRecordId_RejectsRecordButKeepsValidOnes()
+    {
+        var io = new InMemoryStreamSource(
+            Envelope.Data(
+                Record("", "No Id", "2024-05-01T12:00:00+00:00"),
+                Record("REC-2", "Second", "2024-05-01T12:00:00+00:00")),
+            Constants.SampleEntityType);
+
+        var (result, context) = await Pipeline().Execute(io.Source, new StreamedContext(), CancellationToken.None);
+
+        Assert.IsType<StepResult<StreamSource>.Success>(result);
+        Assert.Equal(1, context.ValidCount);
+        var invalid = Assert.Single(context.InvalidItems);
+        Assert.Contains("RecordId", invalid.Reason, StringComparison.Ordinal);
+
+        var record = Assert.Single(JsonLines.Parse<{{ .contract }}Record>(io.OutputText, JsonOptions));
+        Assert.Equal("REC-2", record.RecordId);
+    }
+
+    [Fact]
+    public async Task Execute_EmptyInput_SucceedsWithoutOpeningOutput()
+    {
+        var io = new InMemoryStreamSource(Envelope.Data(), Constants.SampleEntityType);
+
+        var (result, context) = await Pipeline().Execute(io.Source, new StreamedContext(), CancellationToken.None);
+
+        Assert.IsType<StepResult<StreamSource>.Success>(result);
+        Assert.Equal(0, context.ValidCount);
+        Assert.False(io.OutputOpened, "an empty run must not produce an output file");
+    }
+}
+{{- end }}

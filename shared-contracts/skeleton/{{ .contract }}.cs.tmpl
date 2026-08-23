@@ -11,9 +11,11 @@ public record {{ .contract }}();
 // project picks the change up on rebuild.
 public record {{ .contract }}(
     string BatchId,
+    string Location,
     IReadOnlyList<{{ .contract }}.{{ .contract }}File> Files)
 {
-    /// <summary>One file's outcome in the batch summary.</summary>
+    /// <summary>One file's outcome in the batch summary. Only entities that
+    /// produced output appear — a zero-record entity has no file to reference.</summary>
     public record {{ .contract }}File(
         string EntityType,
         string FileName,

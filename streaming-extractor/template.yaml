@@ -92,7 +92,7 @@ spec:
     port: '{{ .name | kebabcase | replace "." "-" }}-source'
     # CloudEvent identity: overridable to preserve an existing identity during a
     # migration; otherwise derived (type: <org>.<first>.<last> of the kebab topic,
-    # e.g. product-export -> maxbo.product.export).
+    # e.g. order-exports -> fluxia.order.exports).
     eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
     eventTypeValue: '{{ printf "%s.%s.%s" (.organization | lower) (index (regexSplit "-" .topic -1) 0) (index (regexSplit "-" .topic -1) (sub (len (regexSplit "-" .topic -1)) 1)) }}'
   dependencies:

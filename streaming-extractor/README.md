@@ -51,7 +51,7 @@ left untouched.
 
 | Name                    | Required | Description                                                                                          |
 | ----------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| `name`                  | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Extractor.Perfion`).                  |
+| `name`                  | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Extractor.Catalog`).                  |
 | `organization`          | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
 | `topic`                 | yes      | Pub/sub topic the extractor publishes to (kebab-case).                                                |
 | `contract`              | yes      | PascalCase shared-contracts record the topic carries — the batch summary (with a nested per-file record). |

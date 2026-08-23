@@ -11,6 +11,12 @@ public record IngestOptions
 {
     public const string SectionName = "Ingest";
 
+    /// <summary>Name of the location behind the source port, carried on the
+    /// published summary event so downstream consumers can address the output
+    /// (e.g. the blob container in deployment). Defaults to the source port
+    /// name when unset.</summary>
+    public string? LocationName { get; init; }
+
     /// <summary>Prefix the producer delivers batches under (e.g. "incoming").</summary>
     public required string IncomingPrefix { get; init; }
 

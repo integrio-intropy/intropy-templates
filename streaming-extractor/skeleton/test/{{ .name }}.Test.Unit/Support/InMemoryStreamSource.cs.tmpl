@@ -1,0 +1,46 @@
+{{- if not .empty }}
+using System.Text;
+using Intropy.Framework.Streaming;
+
+namespace {{ .name }}.Test.Unit.Support;
+
+/// Builds a <see cref="StreamSource"/> backed entirely by memory so an entity pipeline can run
+/// without any file I/O. Input is served from a fresh <see cref="MemoryStream"/> on every
+/// <c>OpenInputAsync</c>; output is captured for read-back via <see cref="OutputText"/>.
+public sealed class InMemoryStreamSource
+{
+    private readonly byte[] _input;
+    private readonly NonClosingMemoryStream _output = new();
+
+    public InMemoryStreamSource(string input, string entityType = "test")
+    {
+        _input = Encoding.UTF8.GetBytes(input);
+        Source = new StreamSource(
+            EntityType: entityType,
+            OpenInputAsync: _ => Task.FromResult<Stream>(new MemoryStream(_input, writable: false)),
+            OpenOutputAsync: _ =>
+            {
+                OutputOpened = true;
+                return Task.FromResult<Stream>(_output);
+            });
+    }
+
+    public StreamSource Source { get; }
+
+    public string OutputText => Encoding.UTF8.GetString(_output.ToArray());
+
+    /// True once the output stream has been opened. Stays false when a run produces no records,
+    /// which is how a test asserts that no (empty) output was created.
+    public bool OutputOpened { get; private set; }
+
+    private sealed class NonClosingMemoryStream : MemoryStream
+    {
+        protected override void Dispose(bool disposing)
+        {
+            // Keep the buffer readable after the writer closes.
+        }
+
+        public override ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+}
+{{- end }}

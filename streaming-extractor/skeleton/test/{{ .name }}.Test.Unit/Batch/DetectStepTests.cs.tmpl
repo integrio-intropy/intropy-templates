@@ -1,0 +1,115 @@
+{{- if not .empty }}
+using {{ .name }}.Batch;
+using {{ .name }}.Batch.Steps;
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Intropy.Framework.Testing.Adapters;
+using Microsoft.Extensions.Logging.Abstractions;
+using BatchUnit = Intropy.Framework.Blocks.Batch.Unit;
+
+namespace {{ .name }}.Test.Unit.Batch;
+
+/// Covers the detect step's three outcomes: nothing ready -> Cancelled (the
+/// quiet exit for a scheduled run with no work), ready-but-incomplete ->
+/// BusinessFailure (routed as a business incident), complete -> Success with
+/// the batch on the context. Only timestamp folders (e.g. "2026-06-01T120554")
+/// are considered; stray folders are ignored even when they sort first and
+/// otherwise look ready.
+public sealed class DetectStepTests
+{
+    private const string ReadyMarker = "Ready.json";
+    private const string Timestamp = "2026-06-01T120554";
+
+    // The same sample batch layout the detect step expects; one file per entity.
+    private static readonly string[] EntityFiles = ["1 - Items.json"];
+
+    private static readonly IngestOptions Options = new()
+    {
+        IncomingPrefix = "incoming",
+        OutputPrefix = "output",
+        ProcessedPrefix = "processed",
+        ReadyMarkerName = ReadyMarker,
+    };
+
+    private static DetectStep StepOver(InMemoryFileAdapter files) =>
+        new(files, Options, NullLogger<DetectStep>.Instance);
+
+    private static InMemoryFileAdapter FilesWithBatch(string folder, params string[] without)
+    {
+        var files = new InMemoryFileAdapter();
+        foreach (var name in EntityFiles.Append(ReadyMarker))
+        {
+            var fileName = $"incoming/{folder}/{name}";
+            if (!without.Contains(fileName))
+            {
+                files.AddFile(fileName, "{}");
+            }
+        }
+
+        return files;
+    }
+
+    [Fact]
+    public async Task CompleteBatch_BecomesSuccess_AndSetsContextBatch()
+    {
+        var files = FilesWithBatch(Timestamp);
+        var context = new {{ .contract }}BatchContext();
+
+        var (result, ctxOut) = await StepOver(files)
+            .ExecuteAsync(BatchUnit.Value, context, CancellationToken.None);
+
+        var success = Assert.IsType<StepResult<{{ .contract }}Batch>.Success>(result);
+        Assert.Equal(Timestamp, success.Value.BatchId);
+        Assert.Equal(EntityFiles.Length, success.Value.Files.Count);
+        Assert.Equal($"incoming/{Timestamp}/{ReadyMarker}", success.Value.ReadyMarkerFile);
+        Assert.NotNull(ctxOut.Batch);
+        Assert.Equal(Timestamp, ctxOut.Batch!.BatchId);
+    }
+
+    [Fact]
+    public async Task NoReadyMarker_BecomesCancelled()
+    {
+        // The folder is uploaded but carries no ready marker yet, so it must be skipped entirely.
+        var files = FilesWithBatch(Timestamp, $"incoming/{Timestamp}/{ReadyMarker}");
+
+        var (result, _) = await StepOver(files)
+            .ExecuteAsync(BatchUnit.Value, new {{ .contract }}BatchContext(), CancellationToken.None);
+
+        Assert.IsType<StepResult<{{ .contract }}Batch>.Cancelled>(result);
+    }
+
+    [Fact]
+    public async Task ReadyButMissingFile_BecomesBusinessFailure_WithIncidentDetails()
+    {
+        const string missingFile = "1 - Items.json";
+        var files = FilesWithBatch(Timestamp, $"incoming/{Timestamp}/{missingFile}");
+
+        var (result, _) = await StepOver(files)
+            .ExecuteAsync(BatchUnit.Value, new {{ .contract }}BatchContext(), CancellationToken.None);
+
+        var failure = Assert.IsType<StepResult<{{ .contract }}Batch>.BusinessFailure>(result);
+        Assert.Contains(Timestamp, failure.Value.Description, StringComparison.Ordinal);
+        Assert.Contains(missingFile, failure.Value.Description, StringComparison.Ordinal);
+        Assert.Equal(Timestamp, failure.Value.Context!["exportId"]);
+    }
+
+    [Fact]
+    public async Task IgnoresNonTimestampFolder_EvenWhenItSortsFirstAndLooksReady()
+    {
+        // "00-staging" sorts before the timestamp (ordinal) and has a ready marker + all files,
+        // so a naive "oldest folder wins" logic would select it. It must be skipped.
+        var files = FilesWithBatch("00-staging");
+        foreach (var name in EntityFiles.Append(ReadyMarker))
+        {
+            files.AddFile($"incoming/{Timestamp}/{name}", "{}");
+        }
+
+        var (result, _) = await StepOver(files)
+            .ExecuteAsync(BatchUnit.Value, new {{ .contract }}BatchContext(), CancellationToken.None);
+
+        var success = Assert.IsType<StepResult<{{ .contract }}Batch>.Success>(result);
+        Assert.Equal(Timestamp, success.Value.BatchId);
+    }
+}
+{{- end }}

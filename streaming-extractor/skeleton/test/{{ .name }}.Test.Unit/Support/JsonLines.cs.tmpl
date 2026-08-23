@@ -1,0 +1,17 @@
+{{- if not .empty }}
+using System.Text.Json;
+
+namespace {{ .name }}.Test.Unit.Support;
+
+/// The assertion counterpart to the pipeline's JSONL output: splits and parses lines.
+public static class JsonLines
+{
+    public static string[] Split(string jsonl) =>
+        jsonl.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    public static List<T> Parse<T>(string jsonl, JsonSerializerOptions? options = null) =>
+        Split(jsonl)
+            .Select(line => JsonSerializer.Deserialize<T>(line, options)!)
+            .ToList();
+}
+{{- end }}

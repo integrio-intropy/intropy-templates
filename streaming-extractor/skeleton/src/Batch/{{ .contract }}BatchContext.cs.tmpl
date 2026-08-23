@@ -18,4 +18,9 @@ public record {{ .contract }}BatchContext() : Context(new Dictionary<string, str
 
     /// <summary>Per-file streamed outcomes, keyed by entity type.</summary>
     public Dictionary<string, Intropy.Framework.Streaming.StreamedContext> ProcessedFiles { get; } = new();
+
+    /// <summary>The output file each entity produced, keyed by entity type.
+    /// An entity with zero valid records produces no output and is absent —
+    /// the summary event lists only entities present here.</summary>
+    public Dictionary<string, string> OutputFiles { get; } = new();
 }

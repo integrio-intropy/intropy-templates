@@ -1,8 +1,8 @@
 # Render fixture: batch migration — preserves an existing CloudEvent identity.
-name: Extractor.Perfion
-organization: Maxbo
-topic: product-export
-contract: ExportEvent
-eventSource: "urn:maxbo:perfion"
-eventType: "no.maxbo.product.export"
+name: Extractor.Catalog
+organization: Fluxia
+topic: catalog-exports
+contract: CatalogExport
+eventSource: "urn:fluxia:catalog"
+eventType: "no.fluxia.catalog.export"
 empty: false

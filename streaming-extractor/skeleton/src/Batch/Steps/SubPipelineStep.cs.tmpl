@@ -32,6 +32,9 @@ public class SubPipelineStep(
     public override async Task<(TechnicalStepResult<{{ .contract }}Batch> Result, {{ .contract }}BatchContext Context)> ExecuteAsync(
         {{ .contract }}Batch batch, {{ .contract }}BatchContext context, CancellationToken ct)
     {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
         foreach (var file in batch.Files)
         {
             var extractor = extractors.FirstOrDefault(e => e.EntityType == file.EntityType);
@@ -44,26 +47,70 @@ public class SubPipelineStep(
                         $"No streamed extractor registered for entity type '{file.EntityType}'")), context);
             }
 
+            // Output is JSON Lines, so the produced file carries a .jsonl extension.
+            // The base name is preserved — the published summary event references
+            // this name and downstream consumers pick the file up by it.
+            var outputFileName = Path.ChangeExtension(Path.GetFileName(file.FileName), ".jsonl");
+            var outputName = CombinePath(options.OutputPrefix, batch.BatchId, outputFileName);
+
             var source = new StreamSource(
                 EntityType: file.EntityType,
                 OpenInputAsync: token => files.OpenReadStreamAsync(file.FileName, token),
                 OpenOutputAsync: token => files.OpenWriteStreamAsync(
-                    $"{options.OutputPrefix}/{batch.BatchId}/{file.EntityType}.jsonl",
-                    "application/x-ndjson", token));
+                    outputName, "application/x-ndjson", token));
 
-            var (result, streamedContext) = await extractor.Execute(source, new StreamedContext(), ct);
+            var streamedContext = new StreamedContext();
+            var (result, _) = await extractor.Execute(source, streamedContext, ct);
             context.ProcessedFiles[file.EntityType] = streamedContext;
 
-            if (result is not StepResult<StreamSource>.Success)
+            switch (result)
             {
-                logger.LogWarning("Entity {EntityType} failed ({ResultType}); failing the batch",
-                    file.EntityType, result.GetType().Name);
-                return (new TechnicalStepResult<{{ .contract }}Batch>.Failure(
-                    new Intropy.Framework.Core.Pipeline.Abstractions.Failures.TechnicalFailure(
-                        $"Entity '{file.EntityType}' failed: {result.GetType().Name}")), context);
+                case StepResult<StreamSource>.Success:
+                    if (streamedContext.InvalidItems.Count > 0)
+                    {
+                        logger.LogInformation(
+                            "{EntityType}: {InvalidCount} invalid item(s) captured.",
+                            file.EntityType, streamedContext.InvalidItems.Count);
+                    }
+
+                    // Zero valid records => the writer never opened the output, so there
+                    // is no file to reference. Leave the entity out of the summary event
+                    // entirely rather than pointing at a non-existent (or empty) file.
+                    if (streamedContext.ValidCount == 0)
+                    {
+                        logger.LogInformation(
+                            "{EntityType}: no valid records; no output file produced.", file.EntityType);
+                        context.ProcessedFiles.Remove(file.EntityType);
+                        continue;
+                    }
+
+                    context.OutputFiles[file.EntityType] = outputName;
+                    continue;
+
+                case StepResult<StreamSource>.BusinessFailure bf:
+                    logger.LogWarning("Entity {EntityType} failed with a business failure; failing the batch",
+                        file.EntityType);
+                    return (new TechnicalStepResult<{{ .contract }}Batch>.Failure(
+                        new Intropy.Framework.Core.Pipeline.Abstractions.Failures.TechnicalFailure(
+                            $"Per-file business failure for {file.EntityType}: {bf.Value.Description}")), context);
+
+                case StepResult<StreamSource>.TechnicalFailure tf:
+                    logger.LogWarning("Entity {EntityType} failed technically; failing the batch", file.EntityType);
+                    return (new TechnicalStepResult<{{ .contract }}Batch>.Failure(tf.Value), context);
+
+                case StepResult<StreamSource>.Cancelled:
+                case StepResult<StreamSource>.Aborted:
+                    return (new TechnicalStepResult<{{ .contract }}Batch>.Aborted(), context);
+
+                default:
+                    throw new InvalidOperationException($"Unknown result: {result.GetType().Name}");
             }
         }
 
         return (new TechnicalStepResult<{{ .contract }}Batch>.Success(batch), context);
+{{- end }}
     }
+
+    private static string CombinePath(params string[] parts) =>
+        string.Join('/', parts.Select(p => p.Trim('/')).Where(p => p.Length > 0));
 }

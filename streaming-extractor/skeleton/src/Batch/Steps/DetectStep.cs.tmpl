@@ -1,5 +1,7 @@
+using System.Globalization;
 using {{ .name }}.Configuration;
 using {{ .name }}.Model;
+using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Batch;
 using Intropy.Framework.Blocks.Batch.Steps;
@@ -29,55 +31,140 @@ public class DetectStep(
     ILogger<DetectStep> logger)
     : BatchReceiveStep<{{ .contract }}Batch, {{ .contract }}BatchContext>
 {
+{{- if .empty }}
+    /// <inheritdoc />
+    public override Task<(StepResult<{{ .contract }}Batch> Result, {{ .contract }}BatchContext Context)> ExecuteAsync(
+        Unit input, {{ .contract }}BatchContext context, CancellationToken ct) =>
+        throw new NotImplementedException();
+{{- else }}
+    // Sample batch layout: the producer stamps each batch folder with its UTC export
+    // time (fixed-width, zero-padded, so ordinal sort is chronological order) and
+    // drops one JSON file per entity inside. Replace the expected-file list and the
+    // entity mapping with the producer's real naming convention.
+    private static readonly IReadOnlyList<ExpectedFile> ExpectedFiles =
+    [
+        new("1 - Items.json", Constants.SampleEntityType),
+    ];
+
+    private sealed record ExpectedFile(string FileName, string EntityType);
+
+    private static readonly string[] TimestampFormats = ["yyyy-MM-ddTHHmmss"];
+
+    private static bool IsTimestampFolder(string name) =>
+        DateTime.TryParseExact(name, TimestampFormats, CultureInfo.InvariantCulture,
+            DateTimeStyles.None, out _);
+
     /// <inheritdoc />
     public override async Task<(StepResult<{{ .contract }}Batch> Result, {{ .contract }}BatchContext Context)> ExecuteAsync(
         Unit input, {{ .contract }}BatchContext context, CancellationToken ct)
     {
-{{- if .empty }}
-        throw new NotImplementedException();
-{{- else }}
-        var incoming = await files.ListAsync();
-        var readyMarkers = incoming
-            .Select(f => f.FileName)
-            .Where(name => name.EndsWith('/' + options.ReadyMarkerName, StringComparison.Ordinal))
-            .Order(StringComparer.Ordinal)
-            .ToList();
-
-        if (readyMarkers.Count == 0)
+        foreach (var timestamp in await CollectTimestampFoldersAsync(ct))
         {
-            logger.LogInformation("No ready batch under {Prefix}; nothing to do", options.IncomingPrefix);
-            return (new StepResult<{{ .contract }}Batch>.Cancelled(), context);
+            var readyMarkerFile = CombinePath(options.IncomingPrefix, timestamp, options.ReadyMarkerName);
+            if (!await files.ExistsAsync(readyMarkerFile, ct))
+            {
+                logger.LogDebug("Skipping {Timestamp} — ready marker not present yet.", timestamp);
+                continue;
+            }
+
+            logger.LogInformation("Selected oldest batch {Timestamp} for processing.", timestamp);
+
+            // A marked-ready batch that is missing files is a data/business problem
+            // the process owner must resolve, not a technical failure — route it as
+            // a business incident and leave the batch in place.
+            var missing = new List<string>();
+            var resolved = new List<BatchFile>(ExpectedFiles.Count);
+            foreach (var expected in ExpectedFiles)
+            {
+                var fileName = CombinePath(options.IncomingPrefix, timestamp, expected.FileName);
+                if (!await files.ExistsAsync(fileName, ct))
+                {
+                    missing.Add(fileName);
+                    continue;
+                }
+
+                resolved.Add(new BatchFile(fileName, expected.EntityType));
+            }
+
+            if (missing.Count > 0)
+            {
+                logger.LogWarning(
+                    "Batch {BatchId} is marked ready but {Count} expected file(s) are missing: {Missing}",
+                    timestamp, missing.Count, string.Join(", ", missing));
+                return (new StepResult<{{ .contract }}Batch>.BusinessFailure(
+                    IncidentForIncompleteBatch(timestamp, missing)), context);
+            }
+
+            logger.LogInformation("Detected batch {BatchId} with {Count} file(s)", timestamp, resolved.Count);
+            context.Metadata[Constants.ContextKeyBatchId] = timestamp;
+            var batch = new {{ .contract }}Batch(timestamp, readyMarkerFile, resolved);
+            context.Batch = batch;
+            return (new StepResult<{{ .contract }}Batch>.Success(batch), context);
         }
 
-        // Oldest ready batch first: batch folders sort chronologically when the
-        // producer stamps them with a zero-padded timestamp.
-        var readyMarker = readyMarkers[0];
-
-        // The batch folder (full name) and id (folder without the incoming prefix):
-        // the prefix is delivery configuration, the id is the batch's identity
-        // (event subject, incident key, archive folder).
-        var batchFolder = readyMarker[..^(options.ReadyMarkerName.Length + 1)];
-        var batchId = batchFolder;
-        if (batchId.StartsWith(options.IncomingPrefix + '/', StringComparison.Ordinal))
-            batchId = batchId[(options.IncomingPrefix.Length + 1)..];
-
-        var batchFiles = incoming
-            .Select(f => f.FileName)
-            .Where(name => name.StartsWith(batchFolder + '/', StringComparison.Ordinal)
-                           && !name.EndsWith(options.ReadyMarkerName, StringComparison.Ordinal))
-            .Select(name => new BatchFile(name, EntityTypeOf(name)))
-            .ToList();
-
-        logger.LogInformation("Detected batch {BatchId} with {Count} file(s)", batchId, batchFiles.Count);
-        context.Metadata[Constants.ContextKeyBatchId] = batchId;
-        var batch = new {{ .contract }}Batch(batchId, readyMarker, batchFiles);
-        context.Batch = batch;
-        return (new StepResult<{{ .contract }}Batch>.Success(batch), context);
-
-        // Sample entity mapping: the file name minus extension, lower-cased.
-        // Replace with the producer's real naming convention.
-        static string EntityTypeOf(string fileName) =>
-            Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant();
-{{- end }}
+        logger.LogInformation("No batch ready under {Prefix} — pipeline cancelled.", options.IncomingPrefix);
+        return (new StepResult<{{ .contract }}Batch>.Cancelled(), context);
     }
+
+    private async Task<SortedSet<string>> CollectTimestampFoldersAsync(CancellationToken ct)
+    {
+        var prefixWithSlash = string.IsNullOrWhiteSpace(options.IncomingPrefix)
+            ? string.Empty
+            : options.IncomingPrefix.EndsWith('/')
+                ? options.IncomingPrefix
+                : options.IncomingPrefix + "/";
+
+        var folders = new SortedSet<string>(StringComparer.Ordinal);
+        var skipped = new HashSet<string>(StringComparer.Ordinal);
+
+        // The adapter contract's listing takes no prefix; filter client-side.
+        foreach (var file in await files.ListAsync())
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var fileName = file.FileName;
+            if (!fileName.StartsWith(prefixWithSlash, StringComparison.Ordinal))
+                continue;
+
+            var relative = fileName[prefixWithSlash.Length..];
+            var slash = relative.IndexOf('/');
+            if (slash <= 0)
+                continue;
+
+            var folder = relative[..slash];
+            if (folders.Contains(folder))
+                continue;
+
+            // Ignore anything that isn't a timestamp folder (partial uploads, stray
+            // folders). Log once per skipped name so a misnamed real batch is visible.
+            if (!IsTimestampFolder(folder))
+            {
+                if (skipped.Add(folder))
+                    logger.LogDebug("Ignoring {Folder} under {Prefix} — not a timestamp folder.",
+                        folder, prefixWithSlash);
+                continue;
+            }
+
+            folders.Add(folder);
+        }
+
+        return folders;
+    }
+
+    private static string CombinePath(params string[] parts) =>
+        string.Join('/', parts.Select(p => p.Trim('/')).Where(p => p.Length > 0));
+
+    private static BusinessIncidentData IncidentForIncompleteBatch(
+        string batchId, IReadOnlyList<string> missingFiles) => new()
+    {
+        Description =
+            $"Export {batchId} is marked ready but {missingFiles.Count} " +
+            $"expected file(s) are missing: {string.Join(", ", missingFiles)}.",
+        Context = new Dictionary<string, string>
+        {
+            ["exportId"] = batchId,
+            ["missingFiles"] = string.Join(", ", missingFiles),
+        },
+    };
+{{- end }}
 }

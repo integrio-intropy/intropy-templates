@@ -1,5 +1,6 @@
 using CloudNative.CloudEvents;
 using {{ .contracts }};
+using {{ .name }}.Configuration;
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Batch.Steps;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
@@ -13,7 +14,7 @@ namespace {{ .name }}.Batch.Steps;
 /// reject counts come from the streamed contexts the sub-pipeline step
 /// accumulated on the batch context.
 /// </summary>
-public class SerializeSummaryStep(ILogger<SerializeSummaryStep> logger)
+public class SerializeSummaryStep(IngestOptions options, ILogger<SerializeSummaryStep> logger)
     : BatchSerializeStep<{{ .contract }}Batch, {{ .contract }}BatchContext>
 {
     /// <inheritdoc />
@@ -24,18 +25,25 @@ public class SerializeSummaryStep(ILogger<SerializeSummaryStep> logger)
         throw new NotImplementedException();
 {{- else }}
         // The summary record's per-file entry type (a nested record on the
-        // contract, named after it: {{ .contract }}File).
+        // contract, named after it: {{ .contract }}File). Entities with zero
+        // valid records produced no output and are left out — the event only
+        // references files that exist. Location names the place behind the
+        // source port (the blob container in deployment) so consumers can
+        // address the output.
         var summary = new {{ .contract }}(
             BatchId: batch.BatchId,
-            Files: batch.Files.Select(f =>
-            {
-                var streamed = context.ProcessedFiles.GetValueOrDefault(f.EntityType);
-                return new {{ .contract }}.{{ .contract }}File(
-                    EntityType: f.EntityType,
-                    FileName: f.FileName,
-                    RecordCount: streamed?.ValidCount ?? 0,
-                    RejectCount: streamed?.InvalidItems.Count ?? 0);
-            }).ToList());
+            Location: options.LocationName ?? Constants.SourcePort,
+            Files: batch.Files
+                .Where(f => context.OutputFiles.ContainsKey(f.EntityType))
+                .Select(f =>
+                {
+                    var streamed = context.ProcessedFiles[f.EntityType];
+                    return new {{ .contract }}.{{ .contract }}File(
+                        EntityType: f.EntityType,
+                        FileName: context.OutputFiles[f.EntityType],
+                        RecordCount: streamed.ValidCount,
+                        RejectCount: streamed.InvalidItems.Count);
+                }).ToList());
 
         // The framework's DaprTopicPublisher sets Source/Type from Constants;
         // Id/Subject/Time are the envelope this step owns. Subject = batch id
