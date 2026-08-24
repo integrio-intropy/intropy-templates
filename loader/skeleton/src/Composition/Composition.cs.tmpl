@@ -32,15 +32,17 @@ public static class Composition
 
         // Configuration: appsettings.json + environment overlay + env vars. Based on the
         // binary directory, not the CWD — a host may launch the app from a different
-        // working directory. Registered so options binding and tests resolve the
-        // same instance.
+        // working directory. Built for this composition's own reads only, and
+        // deliberately NOT registered in DI: this component is a WebApplication, and
+        // replacing the host's IConfiguration breaks server port resolution —
+        // ASPNETCORE_HTTP_PORTS is ignored and the app binds localhost:5000 while
+        // the Dapr sidecar waits forever on the annotated app port.
         var configuration = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
             .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
             .AddEnvironmentVariables()
             .Build();
-        services.AddSingleton<IConfiguration>(configuration);
 
         // Register host-level platform plumbing first: diagnostics, Dapr, framework
         // services, and shared platform clients. Keeping these together makes the
