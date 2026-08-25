@@ -1,10 +1,11 @@
 # Agent Instructions
 
 This project is a .NET streaming extractor integration built on the Intropy
-framework. One run = one batch: detect a complete batch of files on the
-source (incoming prefix + ready marker), stream each file record-by-record in
-constant memory through its registered streamed extractor, publish one
-summary CloudEvent to a Dapr pub/sub topic, archive the consumed inputs, and
+framework, for files too large to ride the message broker. One run = one
+sweep: list the files under the incoming prefix, stream each record-by-record
+in constant memory through its registered streamed extractor, write the
+transformed output to storage, publish one claim-check CloudEvent per file (a
+reference to the output, never the payload), archive the consumed input, and
 exit. Scheduling lives outside the block — activation cadence is deployment
 configuration (a Kubernetes CronJob in production); locally the system host
 runs the block once at startup.
@@ -12,16 +13,15 @@ runs the block once at startup.
 ## Project overview
 
 - Framework: .NET 10
-- App type: Run-to-completion console job (no web endpoints; one batch
-  detection + processing cycle per run, then exit). Hosted by the framework's
-  `RunToCompletionRunner`, which owns the Dapr sidecar lifecycle, tracing,
-  and the exit-code contract: `0` success / nothing-ready / cancelled, `1`
-  job failure, `2` infrastructure failure (sidecar unavailable).
+- App type: Run-to-completion console job (no web endpoints; one sweep per
+  run, then exit). Hosted by the framework's `RunToCompletionRunner`, which
+  owns the Dapr sidecar lifecycle, tracing, and the exit-code contract: `0`
+  success / empty prefix / cancelled, `1` job failure, `2` infrastructure
+  failure (sidecar unavailable).
 - Runner: the framework's `RunToCompletionRunner` (in
-  `Intropy.Framework.Hosting`), driven by `{{ .name }}.Batch.BatchJob` — an
-  `IRunToCompletionJob` that adapts the sidecar-free `BatchPipeline` and
-  reports a `JobRunSummary` (a completed batch = Processed 1; nothing ready =
-  Empty; any failure = Failed 1).
+  `Intropy.Framework.Hosting`), driven by `{{ .name }}.StreamJob` — an
+  `IRunToCompletionJob` that adapts the sidecar-free `Sweep` and reports its
+  `JobRunSummary`.
 - App id: `{{ .appId }}`
 - Source port: `{{ .port }}` — the named interface the extractor reads
   the outside world through; the system host declares it in `Ports.cs`
@@ -37,15 +37,14 @@ runs the block once at startup.
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
   `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the published contract (`{{ .contract }}` — a batch
-  summary: batch id + per-file record/reject counts, with a nested per-file
-  record) lives in the sibling project `../{{ .contracts }}` (namespace
-  `{{ .contracts }}`), referenced from `src/{{ .name }}.csproj`. The sibling
-  is scaffolded by this template's dependency declaration; when it already
-  exists (another component created it) the scaffold leaves it untouched.
-  The batch model (`{{ .contract }}Batch`) and the per-record shapes
-  (`Source{{ .contract }}Record`, `{{ .contract }}Record`) stay local in
-  `src/Model/`.
+- Shared contracts: the published contract (`{{ .contract }}` — a claim-check
+  reference: output location, file name, source file name, entity type,
+  record/reject counts) lives in the sibling project `../{{ .contracts }}`
+  (namespace `{{ .contracts }}`), referenced from `src/{{ .name }}.csproj`.
+  The sibling is scaffolded by this template's dependency declaration; when
+  it already exists (another component created it) the scaffold leaves it
+  untouched. The per-record shapes (`Source{{ .contract }}Record`,
+  `{{ .contract }}Record`) stay local in `src/Model/`.
 
 ## Important files
 
@@ -62,20 +61,18 @@ runs the block once at startup.
   source adapter (`IFileStreamAdapter`), the streamed extractors (one
   `AddStreamedExtractor` per entity type), the publish edge (the sender is a
   DI-registered `SendStep<TCtx>` — a `DaprTopicPublisher` in production), and
-  the batch pipeline (`AddBatchPipeline`). `BuildBatchPipeline(builder, sp)`
-  is public so the integration suite builds the pipeline exactly as
-  production composition does. Note the namespace/type collision:
-  `{{ .name }}.Composition` is both namespace and class, so call sites inside
-  nested namespaces use the fully qualified `Composition.Composition.*`.
-- `src/Batch/` - the batch chain: `BatchJob` (runner adapter), `DetectStep`
-  (component-owned detection: incoming prefix + ready marker; also the batch
-  idempotency seam — an archived batch must be invisible to it),
-  `SubPipelineStep` (matches files to streamed extractors by entity type,
-  builds each file's `StreamSource` from the adapter, accumulates per-file
-  counts), `SerializeSummaryStep` (one CloudEvent per batch; subject = batch
-  id), `ArchiveStep` (moves consumed inputs + marker to the processed prefix).
-- `src/Batch/{{ .contract }}BatchContext.cs` - the batch chain's context:
-  carries the detected batch and one `StreamedContext` per processed file.
+  the `Sweep`. Note the namespace/type collision: `{{ .name }}.Composition`
+  is both namespace and class, so call sites inside nested namespaces use the
+  fully qualified `Composition.Composition.*`.
+- `src/Sweep.cs` - the sweep: lists the incoming prefix, matches each file to
+  a streamed extractor by entity type, builds the file's `StreamSource` from
+  the adapter, runs the extraction, publishes the reference, archives the
+  input, and routes a business incident for any file it cannot process.
+- `src/StreamJob.cs` - the runner adapter over the sweep.
+- `src/{{ .contract }}Context.cs` - the sweep's per-run context: carries the
+  streamed outcome of the file currently being published.
+- `src/Process/ReferencePublishStep.cs` - builds the one claim-check
+  CloudEvent per file (subject/id = source file name; data = the reference).
 - `src/Process/Streamed/` - the sample streamed extractor's steps
   (`Deserializer` locates the record array in the source envelope;
   `{{ .contract }}ProcessStep` is the fused validate+transform). Duplicate
@@ -83,7 +80,7 @@ runs the block once at startup.
 - `src/Constants.cs` - component/topic names, keyed-adapter key, CloudEvent
   envelope values, the sample entity type (root namespace — consumed by both
   `src` and the tests).
-- `test/{{ .name }}.Test.Integration/` - batch-run and composition tests
+- `test/{{ .name }}.Test.Integration/` - sweep-run and composition tests
   against `Intropy.Framework.Testing` fakes (`task test:integration`;
   `task coverage` reports branch coverage).
 
@@ -93,9 +90,9 @@ Settings live in `src/appsettings.json` (copied to the build output),
 overridden by `appsettings.{Environment}.json` and environment variables —
 `Composition` builds `IConfiguration` from the binary directory, registers it
 in DI, and reads the platform-service app ids from `PlatformServices:*`.
-Batch layout (incoming/output/processed prefixes + ready-marker name) binds
-to `src/Configuration/IngestOptions.cs` from the `Ingest` section.
-Deployment overlays the file via ConfigMap.
+File layout (incoming/output/processed prefixes) binds to
+`src/Configuration/IngestOptions.cs` from the `Ingest` section. Deployment
+overlays the file via ConfigMap.
 
 ## Build and test
 
@@ -109,9 +106,9 @@ task build
 task test
 ```
 
-The integration suite builds the pipeline exactly as production composition
-does, fakes only the edges (`InMemoryFileAdapter` — which implements the
-streaming `IFileStreamAdapter` contract — `FakeTopic`,
+The integration suite resolves the sweep exactly as production composition
+registers it, fakes only the edges (`InMemoryFileAdapter` — which implements
+the streaming `IFileStreamAdapter` contract — `FakeTopic`,
 `FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` — from
 `Intropy.Framework.Testing`), and asserts on fake state. `task coverage`
 runs the integration suite with branch coverage (Cobertura report under the
@@ -127,30 +124,35 @@ integration project's `TestResults/`).
   registration is the zero-dependency `LocalFileStreamAdapter`; production
   swaps in the SDK adapter (e.g. `Intropy.Framework.Adapters.Azure`'s
   `AzureBlobStorageStreamAdapter`) at this one registration — credentials
-  from configuration, never hard-coded.
-- Batch idempotency is the detect step's contract, not a framework step: an
-  archived batch is invisible to detection, so a completed batch never
-  re-runs. Keep the summary event's subject/id stable (the batch id) so
-  downstream consumers can deduplicate a re-delivery after a mid-chain crash.
+  from configuration, never hard-coded. Dapr bindings are not an option for
+  large files: they buffer the payload through the sidecar, which defeats
+  constant-memory streaming.
+- The claim-check contract: the event carries a reference to the streamed
+  output, never the payload. The consuming component resolves the reference
+  by streaming the named file from the same storage behind the source port —
+  the file-adapter kind and the prefix layout are part of the system
+  contract, on equal footing with the topic and the contract record.
+- Sweep idempotency is the archive's contract: a processed file moves to the
+  processed prefix, so the next sweep never re-reads it. Keep the reference
+  event's id/subject stable (the source file name) so consumers can
+  deduplicate a re-delivery after a publish-then-archive crash.
 - One streamed extractor per entity type: duplicate the
   `AddStreamedExtractor` registration and the `src/Process/Streamed/` steps
-  per entity. `SubPipelineStep` fails the batch when a file's entity type has
-  no registered extractor — partial batches are never published.
-- A technical failure (dead source, dead broker, archive move failure) fails
-  the run with exit 1 and leaves the batch in place for the next scheduled
-  run; a ready-but-incomplete batch is a business failure routed to the
-  Business Incident Service, keyed on the batch id.
+  per entity. A file whose entity type has no registered extractor routes a
+  business incident and is left in place; the rest of the sweep continues.
+- A zero-valid-record file produces no output and no event — the input is
+  archived silently. A streamed failure or a publish failure leaves the file
+  under the incoming prefix for the next scheduled run.
 {{- if .empty }}
-- Detection, serialize, and the streamed step bodies are scaffolded empty
-  (`NotImplementedException`). The batch chain wiring (sub-pipeline
-  resolution, sender, archive, business-incident routing) stays in place.
-  When you implement: detection defines the producer's delivery format
-  (folder naming, expected files, ready marker); keep the batch id stable
-  across retries.
+- The entity mapping, deserializer, process step, and reference construction
+  are scaffolded empty (`NotImplementedException`). The sweep wiring
+  (extraction, publish, archive, business-incident routing) stays in place.
+  When you implement: the entity mapping defines the producer's file→entity
+  rule; keep the reference event's id/subject stable (the source file name).
 - The integration suite is real and fails out of the box by design — `task
-  test` is red until the steps land (only `CompositionTests` starts green).
-  The pinned behaviors flip green one by one as the implementation
-  progresses; no test edits are needed to get there.
+  test` is red until the steps land (only the empty-prefix and composition
+  tests start green). The pinned behaviors flip green one by one as the
+  implementation progresses; no test edits are needed to get there.
 {{- end }}
 
 ## Framework guidance
