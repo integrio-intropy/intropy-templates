@@ -23,7 +23,7 @@ tasks:
       - dotnet test ./test/{{ .name }}.Test.Unit
 
   test:integration:
-    desc: Run the integration tests (batch run, publish wiring, composition — Intropy.Framework.Testing fakes)
+    desc: Run the integration tests (sweep run, publish wiring, composition — Intropy.Framework.Testing fakes)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     cmds:
       - dotnet test ./test/{{ .name }}.Test.Integration

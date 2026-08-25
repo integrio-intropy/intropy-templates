@@ -3,10 +3,9 @@ namespace {{ .name }}.Model;
 
 /// <summary>
 /// The output shape of one streamed record — what the process step writes as
-/// one JSONL line to the batch's output file.
+/// one JSONL line to the file's output. Product-flavored sample.
 /// </summary>
 public record {{ .contract }}Record(
-    string RecordId,
+    string Sku,
     string Name,
-    DateTimeOffset OccurredAt);
-
+    decimal Price);

@@ -1,6 +1,6 @@
 # Render fixture: empty bodies (fail-forward migration scaffold).
-name: OrderBatchExtractor
+name: ProductExportExtractor
 organization: Fluxia
-topic: order-exports
-contract: OrderExport
+topic: product-exports
+contract: ProductExport
 empty: true

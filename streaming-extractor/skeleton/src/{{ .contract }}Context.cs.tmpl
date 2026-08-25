@@ -1,0 +1,17 @@
+using Intropy.Framework.Blocks.Shared;
+
+namespace {{ .name }};
+
+/// <summary>
+/// The sweep's per-run context: carries the streamed outcome of the file
+/// currently being processed (set by <c>Sweep</c> after each file's
+/// extraction, read by <c>ReferencePublishStep</c> for the record/reject
+/// counts in the published reference event). One context per run — the sweep
+/// processes files sequentially and overwrites <see cref="Current"/> per file.
+/// </summary>
+public record {{ .contract }}Context() : Context(new Dictionary<string, string>())
+{
+    /// <summary>The streamed outcome of the file currently being published.
+    /// Null before the sweep runs an extraction and after a file is done.</summary>
+    public Intropy.Framework.Streaming.StreamedContext? Current { get; set; }
+}

@@ -1,4 +1,4 @@
-# Render fixture: batch migration — preserves an existing CloudEvent identity.
+# Render fixture: migration — preserves an existing CloudEvent identity.
 name: Extractor.Catalog
 organization: Fluxia
 topic: catalog-exports

@@ -3,14 +3,14 @@ kind: Template
 metadata:
   name: streaming-extractor
   title: Streaming Extractor Integration
-  description: Run-to-completion .NET extractor for batched, multi-file deliveries. One run detects a complete batch on the source, streams each file record-by-record in constant memory through a registered streamed extractor, publishes one summary CloudEvent per batch to a Dapr pub/sub topic, archives the consumed inputs, and exits.
+  description: Run-to-completion .NET extractor for independent files too large to ride the message broker. One run sweeps the incoming prefix, streams each file record-by-record in constant memory through a registered streamed extractor, writes the transformed output to storage, publishes one claim-check CloudEvent per file (a reference to the output, never the payload) to a Dapr pub/sub topic, archives the consumed input, and exits.
   tags:
     - example
     - dotnet
     - dapr
     - extractor
     - streaming
-    - batch
+    - claim-check
   labels:
     intropy.io/template-level: example
     intropy.dev/block-kind: extractor
@@ -43,7 +43,7 @@ spec:
       contract:
         type: string
         title: Contract type
-        description: PascalCase name of the shared-contracts record the topic carries — in batch mode a summary record (batch id + per-file record/reject counts, with a nested per-file record). The other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with.
+        description: PascalCase name of the shared-contracts record the topic carries — a claim-check reference record (output location, file, entity, record/reject counts). The other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with.
         pattern: "^[A-Z][A-Za-z0-9]*$"
       idempotencyAppId:
         type: string
@@ -68,7 +68,7 @@ spec:
       empty:
         type: boolean
         title: Empty bodies
-        description: When true, strip sample business logic from pipeline step bodies. The resulting project compiles and starts under Dapr, but every step throws NotImplementedException so a migration agent can fill them in. The batch chain wiring stays; detection, serialize, and the streamed step bodies are yours to fill in.
+        description: When true, strip sample business logic from pipeline step bodies. The resulting project compiles and starts under Dapr, but every step throws NotImplementedException so a migration agent can fill them in. The sweep and streaming wiring stays; the entity mapping, deserializer, and process step bodies are yours to fill in.
         default: true
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
@@ -92,7 +92,7 @@ spec:
     port: '{{ .name | kebabcase | replace "." "-" }}-source'
     # CloudEvent identity: overridable to preserve an existing identity during a
     # migration; otherwise derived (type: <org>.<first>.<last> of the kebab topic,
-    # e.g. order-exports -> fluxia.order.exports).
+    # e.g. product-exports -> fluxia.product.exports).
     eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
     eventTypeValue: '{{ printf "%s.%s.%s" (.organization | lower) (index (regexSplit "-" .topic -1) 0) (index (regexSplit "-" .topic -1) (sub (len (regexSplit "-" .topic -1)) 1)) }}'
   dependencies:
@@ -101,5 +101,5 @@ spec:
       values:
         name: '{{ .contracts }}'
         contract: '{{ .contract }}'
-        mode: 'batch'
+        mode: 'product'
         empty: '{{ .empty }}'

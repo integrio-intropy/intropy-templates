@@ -1,6 +1,6 @@
 # Render fixture: full sample (business logic + service wiring).
-name: OrderBatchExtractor
+name: ProductExportExtractor
 organization: Fluxia
-topic: order-exports
-contract: OrderExport
+topic: product-exports
+contract: ProductExport
 empty: false

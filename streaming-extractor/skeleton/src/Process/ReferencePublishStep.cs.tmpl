@@ -1,0 +1,54 @@
+using CloudNative.CloudEvents;
+using {{ .contracts }};
+using Intropy.Framework.Streaming;
+
+namespace {{ .name }}.Process;
+
+/// <summary>
+/// Builds the one CloudEvent a swept file publishes: a claim-check reference
+/// to the streamed output, never the payload. The files are too large to ride
+/// the broker, so the event carries the output's location and name plus the
+/// record/reject counts; the consuming component resolves the reference by
+/// streaming the named file from the same storage behind the source port.
+/// </summary>
+public static class ReferencePublishStep
+{
+    /// <summary>Builds the claim-check CloudEvent for one processed file. The
+    /// framework's <c>DaprTopicPublisher</c> sets Source/Type from Constants;
+    /// Id/Subject/Time/Data are the envelope this step owns. Id = Subject =
+    /// the source file name keeps the event addressable, stable across
+    /// retries, and deduplicable downstream after a publish-then-archive
+    /// crash.</summary>
+    public static CloudEvent BuildEvent(
+        string sourceFileName,
+        string entityType,
+        string outputName,
+        StreamedContext streamed,
+        string location)
+    {
+{{- if .empty }}
+        // Decision: what does the claim-check reference carry? The contract in
+        // the sibling Contracts project is an empty shell until defined —
+        // construct it here with the fields a consumer needs to resolve the
+        // output (location, file name, source file, entity, record/reject
+        // counts), then remove this throw. Id/Subject stay the source file name.
+        throw new NotImplementedException();
+{{- else }}
+        var reference = new {{ .contract }}(
+            Location: location,
+            FileName: outputName,
+            SourceFileName: sourceFileName,
+            EntityType: entityType,
+            RecordCount: streamed.ValidCount,
+            RejectCount: streamed.InvalidItems.Count);
+
+        return new CloudEvent
+        {
+            Id = sourceFileName,
+            Subject = sourceFileName,
+            Time = DateTimeOffset.UtcNow,
+            Data = reference,
+        };
+{{- end }}
+    }
+}

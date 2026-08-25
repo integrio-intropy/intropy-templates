@@ -1,9 +1,6 @@
-using {{ .name }}.Batch;
-using {{ .name }}.Model;
 using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Contracts.IdempotencyService;
 using Intropy.Framework.Adapters.File;
-using Intropy.Framework.Blocks.Batch;
 using Intropy.Framework.Blocks.Extractor.Steps;
 using Intropy.Framework.Testing.Adapters;
 using Intropy.Framework.Testing.Services;
@@ -16,13 +13,13 @@ namespace {{ .name }}.Test.Integration;
 /// <summary>
 /// The four externals every integration test fakes, plus the DI wiring that
 /// swaps them into the real <see cref="Composition.Composition.ConfigureServices"/> graph.
-/// Centralised so the batch tests cannot drift apart when the set of externals
+/// Centralised so the sweep tests cannot drift apart when the set of externals
 /// changes.
 /// </summary>
 public sealed class FakeEdges
 {
     public InMemoryFileAdapter Files { get; } = new();
-    public FakeTopic<{{ .contract }}BatchContext> Topic { get; } = new();
+    public FakeTopic<{{ .contract }}Context> Topic { get; } = new();
     public FakeIdempotencyServiceClient Idempotency { get; } = new();
     public FakeBusinessIncidentServiceClient Incidents { get; } = new();
 
@@ -43,13 +40,13 @@ public sealed class FakeEdges
         services.AddSingleton<IIdempotencyServiceClient>(Idempotency);
         services.RemoveAll<IBusinessIncidentServiceClient>();
         services.AddSingleton<IBusinessIncidentServiceClient>(Incidents);
-        services.RemoveAll<SendStep<{{ .contract }}BatchContext>>();
-        services.AddSingleton<SendStep<{{ .contract }}BatchContext>>(Topic);
+        services.RemoveAll<SendStep<{{ .contract }}Context>>();
+        services.AddSingleton<SendStep<{{ .contract }}Context>>(Topic);
         return services;
     }
 
-    /// <summary>Builds the pipeline exactly as production composition does —
-    /// the fakes are already in the DI graph via <see cref="CreateServices"/>.</summary>
-    public BatchPipeline<{{ .contract }}Batch, {{ .contract }}BatchContext> BuildPipeline(IServiceProvider provider) =>
-        provider.GetRequiredService<BatchPipeline<{{ .contract }}Batch, {{ .contract }}BatchContext>>();
+    /// <summary>Resolves the sweep exactly as production composition registers
+    /// it — the fakes are already in the DI graph via <see cref="CreateServices"/>.</summary>
+    public Sweep BuildSweep(IServiceProvider provider) =>
+        provider.GetRequiredService<Sweep>();
 }

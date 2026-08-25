@@ -22,10 +22,10 @@ public class {{ .contract }}ProcessStep(ILogger<{{ .contract }}ProcessStep> logg
 {{- if .empty }}
         throw new NotImplementedException();
 {{- else }}
-        if (string.IsNullOrWhiteSpace(source.RecordId))
-            return "RecordId is required";
-        if (source.OccurredAt > DateTimeOffset.UtcNow)
-            return $"OccurredAt {source.OccurredAt:O} is in the future";
+        if (string.IsNullOrWhiteSpace(source.Sku))
+            return "Sku is required";
+        if (source.Price < 0)
+            return $"Price {source.Price} is negative";
         return null;
 {{- end }}
     }
@@ -36,7 +36,7 @@ public class {{ .contract }}ProcessStep(ILogger<{{ .contract }}ProcessStep> logg
 {{- if .empty }}
         throw new NotImplementedException();
 {{- else }}
-        return new {{ .contract }}Record(source.RecordId, source.Name, source.OccurredAt);
+        return new {{ .contract }}Record(source.Sku, source.Name, source.Price);
 {{- end }}
     }
 }

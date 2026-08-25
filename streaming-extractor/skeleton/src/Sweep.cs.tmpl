@@ -1,0 +1,302 @@
+using CloudNative.CloudEvents;
+using {{ .contracts }};
+using {{ .name }}.Configuration;
+using {{ .name }}.Process;
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared.Steps.External;
+using Intropy.Framework.Blocks.Streamed;
+using Intropy.Framework.Core.Configuration;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.Framework.Streaming;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }};
+
+/// <summary>
+/// One sweep of the incoming prefix: list the delivered files, stream each
+/// through its registered <see cref="IStreamedExtractor"/> (matched by entity
+/// type) in constant memory, write the transformed output to the output
+/// prefix, publish one claim-check CloudEvent per file (a reference to the
+/// output, never the payload — the files are too large to ride the broker),
+/// and archive the consumed input. Files that fail stay under the incoming
+/// prefix for the next scheduled run.
+/// </summary>
+/// <remarks>
+/// The sweep is deliberately sidecar-free so the integration suite can run it
+/// directly against the framework's testing fakes; the framework's
+/// <c>RunToCompletionRunner</c> (via <see cref="StreamJob"/>) owns the sidecar
+/// lifecycle and the exit-code mapping around it. Unlike a batch, each file is
+/// independent — one file's failure raises a business incident and does not
+/// stop the rest of the sweep.
+/// </remarks>
+public class Sweep(
+    [FromKeyedServices(Constants.SourceFileAdapterKey)] IFileStreamAdapter files,
+    IEnumerable<IStreamedExtractor> extractors,
+    SendStep<{{ .contract }}Context> sender,
+    IngestOptions options,
+    FrameworkOptions frameworkOptions,
+    IBusinessIncidentServiceClient incidents,
+    ILoggerFactory loggerFactory)
+{
+    private readonly ILogger _logger = loggerFactory.CreateLogger("{{ .name }}.Pipeline");
+
+    /// <summary>Sweeps the incoming prefix once.</summary>
+    /// <returns>The outcome breakdown: published files as <c>Processed</c>,
+    /// zero-valid-record files (archived without an event) as <c>Cancelled</c>,
+    /// and files left in place as <c>Failed</c>. <c>Failed &gt; 0</c> asks the
+    /// scheduler to record a failed run.</returns>
+    public virtual async Task<JobRunSummary> SweepAsync(CancellationToken ct)
+    {
+        var candidates = await ListIncomingAsync(ct);
+        if (candidates.Count == 0)
+        {
+            _logger.LogInformation("Nothing under {Prefix}; nothing to do", options.IncomingPrefix);
+            return JobRunSummary.Empty;
+        }
+
+        _logger.LogInformation("Swept {Count} file(s) from {Prefix}", candidates.Count, options.IncomingPrefix);
+
+        var processed = 0;
+        var failed = 0;
+        var cancelled = 0;
+
+        foreach (var file in candidates)
+        {
+            switch (await ProcessFileAsync(file, ct))
+            {
+                case FileOutcome.Processed:
+                    processed++;
+                    break;
+                case FileOutcome.Cancelled:
+                    cancelled++;
+                    break;
+                default:
+                    failed++;
+                    break;
+            }
+        }
+
+        if (failed > 0)
+            _logger.LogWarning("{Failed} of {Total} file(s) failed; exiting 1 so the scheduler records a failed run",
+                failed, candidates.Count);
+
+        return new JobRunSummary(processed, failed, cancelled);
+    }
+
+    /// <summary>Lists the files directly under the incoming prefix (one level —
+    /// the producer drops each file at the root of the prefix, not in
+    /// sub-folders). The adapter's listing takes no prefix, so filter
+    /// client-side.</summary>
+    private async Task<IReadOnlyList<string>> ListIncomingAsync(CancellationToken ct)
+    {
+        var prefix = string.IsNullOrWhiteSpace(options.IncomingPrefix)
+            ? string.Empty
+            : options.IncomingPrefix.TrimEnd('/') + "/";
+
+        var result = new List<string>();
+        foreach (var file in await files.ListAsync())
+        {
+            ct.ThrowIfCancellationRequested();
+            var name = file.FileName;
+            if (!name.StartsWith(prefix, StringComparison.Ordinal))
+                continue;
+            var relative = name[prefix.Length..];
+            if (relative.Length == 0 || relative.Contains('/'))
+                continue; // a sub-folder delivery is not this sweep's shape
+            result.Add(name);
+        }
+
+        result.Sort(StringComparer.Ordinal);
+        return result;
+    }
+
+    /// <summary>How a single swept file ended up. Distinct from the pipeline's
+    /// <c>StepResult</c>: this is the sweep's consumption outcome (after
+    /// archive), not the extraction's processing result.</summary>
+    private enum FileOutcome
+    {
+        /// <summary>Streamed, published, and the input archived.</summary>
+        Processed,
+        /// <summary>Streamed but zero valid records — no event, input archived.</summary>
+        Cancelled,
+        /// <summary>Left under the incoming prefix for the next run.</summary>
+        Failed
+    }
+
+    private async Task<FileOutcome> ProcessFileAsync(string fileName, CancellationToken ct)
+    {
+        var entityType = EntityTypeFor(fileName);
+        if (entityType is null)
+        {
+            await RouteIncidentAsync(fileName, "unknown-entity", ct);
+            return FileOutcome.Failed;
+        }
+
+        var extractor = extractors.FirstOrDefault(e => e.EntityType == entityType);
+        if (extractor is null)
+        {
+            _logger.LogWarning("No streamed extractor registered for entity type {EntityType} ({FileName})",
+                entityType, fileName);
+            await RouteIncidentAsync(fileName, entityType, ct);
+            return FileOutcome.Failed;
+        }
+
+        var outputName = OutputNameFor(fileName);
+        var context = new {{ .contract }}Context();
+        var streamed = new StreamedContext();
+        var source = new StreamSource(
+            EntityType: entityType,
+            OpenInputAsync: token => files.OpenReadStreamAsync(fileName, token),
+            OpenOutputAsync: token => files.OpenWriteStreamAsync(outputName, "application/x-ndjson", token));
+
+        StepResult<StreamSource> result;
+        try
+        {
+            (result, _) = await extractor.Execute(source, streamed, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw; // cooperative cancellation is not a per-file failure
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning(e, "Streaming {FileName} threw; leaving it for the next scheduled run", fileName);
+            await RouteIncidentAsync(fileName, entityType, ct);
+            return FileOutcome.Failed;
+        }
+
+        switch (result)
+        {
+            case StepResult<StreamSource>.Success:
+                break; // publish below
+            case StepResult<StreamSource>.Cancelled:
+            case StepResult<StreamSource>.Aborted:
+                _logger.LogInformation("{FileName} was cancelled/aborted; leaving it for the next scheduled run", fileName);
+                return FileOutcome.Failed;
+            default:
+                _logger.LogWarning("Streaming {FileName} failed ({ResultType}); leaving it for the next scheduled run",
+                    fileName, result.GetType().Name);
+                await RouteIncidentAsync(fileName, entityType, ct);
+                return FileOutcome.Failed;
+        }
+
+        // Zero valid records => the writer never opened the output, so there is
+        // no file to reference. Archive the input without publishing rather
+        // than pointing a consumer at a non-existent (or empty) output.
+        if (streamed.ValidCount == 0)
+        {
+            _logger.LogInformation("{FileName}: no valid records; archiving without an event", fileName);
+            return await ArchiveAsync(fileName, FileOutcome.Cancelled, ct);
+        }
+
+        context.Current = streamed;
+        var cloudEvent = ReferencePublishStep.BuildEvent(
+            fileName, entityType, outputName, streamed,
+            options.LocationName ?? Constants.SourcePort);
+
+        TechnicalStepResult<CloudEvent> sendResult;
+        try
+        {
+            (sendResult, _) = await sender.ExecuteAsync(cloudEvent, context, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning(e, "Publishing the reference for {FileName} threw; leaving it for the next scheduled run", fileName);
+            return FileOutcome.Failed;
+        }
+
+        if (sendResult is not TechnicalStepResult<CloudEvent>.Success)
+        {
+            _logger.LogWarning("Publishing the reference for {FileName} failed; leaving it for the next scheduled run", fileName);
+            return FileOutcome.Failed;
+        }
+
+        _logger.LogInformation("Published reference {Subject} for {FileName} ({Valid} valid, {Invalid} rejected) to {Topic}",
+            cloudEvent.Subject, fileName, streamed.ValidCount, streamed.InvalidItems.Count, Constants.TopicName);
+
+        return await ArchiveAsync(fileName, FileOutcome.Processed, ct);
+    }
+
+    /// <summary>Moves the consumed input to the processed prefix after a
+    /// successful publish (or a zero-valid skip). The archive is what makes a
+    /// processed file invisible to the next run's sweep — the sweep's
+    /// idempotency convention. A move failure leaves the file under incoming;
+    /// the next run re-processes it and consumers deduplicate on the stable
+    /// event id (the source file name).</summary>
+    private async Task<FileOutcome> ArchiveAsync(string fileName, FileOutcome onArchived, CancellationToken ct)
+    {
+        try
+        {
+            var destination = options.ProcessedPrefix.TrimEnd('/') + "/" + Path.GetFileName(fileName);
+            await files.MoveAsync(fileName, destination, ct);
+            return onArchived;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning(e, "Could not archive {FileName}; the next run re-processes it", fileName);
+            return FileOutcome.Failed;
+        }
+    }
+
+    /// <summary>Routes a business incident for a file the sweep cannot process
+    /// (unknown/unregistered entity, streamed failure). Best-effort: a routing
+    /// failure is logged, never thrown — the file already counts as failed.</summary>
+    private async Task RouteIncidentAsync(string fileName, string entityType, CancellationToken ct)
+    {
+        try
+        {
+            var router = new ExternalBusinessIncidentRouter<CloudEvent, {{ .contract }}Context>(
+                incidents,
+                frameworkOptions,
+                messageIdExtractor: _ => fileName,
+                subjectExtractor: _ => fileName,
+                defaultValueFactory: () => new CloudEvent { Id = fileName, Subject = fileName });
+            var failure = new StepResult<CloudEvent>.BusinessFailure(new BusinessIncidentData
+            {
+                Description = $"Could not process {fileName} (entity '{entityType}').",
+                Context = new Dictionary<string, string>
+                {
+                    ["fileName"] = fileName,
+                    ["entityType"] = entityType,
+                },
+            });
+            await router.ExecuteAsync(failure, new {{ .contract }}Context(), ct);
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning(e, "Failed to route a business incident for {FileName}", fileName);
+        }
+    }
+
+    /// <summary>The entity type of a swept file. The sample maps every file to
+    /// the single registered entity; replace with the producer's real
+    /// file→entity mapping (by name, by prefix, by extension).</summary>
+    private static string? EntityTypeFor(string fileName) =>
+{{- if .empty }}
+        // Decision: how is a swept file's entity type identified? By file name?
+        // By prefix? By extension? One streamed extractor is registered per
+        // entity type; return null to route the file as an incident.
+        throw new NotImplementedException();
+{{- else }}
+        Constants.SampleEntityType;
+{{- end }}
+
+    /// <summary>Output is JSON Lines, so the produced file carries a .jsonl
+    /// extension. The base name is preserved — the published reference event
+    /// names this file and downstream consumers pick it up by it.</summary>
+    private string OutputNameFor(string fileName) =>
+        options.OutputPrefix.TrimEnd('/') + "/" +
+        Path.ChangeExtension(Path.GetFileName(fileName), ".jsonl");
+}

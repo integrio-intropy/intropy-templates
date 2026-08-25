@@ -1,0 +1,90 @@
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The full sweep (list → per-file streamed extraction → publish reference →
+/// archive) over the incoming prefix, with <c>FakeTopic</c> at the publish
+/// edge and an in-memory source adapter. The sweep is resolved exactly as
+/// production composition registers it — only the four externals are faked —
+/// and assertions read fake state directly. These tests pin the consumption
+/// contract: a delivered file streams, publishes one claim-check reference,
+/// and is archived; an empty prefix is a quiet clean run; a failure leaves
+/// the file in place.
+{{- if .empty }}
+/// The scaffold's steps throw by design, so the streaming tests below fail
+/// from the start and flip green as the steps are implemented — the failing
+/// tests are the to-do list. The empty-prefix test never reaches a throwing
+/// step and passes immediately.
+{{- end }}
+/// </summary>
+public class SweepRunTests
+{
+    private const string RecordsJson =
+        """{"Data":[{"sku":"SKU-1","name":"Widget","price":9.99}]}""";
+
+    private (Sweep Sweep, FakeEdges Edges) CreateSut()
+    {
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices().BuildServiceProvider();
+        return (edges.BuildSweep(provider), edges);
+    }
+
+    [Fact]
+    public async Task Sweep_WithDeliveredFile_PublishesReferenceAndArchivesInput()
+    {
+        // Arrange
+        var (sweep, edges) = CreateSut();
+        edges.Files.AddFile("incoming/products.json", RecordsJson);
+
+        // Act
+        var summary = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert: one file processed, one claim-check reference published.
+        Assert.Equal(1, summary.Processed);
+        Assert.Equal(0, summary.Failed);
+        var published = Assert.Single(edges.Topic.Events);
+        Assert.Equal("incoming/products.json", published.Subject);
+        // The streamed output is written and the input archived, not deleted.
+        Assert.Contains(edges.Files.Files.Keys,
+            name => name.StartsWith("output", StringComparison.Ordinal) && name.EndsWith(".jsonl", StringComparison.Ordinal));
+        Assert.Contains(edges.Files.Files.Keys,
+            name => name.StartsWith("processed", StringComparison.Ordinal));
+        Assert.DoesNotContain(edges.Files.Files.Keys,
+            name => name.StartsWith("incoming", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Sweep_WithEmptyPrefix_CompletesQuietlyWithoutPublishing()
+    {
+        // Arrange
+        var (sweep, edges) = CreateSut();
+
+        // Act
+        var summary = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert: nothing swept is a clean run.
+        Assert.Equal(0, summary.Processed);
+        Assert.Equal(0, summary.Failed);
+        Assert.Empty(edges.Topic.Events);
+    }
+
+    [Fact]
+    public async Task Sweep_WhenPublishFails_LeavesFileInPlace()
+    {
+        // Arrange: a dead broker surfaces as a send failure.
+        var (sweep, edges) = CreateSut();
+        edges.Files.AddFile("incoming/products.json", RecordsJson);
+        edges.Topic.SendException = new InvalidOperationException("Broker unreachable");
+
+        // Act
+        var summary = await sweep.SweepAsync(CancellationToken.None);
+
+        // Assert: the file stays under incoming/ for the next scheduled run.
+        Assert.Equal(0, summary.Processed);
+        Assert.Equal(1, summary.Failed);
+        Assert.Empty(edges.Topic.Events);
+        Assert.Contains(edges.Files.Files.Keys,
+            name => name.StartsWith("incoming", StringComparison.Ordinal));
+    }
+}

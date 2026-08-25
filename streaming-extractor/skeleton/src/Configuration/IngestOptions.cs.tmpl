@@ -1,33 +1,30 @@
 namespace {{ .name }}.Configuration;
 
 /// <summary>
-/// Batch layout on the source: where deliveries arrive, where processed
-/// output is written, where consumed inputs are archived, and which file
-/// marks a batch as complete and ready to process. Bound from the
-/// <c>Ingest</c> configuration section; every value is a prefix or name the
-/// source adapter resolves behind the component's source port.
+/// File layout on the source: where deliveries arrive, where streamed output
+/// is written, and where consumed inputs are archived. Bound from the
+/// <c>Ingest</c> configuration section; every value is a prefix the source
+/// adapter resolves behind the component's source port.
 /// </summary>
 public record IngestOptions
 {
     public const string SectionName = "Ingest";
 
     /// <summary>Name of the location behind the source port, carried on the
-    /// published summary event so downstream consumers can address the output
-    /// (e.g. the blob container in deployment). Defaults to the source port
-    /// name when unset.</summary>
+    /// published reference event so downstream consumers can address the
+    /// output (e.g. the blob container in deployment). Defaults to the source
+    /// port name when unset.</summary>
     public string? LocationName { get; init; }
 
-    /// <summary>Prefix the producer delivers batches under (e.g. "incoming").</summary>
+    /// <summary>Prefix the producer delivers files under (e.g. "incoming").
+    /// The sweep lists the files directly under this prefix.</summary>
     public required string IncomingPrefix { get; init; }
 
-    /// <summary>Prefix streamed entity output is written under (e.g. "output").</summary>
+    /// <summary>Prefix streamed output is written under (e.g. "output").</summary>
     public required string OutputPrefix { get; init; }
 
-    /// <summary>Prefix consumed inputs are archived under after a successful run
-    /// (e.g. "processed").</summary>
+    /// <summary>Prefix consumed inputs are archived under after a successful
+    /// publish (e.g. "processed"). The archive is what makes a processed file
+    /// invisible to the next run's sweep.</summary>
     public required string ProcessedPrefix { get; init; }
-
-    /// <summary>Name of the marker file whose presence claims a batch is
-    /// complete (e.g. "Ready.json"). Batches without it are left for the next run.</summary>
-    public required string ReadyMarkerName { get; init; }
 }
