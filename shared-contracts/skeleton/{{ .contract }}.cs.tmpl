@@ -3,25 +3,22 @@ namespace {{ .name }};
 {{- if .empty }}
 
 public record {{ .contract }}();
-{{- else if eq .mode "batch" }}
+{{- else if eq .mode "product" }}
 
-// The canonical batch-summary contract: the batch extractor publishes exactly
-// this shape (one event per processed batch) and the consuming component
-// deserializes it. Change it here, and every component that references this
-// project picks the change up on rebuild.
+// The canonical claim-check reference contract: the streaming extractor
+// publishes exactly this shape (one event per processed file) and the
+// consuming component deserializes it, then resolves the reference by
+// streaming the named file from the same storage behind the source port.
+// Product-flavored sample — the producer delivers large product/export files
+// too large to ride the broker. Change it here, and every component that
+// references this project picks the change up on rebuild.
 public record {{ .contract }}(
-    string BatchId,
     string Location,
-    IReadOnlyList<{{ .contract }}.{{ .contract }}File> Files)
-{
-    /// <summary>One file's outcome in the batch summary. Only entities that
-    /// produced output appear — a zero-record entity has no file to reference.</summary>
-    public record {{ .contract }}File(
-        string EntityType,
-        string FileName,
-        long RecordCount,
-        long RejectCount);
-}
+    string FileName,
+    string SourceFileName,
+    string EntityType,
+    long RecordCount,
+    long RejectCount);
 {{- else }}
 
 // The canonical order contract: the extractor publishes exactly this shape

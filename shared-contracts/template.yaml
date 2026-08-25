@@ -15,7 +15,7 @@ metadata:
 spec:
   files:
     - path: OrderLine.cs.tmpl
-      when: '{{ ne .mode "batch" }}'
+      when: '{{ ne .mode "product" }}'
   parameters:
     type: object
     required:
@@ -34,13 +34,16 @@ spec:
         default: Order
       mode:
         type: string
-        title: Contract shape
+        title: Domain example
         description: >-
-          sweep (default): the canonical record is a per-message payload (an
-          order). batch: the canonical record is a batch summary (batch id +
-          per-file record/reject counts) with a nested per-file record.
-        enum: [sweep, batch]
-        default: sweep
+          Which sample shape the canonical record renders with. order
+          (default): a per-message order payload (order id, customer, date,
+          lines). product: a claim-check reference for large product/export
+          files (output location, file, entity, record/reject counts) — the
+          streaming extractor publishes it for files too large to ride the
+          broker. Both are placeholder samples the real contract replaces.
+        enum: [order, product]
+        default: order
       empty:
         type: boolean
         title: Empty bodies
