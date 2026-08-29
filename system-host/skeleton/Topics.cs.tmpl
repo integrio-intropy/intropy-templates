@@ -13,9 +13,19 @@ public static class Topics
 {{- fail (printf "topics %q and %q both derive the Topics.cs field %s — rename one topic in the components' scaffold records" (index $seen $field) $t.name $field) }}
 {{- end }}
 {{- $_ := set $seen $field $t.name }}
+{{- /* Qualify the contract type with its namespace when the CLI supplies
+   one (adopted components whose contract sits in a sub-namespace of the
+   contracts project). Empty contractNamespace renders the root-namespace
+   form, unchanged for freshly scaffolded systems. Per-topic qualification
+   — not a using directive — because one Topics class can hold contracts
+   from several namespaces. */ -}}
+{{- $contract := $t.contract -}}
+{{- if and (hasKey $t "contractNamespace") $t.contractNamespace -}}
+{{- $contract = printf "%s.%s" $t.contractNamespace $t.contract -}}
+{{- end }}
 {{- if $i }}
 {{ end }}
     /// <summary>{{ $t.contract }} messages on topic '{{ $t.name }}' (pubsub '{{ $t.pubsub }}').</summary>
-    public static readonly TopicRef<{{ $t.contract }}> {{ $field }} = TopicRef<{{ $t.contract }}>.Define("{{ $t.pubsub }}", "{{ $t.name }}");
+    public static readonly TopicRef<{{ $contract }}> {{ $field }} = TopicRef<{{ $contract }}>.Define("{{ $t.pubsub }}", "{{ $t.name }}");
 {{- end }}
 }
