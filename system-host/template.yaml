@@ -1,4 +1,4 @@
-apiVersion: intropy.dev/v1
+apiVersion: intropy.io/v1
 kind: Template
 metadata:
   name: system-host
@@ -10,7 +10,7 @@ metadata:
     - system
   labels:
     intropy.io/template-level: example
-    intropy.dev/template-role: system-host
+    intropy.io/template-role: system-host
 
 spec:
   # `intropy sys create` renders this template with the facts-only value

@@ -41,7 +41,7 @@ provides every Dapr component (storage bindings, pub/sub, platform services —
 including the Intropy Idempotency Service and Business Incident Service the
 send pipeline wires in, in non-empty mode).
 
-The template declares `intropy.dev/block-kind: transactional-integration`, so
+The template declares `intropy.io/block-kind: transactional-integration`, so
 `intropy sys create` assembles it into the system host as a
 port-to-port block with no system topic. The scaffold record
 (`.intropy/scaffold.json`) carries the derived wiring values the host needs:

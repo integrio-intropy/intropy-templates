@@ -1,4 +1,4 @@
-apiVersion: intropy.dev/v1
+apiVersion: intropy.io/v1
 kind: Template
 metadata:
   name: shared-contracts
@@ -10,7 +10,7 @@ metadata:
     - shared
   labels:
     intropy.io/template-level: example
-    intropy.dev/template-role: shared-library
+    intropy.io/template-role: shared-library
 
 spec:
   parameters:

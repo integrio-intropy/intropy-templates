@@ -1,4 +1,4 @@
-apiVersion: intropy.dev/v1
+apiVersion: intropy.io/v1
 kind: Template
 metadata:
   name: loader
@@ -11,8 +11,8 @@ metadata:
     - loader
   labels:
     intropy.io/template-level: example
-    intropy.dev/block-kind: loader
-    intropy.dev/data-flow: "out"
+    intropy.io/block-kind: loader
+    intropy.io/data-flow: "out"
 
 spec:
   parameters:

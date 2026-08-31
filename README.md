@@ -39,7 +39,7 @@ older template may adopt it yet.
 
 ```
 <template>/
-  template.yaml          required: the intropy.dev/v1 manifest
+  template.yaml          required: the intropy.io/v1 manifest
   skeleton/              required: rendered into the user's --output
     <files…>             `.tmpl` files are templated; everything else is copied
   README.md              optional: author-facing notes

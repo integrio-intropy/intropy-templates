@@ -1,4 +1,4 @@
-apiVersion: intropy.dev/v1
+apiVersion: intropy.io/v1
 kind: Template
 metadata:
   name: extractor
@@ -11,8 +11,8 @@ metadata:
     - extractor
   labels:
     intropy.io/template-level: example
-    intropy.dev/block-kind: extractor
-    intropy.dev/data-flow: "in"
+    intropy.io/block-kind: extractor
+    intropy.io/data-flow: "in"
 
 spec:
   parameters:

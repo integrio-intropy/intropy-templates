@@ -1,4 +1,4 @@
-apiVersion: intropy.dev/v1
+apiVersion: intropy.io/v1
 kind: Template
 metadata:
   name: transactional
@@ -11,8 +11,8 @@ metadata:
     - transactional
   labels:
     intropy.io/template-level: example
-    intropy.dev/block-kind: transactional-integration
-    intropy.dev/data-flow: "both"
+    intropy.io/block-kind: transactional-integration
+    intropy.io/data-flow: "both"
 
 spec:
   parameters:
