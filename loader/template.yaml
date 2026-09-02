@@ -20,8 +20,12 @@ spec:
     required:
       - name
       - organization
-      - topic
-      - contract
+    # The wiring comes from one of two sources: a message registry
+    # reference (subscription), which the CLI expands into topic, pubsub
+    # and a contract suggestion, or the topic and contract typed by hand.
+    anyOf:
+      - required: [subscription]
+      - required: [topic, contract]
     properties:
       name:
         type: string
@@ -33,15 +37,20 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      subscription:
+        type: string
+        title: Message subscription
+        description: Message to subscribe to, as a message id or xid from the Intropy message registry (int message list). When set, the CLI resolves the topic, pubsub component and a contract suggestion from the registry; leave empty to wire topic and contract by hand.
+        x-intropy-message-ref: true
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value.
+        description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value. Filled from the registry when subscription is set.
         pattern: "^[a-z][a-z0-9-]*$"
       contract:
         type: string
         title: Contract type
-        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
+        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order. Suggested from the message's schema when subscription is set.
         pattern: "^[A-Z][A-Za-z0-9]*$"
       idempotencyAppId:
         type: string
