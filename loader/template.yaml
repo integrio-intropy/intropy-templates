@@ -23,6 +23,10 @@ spec:
     # The wiring comes from one of two sources: a message registry
     # reference (subscription), which the CLI expands into topic, pubsub
     # and a contract suggestion, or the topic and contract typed by hand.
+    # The registry path is the primary one: topic and contract are marked
+    # derived so prompts and forms leave them to the expansion, and the
+    # manual path is an explicit opt-out (--set on the CLI, a toggle in
+    # the dashboard) rather than an equal choice.
     anyOf:
       - required: [subscription]
       - required: [topic, contract]
@@ -45,13 +49,15 @@ spec:
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value. Filled from the registry when subscription is set.
+        description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value. Filled from the registry when subscription is set; only set it by hand when subscribing to a topic the registry does not declare.
         pattern: "^[a-z][a-z0-9-]*$"
+        x-intropy-derived: true
       contract:
         type: string
         title: Contract type
         description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order. Suggested from the message's schema when subscription is set.
         pattern: "^[A-Z][A-Za-z0-9]*$"
+        x-intropy-derived: true
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
