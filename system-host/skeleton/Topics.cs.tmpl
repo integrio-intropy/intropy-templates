@@ -8,6 +8,9 @@ using {{ .sharedContracts.name }};
 public static class Topics
 {
 {{- range $i, $t := .topics }}
+{{- if not $t.contract }}
+{{- fail (printf "topic %q (pubsub %q) carries no contract — the component record that subscribes to it or publishes on it declares no 'contract' value\nset 'contract' in that component's .intropy/scaffold.json values and re-run 'intropy sys update'" $t.name $t.pubsub) }}
+{{- end }}
 {{- $field := regexReplaceAll "[-._]" $t.name " " | title | replace " " "" }}
 {{- if hasKey $seen $field }}
 {{- fail (printf "topics %q and %q both derive the Topics.cs field %s — rename one topic in the components' scaffold records" (index $seen $field) $t.name $field) }}
