@@ -1,0 +1,18 @@
+# Render fixture: the wiring `--subscribe io.intropy.maxbo.product.export`
+# produces — the resolved subscribe block plus the message parameter the flag
+# seeds. The block carries its own channel snapshot, so this loader subscribes
+# externally: assembly needs no producer in the workspace. The block is
+# written by the CLI, never derived by the template; this fixture stands in
+# for it so the render is reproducible offline.
+#   intropy int create loader -o /tmp/loader-message -f loader/examples/message.yaml --version main --no-input
+name: Loader.Perfion
+organization: Maxbo
+contract: ExportEvent
+empty: true
+message: io.intropy.maxbo.product.export
+subscribe:
+  message: io.intropy.maxbo.product.export
+  pubsub: product-distribution-pubsub
+  topic: sbt-test-product-extractor-001
+  dataschema: /schemagroups/io.intropy.maxbo.product/schemas/io.intropy.maxbo.product.export
+  dataschemaurl: https://registry.intropy.io/schemagroups/io.intropy.maxbo.product/schemas/io.intropy.maxbo.product.export/versions/2

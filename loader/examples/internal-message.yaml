@@ -1,0 +1,13 @@
+# Render fixture: an internal subscription — a message with no channel
+# snapshot behind it. This is the record shape that assembles: `intropy sys
+# create` resolves the channel from the workspace component that publishes the
+# same message (the system pubsub on a topic named after it), and the render
+# follows the same convention.
+#   intropy int create loader -o /tmp/loader-internal -f loader/examples/internal-message.yaml --version main --no-input
+name: OrderLoader
+organization: Fluxia
+contract: Order
+empty: false
+message: order-created
+subscribe:
+  message: order-created

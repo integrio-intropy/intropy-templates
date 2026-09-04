@@ -96,6 +96,25 @@ Notes:
   `intropy sys create` later assembles into the system declaration. Templates
   that are a system block must declare both. Everything else under `labels`
   is free-form.
+- **A third label turns the message flags on.**
+  `intropy.io/message-params` is a comma list of the parameter names that
+  carry message wiring. Without it `int create --subscribe` / `--publishes`
+  against the template is a usage error; with it the flag resolves a registry
+  message, seeds every listed parameter with the message id, and writes a
+  `subscribe` or `publishes` block into the values (one message parameter
+  maximum under the flags — one create wires one message). The block kind
+  decides the direction: an extractor publishes, a loader subscribes, a
+  transactional integration wires no messages and must declare no message
+  parameters.
+- **`subscribe` and `publishes` are the CLI's to write, never a template's.**
+  They arrive in the values map as blocks additive to the declared
+  parameters, so a skeleton renders from them without declaring them
+  (`{{ if and (hasKey . "publishes") (hasKey .publishes "topic") }}…` —
+  every field of a block is optional, and `missingkey=error` makes an
+  unguarded `.publishes.topic` a hard error). A template must never derive
+  either key in `spec.values`: there is one writer of a block, and it is the
+  CLI (the flag, or a hand edit to the record). Derive a differently named
+  value from a block instead — `topicName`, `messageId` — and render that.
 - **`spec.dependencies` composes whole templates at the output level.** Each
   entry names a sibling template in this repo, an `output` (a Go template
   that must render to a single path segment — the dependency is created as a

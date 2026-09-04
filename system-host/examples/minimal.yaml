@@ -11,6 +11,13 @@ topics:
   - pubsub: pubsub
     name: orders
     contract: Order
+# The internal messagegroup: one message, declared by the extractor and
+# consumed by the loader. `type` equals `name` for an internal message.
+messages:
+  - name: order-created
+    type: order-created
+    contract: Order
+    publisher: order-extractor
 ports:
   - name: erp-destination
   - name: erp-source
@@ -23,12 +30,18 @@ components:
       pubsub: pubsub
       name: orders
     port: order-extractor-source
+    # The message view of the same wiring: the direction is the kind. The
+    # skeleton renders the transport from `topic` and the messagegroup from
+    # the `messages` list above; the key is carried here for consumers that
+    # join the two views.
+    message: order-created
   - appId: order-loader
     kind: loader
     topic:
       pubsub: pubsub
       name: orders
     port: order-loader-destination
+    message: order-created
   # A transactional integration: port-to-port, no topic. Its wiring
   # fields follow its shape — fromPort/toPort instead of topic.
   - appId: erp-sync

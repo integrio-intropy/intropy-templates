@@ -2,7 +2,7 @@
 
 .NET extractor integration. One run = one sweep: the runner lists the
 inbound folder, runs each swept JSON order through the Intropy extractor
-pipeline, publishes the result as a CloudEvent to the `{{ .topic }}` topic on
+pipeline, publishes the result as a CloudEvent to the `{{ .topicName }}` topic on
 the Dapr pub/sub, deletes the source file, and exits. Scheduling lives
 outside the block — activation cadence is deployment configuration (a
 Kubernetes CronJob in production); locally the system host runs the block
@@ -23,7 +23,7 @@ read ──▶ deserialize ──▶ validate ──▶ transform
 idempotency check
    │
    ▼
-publish CloudEvent to '{{ .topic }}'
+publish CloudEvent to '{{ .topicName }}'
    │
    ▼
 delete source file ──▶ next file
@@ -32,11 +32,23 @@ delete source file ──▶ next file
 exit 0
 ```
 
+{{ if .messageId -}}
+This extractor publishes the message `{{ .messageId }}`, wired at scaffold
+time. The message id is the CloudEvent `type` in `src/Constants.cs` and the
+name a consuming loader subscribes by; the `eventType` parameter cannot
+override it — an event whose type disagrees with the message definition is
+not the message the consumer resolved.{{ if .schemaUrl }} The payload schema
+pinned with it is `{{ .schemaUrl }}`: a record of which schema version the
+wiring agreed on, not a codegen input — the contract types in
+`../{{ .contracts }}` are hand-written.{{ end }} `EventSource` comes from the
+`eventSource` parameter; unset, it derives as `urn:<organization>:<app-id>`.
+{{- else -}}
 `EventSource`/`EventType` in `src/Constants.cs` come from the scaffold
 parameters `eventSource`/`eventType`; unset, they derive as
 `urn:<organization>:<app-id>` and `<organization-lower>.<first-topic-segment>.<last-topic-segment>`.
 Set them when migrating an existing component so consumers keep seeing the
-same envelope. Settings live in `src/appsettings.json`, overridable by
+same envelope.
+{{- end }} Settings live in `src/appsettings.json`, overridable by
 `appsettings.{Environment}.json` and environment variables; deployment
 overlays the file via ConfigMap and `IConfiguration` is in DI.
 
@@ -175,7 +187,7 @@ failure — via `src/ExtractJob.cs`):
 //         ┌─────────────────────────────┐
 //         │ 6. Dapr topic publisher     │
 //         └─────────────────────────────┘
-//                        sends source/type envelope to pubsub / {{ .topic }}
+//                        sends source/type envelope to {{ .pubsub }} / {{ .topicName }}
 //
 // Technical failures from any step leave the source file in place for retry.
 ```
@@ -187,7 +199,7 @@ failure — via `src/ExtractJob.cs`):
 4. `Transformer` maps `Source{{ .contract }}` → the shared `{{ .contract }}` contract.
 5. `CloudEventSerializeStep` (framework) wraps `{{ .contract }}` in a CloudEvent
    (Subject and Time are mandatory).
-6. The Dapr topic publisher sends it to `pubsub` / `{{ .topic }}`.
+6. The Dapr topic publisher sends it to `{{ .pubsub }}` / `{{ .topicName }}`.
 
 Every step body throws `NotImplementedException` — this project was scaffolded
 with empty bodies for a migration agent to fill in. The idempotency and
@@ -213,7 +225,7 @@ implemented — the failing tests are the to-do list.
    `Subject` = order id and `Time` = order date, validating both at serialize
    time.
 6. The Dapr topic publisher sets the envelope source/type and sends it to
-   `pubsub` / `{{ .topic }}`.
+   `{{ .pubsub }}` / `{{ .topicName }}`.
 
 On success (or an idempotent duplicate) the source file is deleted; a failed
 file stays in the inbound folder and is retried on the next scheduled run,

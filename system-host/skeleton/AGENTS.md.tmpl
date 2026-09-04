@@ -25,6 +25,14 @@ declaration — an Aspire run backend and a generation backend.
 - `Topics.cs` — the system's topics as typed refs (`TopicRef<T>`), declared as
   static fields. Same regenerate-then-yours lifecycle. `Apis.cs` appears
   the same way once components declare APIs.
+- `Messages.cs` — the system's internal messages by name (`MessageDefinition`),
+  as the components declare them. Same regenerate-then-yours lifecycle.
+  Disjoint from `Topics.cs`, which declares the transport those messages
+  travel on: an externally published message has a topic and no entry here,
+  because the registry owns its definition. `task graph` emits the list as the
+  record's `messagegroups` section.
+- `MessageGraph.cs` — the `graph` verb's wrapper: it folds `Messages` into the
+  record the generation backend prints, which models topics only. Do not edit.
 - `Ports.cs` — the system's ports as refs (`PortRef`), declared as
   static fields. Same regenerate-then-yours lifecycle. The name is each
   port's whole identity: the Dapr binding component uses the same name, and

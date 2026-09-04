@@ -1,0 +1,30 @@
+{{- $messages := list -}}
+{{- if hasKey . "messages" -}}
+{{- $messages = .messages -}}
+{{- end -}}
+/// <summary>One message a component of this system declares by name. Name doubles as the CloudEvents type; Contract is the .NET contract type its payload carries, Dataschema the registry schema a resolved wiring pinned, and Publisher the component that declares it.</summary>
+public sealed record MessageDefinition(
+    string Name,
+    string Type,
+    string? Contract = null,
+    string? Dataschema = null,
+    string? Publisher = null);
+
+/// <summary>
+/// The system's internal messages: what its components publish by name, as
+/// <c>intropy sys create</c> assembled it from their scaffold records. Disjoint
+/// from <c>Topics</c>, which declares the transport those messages travel on:
+/// an externally published message has a topic here and no entry below,
+/// because the registry — not this system — owns its definition.
+/// The <c>graph</c> verb emits the list as the record's messagegroups section.
+/// </summary>
+public static class Messages
+{
+    /// <summary>Every internal message of the system, ordered by name.</summary>
+    public static readonly IReadOnlyList<MessageDefinition> All =
+    [
+{{- range $i, $m := $messages }}
+        new("{{ $m.name }}", "{{ $m.type }}"{{ if hasKey $m "contract" }}, Contract: "{{ $m.contract }}"{{ end }}{{ if hasKey $m "dataschema" }}, Dataschema: "{{ $m.dataschema }}"{{ end }}{{ if hasKey $m "publisher" }}, Publisher: "{{ $m.publisher }}"{{ end }}){{ if lt (add1 $i) (len $messages) }},{{ end }}
+{{- end }}
+    ];
+}

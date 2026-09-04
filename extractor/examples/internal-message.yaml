@@ -1,0 +1,14 @@
+# Render fixture: an internal publication — a message declared with no
+# registry channel behind it. This is the record shape that assembles: the
+# block carries the message and no channel snapshot, so `intropy sys create`
+# resolves the publication to the system pubsub on a topic named after the
+# message, and the render follows the same convention.
+#   intropy int create extractor -o /tmp/extractor-internal -f extractor/examples/internal-message.yaml --version main --no-input
+name: OrderExtractor
+organization: Fluxia
+contract: Order
+empty: false
+message: order-created
+publishes:
+  message: order-created
+  contract: Order

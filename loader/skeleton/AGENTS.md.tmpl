@@ -13,16 +13,25 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
   production)
 - App port: assigned by the system host in development; 8080 in the
   container image
-- Subscription endpoint: `POST /events/{{ .topic }}`
+- Subscription endpoint: `POST /events/{{ .topicName }}`
   (`src/Endpoints/LoaderEndpoints.cs`), announced to the sidecar via
   `GET /dapr/subscribe`; the ack is the response body's `status` field
   (SUCCESS / RETRY)
 - Health endpoint: `GET /healthz`
 - App id: `{{ .appId }}`
-- Pub/sub component: `pubsub` — provided by the system host; messages are
+- Pub/sub component: `{{ .pubsub }}` — provided by the system host; messages are
   published from there
-- Topic: `{{ .topic }}` — the loader's half of the system contract; the
+- Topic: `{{ .topicName }}` — the loader's half of the system contract; the
   publishing extractor uses the same topic
+{{- if .messageId }}
+- Message: `{{ .messageId }}` — what this loader consumes, by name. It is the
+  CloudEvent type delivered on the topic above
+{{- if .schemaUrl }}
+- Payload schema: `{{ .schemaUrl }}` — the schema version pinned when the
+  message was resolved. A pin, not a codegen input: the contract types in
+  `../{{ .contracts }}` are hand-written
+{{- end }}
+{{- end }}
 - Destination port: `{{ .port }}` — the named interface the loader
   writes the outside world through; the system host declares it in
   `Ports.cs` and the Dapr binding uses the same name, resolved to a local

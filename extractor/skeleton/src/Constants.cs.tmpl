@@ -5,8 +5,8 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "pubsub";
-    public const string TopicName = "{{ .topic }}";
+    public const string PubSubName = "{{ .pubsub }}";
+    public const string TopicName = "{{ .topicName }}";
 
     // The source port: the named interface this component reads the outside
     // world through. The name is the port's whole identity — declared in the
@@ -26,7 +26,10 @@ public static class Constants
 {{- else }}
     public const string EventSource = "{{ .eventSourceValue }}";
 {{- end }}
-{{- if .eventType }}
+{{- if .messageId }}
+    // The wired message is the authoritative CloudEvents type.
+    public const string EventType = "{{ .messageId }}";
+{{- else if .eventType }}
     public const string EventType = "{{ .eventType }}";
 {{- else }}
     public const string EventType = "{{ .eventTypeValue }}";

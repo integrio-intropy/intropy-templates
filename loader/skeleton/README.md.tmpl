@@ -1,15 +1,24 @@
 # {{ .name }}
 
-.NET loader integration. An ASP.NET service subscribes to the `{{ .topic }}`
+.NET loader integration. An ASP.NET service subscribes to the `{{ .topicName }}`
 topic of the Dapr pub/sub: the sidecar POSTs each delivered message to the
 subscription endpoint, which runs it through the Intropy loader pipeline and
 writes the result as `{orderId}.json` through the destination binding. The
 loader is a long-running service (a Deployment in production).
+{{- if .messageId }}
+
+The message it consumes is `{{ .messageId }}`, wired at scaffold time: that
+name is the CloudEvent type delivered on the topic, and the name the
+publishing component declares.{{ if .schemaUrl }} The payload schema pinned
+with it is `{{ .schemaUrl }}`: a record of which schema version the wiring
+agreed on, not a codegen input — the contract types in `../{{ .contracts }}`
+are hand-written.{{ end }}
+{{- end }}
 
 ## How a message flows
 
 ```
-sidecar POSTs CloudEvent from '{{ .topic }}'
+sidecar POSTs CloudEvent from '{{ .topicName }}'
    │
    ▼
 deserialize ──▶ validate ──▶ transform

@@ -26,10 +26,19 @@ production); locally the system host runs the block once at startup.
   development. In production the same name resolves to the environment's
   binding (e.g. SFTP) from the deploy overlay's GitOps values — rebinding
   the port is a deployment change, never a code change
-- Pub/sub component: `pubsub`
-- Topic: `{{ .topic }}` — the extractor's half of the system contract; the
+- Pub/sub component: `{{ .pubsub }}`
+- Topic: `{{ .topicName }}` — the extractor's half of the system contract; the
   consuming loader subscribes to the same topic
-- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ if .eventType }}{{ .eventType }}{{ else }}{{ .eventTypeValue }}{{ end }}`
+{{- if .messageId }}
+- Message: `{{ .messageId }}` — what this extractor publishes, by name. It is
+  the CloudEvent type, and the name a consuming loader subscribes by
+{{- if .schemaUrl }}
+- Payload schema: `{{ .schemaUrl }}` — the schema version pinned when the
+  message was resolved. A pin, not a codegen input: the contract types in
+  `../{{ .contracts }}` are hand-written
+{{- end }}
+{{- end }}
+- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ if .messageId }}{{ .messageId }}{{ else if .eventType }}{{ .eventType }}{{ else }}{{ .eventTypeValue }}{{ end }}`
 - Idempotency Service: reached via Dapr service invocation, app id
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id

@@ -13,6 +13,9 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: extractor
     intropy.io/data-flow: "in"
+    # Names the parameter --publishes seeds with the message it resolves.
+    # Declaring it is what makes the flag usable against this template.
+    intropy.io/message-params: message
 
 spec:
   parameters:
@@ -20,7 +23,6 @@ spec:
     required:
       - name
       - organization
-      - topic
       - contract
     properties:
       name:
@@ -33,11 +35,18 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      message:
+        type: string
+        title: Message
+        description: Id of the message the extractor publishes, seeded by `--publishes` from the registry. It is the CloudEvent type, and — with no topic — the topic name `intropy sys create` assembles the publication on.
+        pattern: "^([A-Za-z0-9]+([.-][A-Za-z0-9]+)*)?$"
+        default: ""
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the extractor publishes to. The extractor's half of the system contract — scaffold the consuming loader with the same value.
-        pattern: "^[a-z][a-z0-9-]*$"
+        description: The pub/sub topic the extractor publishes to. Leave it unset when a message is wired; set it to publish on a topic named independently of the message.
+        pattern: "^([a-z][a-z0-9-]*)?$"
+        default: ""
       contract:
         type: string
         title: Contract type
@@ -61,7 +70,7 @@ spec:
       eventType:
         type: string
         title: CloudEvent type
-        description: Envelope `type` for published events. The default derives as <organization-lower>.<first-topic-segment>.<last-topic-segment>; set it to preserve an existing event identity during a migration.
+        description: Envelope `type` for published events. The default derives as <organization-lower>.<first-topic-segment>.<last-topic-segment>; set it to preserve an existing event identity during a migration. A wired message is the registry's own type and outranks this.
         default: ""
       empty:
         type: boolean
@@ -81,18 +90,44 @@ spec:
     # The pub/sub component name the skeleton publishes through
     # (Constants.cs). Recorded in .intropy/scaffold.json for
     # `intropy sys create`, together with the contract parameter above.
-    pubsub: 'pubsub'
+    # A registry-resolved publication brings its own component name in the
+    # publishes block; `pubsub` is the system-independent default every
+    # internal publication uses.
+    pubsub: '{{ if and (hasKey . "publishes") (hasKey .publishes "pubsub") }}{{ .publishes.pubsub }}{{ else }}pubsub{{ end }}'
+    # The topic the extractor publishes on, resolved once so Constants.cs and
+    # the docs can never disagree. A publishes block decides alone — its
+    # topic, or, for an internal publication that carries none, the
+    # message-name convention `intropy sys create` assembles the channel
+    # with; the block never merges with the topic parameter, matching how the
+    # CLI reads a record. Without a block: the topic parameter, then the
+    # message parameter under the same convention. Neither is a scaffold with
+    # no channel at all, which fails here rather than rendering an empty
+    # topic name.
+    topicName: '{{ if hasKey . "publishes" }}{{ if hasKey .publishes "topic" }}{{ .publishes.topic }}{{ else if hasKey .publishes "message" }}{{ .publishes.message }}{{ else }}{{ fail "the publishes block declares neither a topic nor a message" }}{{ end }}{{ else if .topic }}{{ .topic }}{{ else if .message }}{{ .message }}{{ else }}{{ fail "no channel to publish on: pass --publishes <message-ref>, or set message=<message-id>, or set topic=<topic>" }}{{ end }}'
+    # The message the extractor publishes, empty when none is wired. The
+    # block is the authority; the parameter carries the same value on the flag
+    # path (the flag seeds it) and stands alone when a message is set by hand.
+    messageId: '{{ if and (hasKey . "publishes") (hasKey .publishes "message") }}{{ .publishes.message }}{{ else if .message }}{{ .message }}{{ end }}'
+    # The schema pin a registry-resolved publication carries: the immutable
+    # URL of the message's default schema version at resolve time. Rendered
+    # into the docs, never used to generate types — that is an external
+    # tool's job. Named apart from the block's own dataschema/dataschemaurl
+    # keys, which stay the CLI's to write.
+    schemaUrl: '{{ if and (hasKey . "publishes") (hasKey .publishes "dataschemaurl") }}{{ .publishes.dataschemaurl }}{{ end }}'
     # The extractor's source port — the named interface it reads the outside
     # world through. Derived like appId so it stays unique per component.
     # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to
     # a local file transport by default (external system and transport are
     # never asked for at scaffold time).
     port: '{{ .name | kebabcase | replace "." "-" }}-source'
-    # CloudEvent identity: overridable to preserve an existing identity during a
-    # migration; otherwise derived (type: <org>.<first>.<last> of the kebab topic,
-    # e.g. product-export -> maxbo.product.export).
+    # CloudEvent identity: a wired message is the type; failing that the
+    # eventType/eventSource parameters preserve an existing identity during a
+    # migration; failing those the type derives from the topic
+    # (<org>.<first>.<last> of the kebab topic, e.g. product-export ->
+    # maxbo.product.export). Empty when there is no topic to derive from — the
+    # message branch owns that case.
     eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
-    eventTypeValue: '{{ printf "%s.%s.%s" (.organization | lower) (index (regexSplit "-" .topic -1) 0) (index (regexSplit "-" .topic -1) (sub (len (regexSplit "-" .topic -1)) 1)) }}'
+    eventTypeValue: '{{ if .topic }}{{ printf "%s.%s.%s" (.organization | lower) (index (regexSplit "-" .topic -1) 0) (index (regexSplit "-" .topic -1) (sub (len (regexSplit "-" .topic -1)) 1)) }}{{ end }}'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'

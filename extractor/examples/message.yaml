@@ -1,0 +1,17 @@
+# Render fixture: the wiring `--publishes io.intropy.maxbo.product.export`
+# produces — the resolved publish block plus the message parameter the flag
+# seeds. The block is written by the CLI, never derived by the template; this
+# fixture stands in for it so the render is reproducible offline.
+#   intropy int create extractor -o /tmp/extractor-message -f extractor/examples/message.yaml --version main --no-input
+name: Extractor.Perfion
+organization: Maxbo
+contract: ExportEvent
+empty: true
+message: io.intropy.maxbo.product.export
+publishes:
+  message: io.intropy.maxbo.product.export
+  contract: ExportEvent
+  pubsub: product-distribution-pubsub
+  topic: sbt-test-product-extractor-001
+  dataschema: /schemagroups/io.intropy.maxbo.product/schemas/io.intropy.maxbo.product.export
+  dataschemaurl: https://registry.intropy.io/schemagroups/io.intropy.maxbo.product/schemas/io.intropy.maxbo.product.export/versions/2

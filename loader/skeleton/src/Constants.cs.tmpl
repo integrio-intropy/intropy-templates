@@ -5,8 +5,8 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "pubsub";
-    public const string TopicName = "{{ .topic }}";
+    public const string PubSubName = "{{ .pubsub }}";
+    public const string TopicName = "{{ .topicName }}";
 
     // The destination port: the named interface this component writes the
     // outside world through. The name is the port's whole identity —
@@ -22,7 +22,7 @@ public static class Constants
     public const string DestinationFileAdapterKey = "destination";
 
     // The route the sidecar delivers to; announced via GET /dapr/subscribe.
-    public const string SubscriptionRoute = "/events/{{ .topic }}";
+    public const string SubscriptionRoute = "/events/{{ .topicName }}";
 
     // Context keys the loader pipeline's idempotency step reads CloudEvent
     // Subject (id) and Time (date) from. The values mirror the framework's

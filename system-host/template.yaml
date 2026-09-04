@@ -44,6 +44,17 @@ spec:
         items:
           type: object
           additionalProperties: true
+      # The internal messagegroup: what the components declare by name,
+      # disjoint from the transport list above (an externally published
+      # message keeps its topic entry and has no message entry — the
+      # registry serves its definition). Optional, unlike the payload
+      # parameters around it: a CLI older than message wiring sends the
+      # others and not this one, and must still render.
+      messages:
+        type: array
+        items:
+          type: object
+          additionalProperties: true
       ports:
         type: array
         items:

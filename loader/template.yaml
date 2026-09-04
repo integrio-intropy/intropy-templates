@@ -13,6 +13,9 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: loader
     intropy.io/data-flow: "out"
+    # Names the parameter --subscribe seeds with the message it resolves.
+    # Declaring it is what makes the flag usable against this template.
+    intropy.io/message-params: message
 
 spec:
   parameters:
@@ -20,7 +23,6 @@ spec:
     required:
       - name
       - organization
-      - topic
       - contract
     properties:
       name:
@@ -33,11 +35,18 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      message:
+        type: string
+        title: Message
+        description: Id of the message the loader consumes, seeded by `--subscribe` from the registry. With no topic it is also the topic name `intropy sys create` resolves the subscription to.
+        pattern: "^([A-Za-z0-9]+([.-][A-Za-z0-9]+)*)?$"
+        default: ""
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value.
-        pattern: "^[a-z][a-z0-9-]*$"
+        description: The pub/sub topic the loader subscribes to. Leave it unset when a message is wired; set it to subscribe to a topic named independently of the message.
+        pattern: "^([a-z][a-z0-9-]*)?$"
+        default: ""
       contract:
         type: string
         title: Contract type
@@ -71,7 +80,30 @@ spec:
     # The pub/sub component name the skeleton subscribes through
     # (Constants.cs). Recorded in .intropy/scaffold.json for
     # `intropy sys create`, together with the contract parameter above.
-    pubsub: 'pubsub'
+    # An external subscription brings its own component name in the subscribe
+    # block; `pubsub` is the system-independent default every internal
+    # subscription uses.
+    pubsub: '{{ if and (hasKey . "subscribe") (hasKey .subscribe "pubsub") }}{{ .subscribe.pubsub }}{{ else }}pubsub{{ end }}'
+    # The topic the loader subscribes to, resolved once so Constants.cs (topic
+    # name and subscription route) and the docs can never disagree. A
+    # subscribe block decides alone — its topic, or, for an internal
+    # subscription that carries none, the message-name convention `intropy
+    # sys create` resolves the channel to; the block never merges with the
+    # topic parameter, matching how the CLI reads a record. Without a block:
+    # the topic parameter, then the message parameter under the same
+    # convention. Neither is a scaffold with no channel at all, which fails
+    # here rather than rendering an empty topic name.
+    topicName: '{{ if hasKey . "subscribe" }}{{ if hasKey .subscribe "topic" }}{{ .subscribe.topic }}{{ else if hasKey .subscribe "message" }}{{ .subscribe.message }}{{ else }}{{ fail "the subscribe block declares neither a topic nor a message" }}{{ end }}{{ else if .topic }}{{ .topic }}{{ else if .message }}{{ .message }}{{ else }}{{ fail "no channel to subscribe to: pass --subscribe <message-ref>, or set message=<message-id>, or set topic=<topic>" }}{{ end }}'
+    # The message the loader consumes, empty when none is wired. The block is
+    # the authority; the parameter carries the same value on the flag path
+    # (the flag seeds it) and stands alone when a message is set by hand.
+    messageId: '{{ if and (hasKey . "subscribe") (hasKey .subscribe "message") }}{{ .subscribe.message }}{{ else if .message }}{{ .message }}{{ end }}'
+    # The schema pin an external subscription carries: the immutable URL of
+    # the message's default schema version at resolve time. Rendered into the
+    # docs, never used to generate types — that is an external tool's job.
+    # Named apart from the block's own dataschema/dataschemaurl keys, which
+    # stay the CLI's to write.
+    schemaUrl: '{{ if and (hasKey . "subscribe") (hasKey .subscribe "dataschemaurl") }}{{ .subscribe.dataschemaurl }}{{ end }}'
     # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`
