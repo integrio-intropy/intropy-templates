@@ -28,8 +28,10 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
   CloudEvent type delivered on the topic above
 {{- if .schemaUrl }}
 - Payload schema: `{{ .schemaUrl }}` — the schema version pinned when the
-  message was resolved. A pin, not a codegen input: the contract types in
-  `../{{ .contracts }}` are hand-written
+  message was resolved, and the input the contract type is generated from.
+  The schema document itself is committed under `../{{ .contracts }}/schemas/`;
+  run `pwsh ../{{ .contracts }}/generate-contracts.ps1` to (re)generate
+  `{{ .contract }}` from it
 {{- end }}
 {{- end }}
 - Destination port: `{{ .port }}` — the named interface the loader

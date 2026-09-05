@@ -34,3 +34,21 @@ spec:
         title: Empty bodies
         description: When true, strip the sample contract fields. The library still compiles (the contract record stays as an empty shell for pipeline generics) so a migration agent can fill in the real contract.
         default: false
+
+  # A contract generated from a registry schema replaces the hand-written one,
+  # so the sample record steps aside for exactly the contracts that have a
+  # schema. The test is per contract, not per project: a system carrying an
+  # external message and a hand-written internal one keeps the sample for the
+  # internal contract.
+  #
+  # `messages` is the CLI's reserved value, one entry per message whose schema
+  # this project holds. An older CLI injects nothing, hence the hasKey guard.
+  files:
+    - path: '{{ .contract }}.cs.tmpl'
+      when: '{{ $c := .contract }}{{ $generated := false }}{{ if hasKey . "messages" }}{{ range .messages }}{{ if eq .contract $c }}{{ $generated = true }}{{ end }}{{ end }}{{ end }}{{ not $generated }}'
+    - path: 'OrderLine.cs.tmpl'
+      when: '{{ $c := .contract }}{{ $generated := false }}{{ if hasKey . "messages" }}{{ range .messages }}{{ if eq .contract $c }}{{ $generated = true }}{{ end }}{{ end }}{{ end }}{{ not $generated }}'
+    - path: 'ContractOptions.cs.tmpl'
+      when: '{{ if hasKey . "messages" }}{{ if .messages }}true{{ end }}{{ end }}'
+    - path: 'generate-contracts.ps1.tmpl'
+      when: '{{ if hasKey . "messages" }}{{ if .messages }}true{{ end }}{{ end }}'

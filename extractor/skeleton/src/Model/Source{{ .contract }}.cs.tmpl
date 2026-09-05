@@ -1,4 +1,4 @@
-{{- if .empty -}}
+{{- if or .empty .generatedContract -}}
 namespace {{ .name }}.Model;
 
 public record Source{{ .contract }}();

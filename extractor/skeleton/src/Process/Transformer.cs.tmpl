@@ -11,7 +11,7 @@ public class Transformer : TransformStep<Source{{ .contract }}, {{ .contract }},
     public override Task<(TechnicalStepResult<{{ .contract }}> Result, Context Context)> ExecuteAsync(
         Source{{ .contract }} input, Context context, CancellationToken ct)
     {
-{{- if .empty }}
+{{- if or .empty .generatedContract }}
         throw new NotImplementedException();
 {{- else }}
         // {{ .contract }} is the canonical contract from the shared contracts

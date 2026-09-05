@@ -154,7 +154,7 @@ public static class Composition
             // make the check pass everything.
             .WithIdempotency(
                 idExtractor: (Source{{ .contract }} order, Context _) =>
-{{- if .empty }}
+{{- if or .empty .generatedContract }}
                     throw new NotImplementedException(),
                 dateExtractor: (_, _) =>
                     throw new NotImplementedException())
@@ -168,7 +168,7 @@ public static class Composition
             // Subject, Time, Data) and validates Subject/Time at serialize time;
             // the publisher adds Source/Type from the registration above.
             .WithSerializer(new CloudEventSerializeStep<{{ .contract }}, Context>(
-{{- if .empty }}
+{{- if or .empty .generatedContract }}
                 subject: _ => throw new NotImplementedException(),
                 time: _ => throw new NotImplementedException()))
 {{- else }}

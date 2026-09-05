@@ -45,3 +45,34 @@ component's `task build` / `dotnet build`.
 ## Framework guidance
 
 How-to knowledge for the Intropy framework (pipelines, blocks, endpoints, Dapr components, testing) lives in the Intropy skills collection under `.agents/skills/`. If it is not installed, run `intropy skills collection add --name intropy --ref harbor.intropy.io/skills/index:latest`.
+
+{{- if and (hasKey . "messages") .messages }}
+
+## Generated contracts
+
+These contract types are generated from the payload schemas the registry
+pins, not written by hand:
+
+{{ range .messages }}- `{{ .contract }}` from `{{ .schemaFile }}` (`{{ .message }}`)
+{{ end }}
+The schema documents are committed under `schemas/`, and `.intropy/messages.json`
+records which message each one belongs to. Regenerate after a scaffold, or
+after a pin moves:
+
+```bash
+pwsh ./generate-contracts.ps1
+dotnet build
+```
+
+**The project does not compile until you run it.** That is deliberate: an
+empty placeholder record would compile and then silently drop every payload
+at run time, which is far harder to notice than a build error.
+
+The generator and its type mapping live in `generate-contracts.ps1`, and
+`ContractOptions.cs` is the single seam the components and the framework use
+to reach its serialization settings. Both belong to the template library —
+change them there to change how types are produced.
+
+This preview generates one schema-backed contract per project; the script
+refuses a second and says why.
+{{- end }}

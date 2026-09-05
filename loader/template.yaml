@@ -109,6 +109,12 @@ spec:
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`
     # resolves it to a local file transport by default (external system and
     # transport are never asked for at scaffold time).
+    # True when the message this component wires carries a registry schema, so
+    # the contract type in the shared library is generated from that schema
+    # rather than hand-written. The sample step bodies read the sample
+    # contract's own fields, which a generated shape does not have, so they
+    # render the not-implemented form instead — the same one `empty` renders.
+    generatedContract: '{{ if and (hasKey . "subscribe") (hasKey .subscribe "dataschemaurl") }}true{{ end }}'
     port: '{{ .name | kebabcase | replace "." "-" }}-destination'
   dependencies:
     - template: shared-contracts

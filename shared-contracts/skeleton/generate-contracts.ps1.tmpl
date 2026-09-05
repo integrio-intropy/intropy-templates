@@ -1,0 +1,61 @@
+# Regenerates the contract types from the schema documents committed beside
+# this script.
+#
+# Run it after scaffolding a component that subscribes to or publishes a
+# message the registry describes. The schema is committed, so this needs the
+# registry only when the pin itself changes — never on a fresh clone.
+#
+#   pwsh ./generate-contracts.ps1
+#
+# Which generator runs, and what it maps a schema type onto, is decided here.
+# This file belongs to the template library: fork it to change the mapping.
+
+$ErrorActionPreference = 'Stop'
+
+$indexPath = Join-Path $PSScriptRoot '.intropy/messages.json'
+if (-not (Test-Path $indexPath)) {
+    Write-Host 'no .intropy/messages.json — no registry-described message, nothing to generate'
+    exit 0
+}
+
+$messages = @((Get-Content $indexPath -Raw | ConvertFrom-Json).messages)
+if ($messages.Count -eq 0) {
+    Write-Host 'no messages recorded — nothing to generate'
+    exit 0
+}
+
+# Preview limitation. The generator emits its own helper classes (Converter,
+# IsoDateTimeOffsetConverter, ...) into every file it writes, so two generated
+# contracts in one namespace collide as CS0101 at build time. Refusing here is
+# better than a build error nobody can act on: the fix is a namespace per
+# message, and it is not in this preview.
+if ($messages.Count -gt 1) {
+    $names = ($messages | ForEach-Object { $_.contract }) -join ', '
+    Write-Error @"
+this preview generates one schema-backed contract per contracts project, and
+$($messages.Count) are recorded: $names
+
+Generating them into the same namespace produces duplicate helper classes that
+do not compile. Until per-message namespaces land, keep one registry-described
+message per system, or generate the others by hand.
+"@
+    exit 1
+}
+
+foreach ($m in $messages) {
+    $schema = Join-Path $PSScriptRoot $m.schemaFile
+    $out = Join-Path $PSScriptRoot "$($m.contract).cs"
+    Write-Host "generating $($m.contract) from $($m.schemaFile)"
+
+    # --top-level names the root type exactly what the component references in
+    # its pipeline generics. The version is pinned so a scaffold's output does
+    # not depend on the day it was regenerated.
+    npx --yes quicktype@23 `
+        --src-lang schema --lang csharp --framework SystemTextJson `
+        --namespace '{{ .name }}' --top-level $m.contract `
+        -o $out $schema
+
+    if ($LASTEXITCODE -ne 0) { throw "quicktype failed for $($m.contract)" }
+}
+
+Write-Host 'done — run dotnet build to check the result'

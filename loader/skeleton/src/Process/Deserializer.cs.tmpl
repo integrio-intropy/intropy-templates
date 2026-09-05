@@ -15,6 +15,34 @@ public class Deserializer : DeserializeStep<{{ .contract }}, Context>
     {
 {{- if .empty }}
         throw new NotImplementedException();
+{{- else if .generatedContract }}
+        var json = cloudEvent.Data?.ToString();
+        if (string.IsNullOrEmpty(json))
+        {
+            var incident = new BusinessIncidentData
+            {
+                Description = "CloudEvent data is null or empty",
+                Context = new Dictionary<string, string>()
+            };
+            return Task.FromResult<(BusinessStepResult<{{ .contract }}>, Context)>(
+                (new BusinessStepResult<{{ .contract }}>.Failure(incident), context));
+        }
+
+        // The contract project's own options, not options built here: reading
+        // a schema's string enums back as the schema spells them - hyphens
+        // included - depends on the converters they carry.
+        var payload = JsonSerializer.Deserialize<{{ .contract }}>(json, ContractOptions.Options)!;
+
+        // Deliberately no business-identity stamping. The payload's shape comes
+        // from the registry schema, so this scaffold cannot know which property
+        // is the entity id or the occurrence time. The idempotency keys stay as
+        // the base step read them from the CloudEvent envelope: right for an
+        // event an extractor published, weaker for a hand-run `dapr publish`,
+        // whose envelope carries no Subject and a wall-clock Time. Stamp them
+        // here once you know which property is the business key.
+
+        return Task.FromResult<(BusinessStepResult<{{ .contract }}>, Context)>(
+            (new BusinessStepResult<{{ .contract }}>.Success(payload), context));
 {{- else }}
         var json = cloudEvent.Data?.ToString();
         if (string.IsNullOrEmpty(json))

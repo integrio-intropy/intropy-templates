@@ -1,0 +1,29 @@
+using System.Text.Json;
+
+namespace {{ .name }};
+
+/// <summary>
+/// How this project's contract types are read and written.
+/// </summary>
+/// <remarks>
+/// The generated types carry their serialization settings in a class this
+/// project cannot expose directly — the generator emits it as
+/// <c>internal</c>. This file is the seam: it lives in the same assembly, so
+/// it can see those settings, and it is the only thing a component or the
+/// framework depends on.
+///
+/// That indirection is the point. Swapping the generator changes this file
+/// and <c>generate-contracts.ps1</c>, and nothing else: a generator that
+/// emits attribute-only types with no settings object of its own would return
+/// plain options here and every caller would keep working.
+/// </remarks>
+public static class ContractOptions
+{
+    /// <summary>
+    /// The options every component uses to deserialize a message payload, and
+    /// the options the framework encodes one with when a component registers
+    /// them. Reading a schema's string enums back as the schema spells them —
+    /// hyphens included — depends on the converters these carry.
+    /// </summary>
+    public static JsonSerializerOptions Options => Converter.Settings;
+}

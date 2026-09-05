@@ -18,7 +18,11 @@ public class Sender(IFileAdapter fileAdapter) : SendStep<Out, Context>
 {{- else }}
         // Default System.Text.Json options — PascalCase property names, so the
         // destination file carries the C# record shape verbatim.
+{{- if .generatedContract }}
+        var json = JsonSerializer.Serialize(input, ContractOptions.Options);
+{{- else }}
         var json = JsonSerializer.Serialize(input);
+{{- end }}
         await fileAdapter.WriteAsync($"{input.OrderId}.json", json, Encoding.UTF8);
         return (new TechnicalStepResult<Out>.Success(input), context);
 {{- end }}

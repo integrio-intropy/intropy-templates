@@ -11,7 +11,7 @@ public class Validator : ValidateStep<{{ .contract }}, Context>
     public override Task<(BusinessStepResult<{{ .contract }}> Result, Context Context)> ExecuteAsync(
         {{ .contract }} input, Context context, CancellationToken ct)
     {
-{{- if .empty }}
+{{- if or .empty .generatedContract }}
         throw new NotImplementedException();
 {{- else }}
         var error = Validate(input);
@@ -33,7 +33,7 @@ public class Validator : ValidateStep<{{ .contract }}, Context>
             (new BusinessStepResult<{{ .contract }}>.Success(input), context));
 {{- end }}
     }
-{{- if not .empty }}
+{{- if and (not .empty) (not .generatedContract) }}
 
     private static string? Validate({{ .contract }} order)
     {
