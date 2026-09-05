@@ -14,16 +14,24 @@ directory leaves it untouched.
 ## Generated contracts
 
 These contract types are generated from the payload schemas the registry
-pins, not written by hand:
+pins, not written by hand. The schema documents are committed under
+`schemas/`, and `.intropy/messages.json` records which message each one
+belongs to.
 
-{{ range .messages }}- `{{ .contract }}` from `{{ .schemaFile }}` (`{{ .message }}`)
-{{ end }}
-The schema documents are committed under `schemas/`, and `.intropy/messages.json`
-records which message each one belongs to. Regenerate after a scaffold, or
-after a pin moves:
+Run these from this directory — the paths are relative to it.
+
+{{ range .messages }}`{{ .contract }}` carries `{{ .message }}`. Generate it with:
 
 ```bash
-pwsh ./generate-contracts.ps1
+npx --yes quicktype@23 --src-lang schema --lang csharp \
+  --framework SystemTextJson --namespace {{ $.name }} \
+  --top-level {{ .contract }} \
+  -o {{ .contract }}.cs {{ .schemaFile }}
+```
+
+{{ end }}Then:
+
+```bash
 dotnet build
 ```
 
@@ -31,13 +39,21 @@ dotnet build
 empty placeholder record would compile and then silently drop every payload
 at run time, which is far harder to notice than a build error.
 
-The generator and its type mapping live in `generate-contracts.ps1`, and
-`ContractOptions.cs` is the single seam the components and the framework use
-to reach its serialization settings. Both belong to the template library —
-change them there to change how types are produced.
+Re-run the same command after a pin moves. The generator reads the committed
+document, so it never contacts the registry.
 
-This preview generates one schema-backed contract per project; the script
-refuses a second and says why.
+The generator and its flags are the template library's choice, and
+`ContractOptions.cs` is the single seam components and the framework use to
+reach its serialization settings. Change both there to change how types are
+produced.
+{{- if gt (len .messages) 1 }}
+
+> **This preview supports one generated contract per project, and this one
+> has {{ len .messages }}.** The generator emits its own helper classes into
+> every file it writes, so a second contract in the same namespace collides
+> at build time (`CS0101`). Generate one and write the others by hand until
+> per-message namespaces land.
+{{- end }}
 {{- end }}
 
 ## Build

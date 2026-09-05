@@ -30,7 +30,7 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
 - Payload schema: `{{ .schemaUrl }}` — the schema version pinned when the
   message was resolved, and the input the contract type is generated from.
   The schema document itself is committed under `../{{ .contracts }}/schemas/`;
-  run `pwsh ../{{ .contracts }}/generate-contracts.ps1` to (re)generate
+  `../{{ .contracts }}/README.md` carries the command that generates
   `{{ .contract }}` from it
 {{- end }}
 {{- end }}

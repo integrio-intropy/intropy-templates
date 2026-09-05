@@ -12,8 +12,8 @@ name is the CloudEvent type delivered on the topic, and the name the
 publishing component declares.{{ if .schemaUrl }} The payload schema pinned
 with it is `{{ .schemaUrl }}`: a record of which schema version the wiring
 agreed on, and the input `{{ .contract }}` is generated from. The document is
-committed under `../{{ .contracts }}/schemas/`; regenerate the type with
-`pwsh ../{{ .contracts }}/generate-contracts.ps1`.{{ end }}
+committed under `../{{ .contracts }}/schemas/`; `../{{ .contracts }}/README.md` carries
+the command that generates the type.{{ end }}
 {{- end }}
 
 ## How a message flows

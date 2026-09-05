@@ -40,8 +40,8 @@ override it — an event whose type disagrees with the message definition is
 not the message the consumer resolved.{{ if .schemaUrl }} The payload schema
 pinned with it is `{{ .schemaUrl }}`: a record of which schema version the
 wiring agreed on, and the input `{{ .contract }}` is generated from. The
-document is committed under `../{{ .contracts }}/schemas/`; regenerate the
-type with `pwsh ../{{ .contracts }}/generate-contracts.ps1`.{{ end }} `EventSource` comes from the
+document is committed under `../{{ .contracts }}/schemas/`, and
+`../{{ .contracts }}/README.md` carries the command that generates it.{{ end }} `EventSource` comes from the
 `eventSource` parameter; unset, it derives as `urn:<organization>:<app-id>`.
 {{- else -}}
 `EventSource`/`EventType` in `src/Constants.cs` come from the scaffold

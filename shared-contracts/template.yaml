@@ -50,5 +50,3 @@ spec:
       when: '{{ $c := .contract }}{{ $generated := false }}{{ if hasKey . "messages" }}{{ range .messages }}{{ if eq .contract $c }}{{ $generated = true }}{{ end }}{{ end }}{{ end }}{{ not $generated }}'
     - path: 'ContractOptions.cs.tmpl'
       when: '{{ if hasKey . "messages" }}{{ if .messages }}true{{ end }}{{ end }}'
-    - path: 'generate-contracts.ps1.tmpl'
-      when: '{{ if hasKey . "messages" }}{{ if .messages }}true{{ end }}{{ end }}'
