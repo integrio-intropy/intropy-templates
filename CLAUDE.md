@@ -203,9 +203,9 @@ Every skeleton ships an `AGENTS.md.tmpl` at its root. `AGENTS.md` (per the
 [agents.md](https://agents.md/) standard, auto-loaded by most coding agents)
 is the scaffolded project's **manifest for agents**: the facts about *this*
 component that no skill can know. It is not a tutorial — generic framework
-how-to lives in the Intropy skills collection (`intropy skills collection add
---name intropy --ref harbor.intropy.io/skills/index:latest`), which
-`int create` offers to install into `.agents/skills/`.
+how-to lives in the Intropy documentation at <https://intropy.dev>, and CLI
+facts come from `intropy template show` and `--help` at the moment they are
+needed.
 
 Each skeleton also ships a one-line `CLAUDE.md` containing exactly
 `@AGENTS.md` — Claude Code doesn't auto-load AGENTS.md, so this import gives
@@ -230,8 +230,9 @@ Rules for authoring `AGENTS.md.tmpl`:
 - **Project-specific deviations are facts.** Deliberate departures from
   framework defaults (e.g. "idempotency omitted in this sample; add
   `.WithIdempotency(...)` in …") belong in a short Development notes section.
-- **One skills pointer.** End with a single "Framework guidance" line
-  pointing at the skills collection — no per-skill routing table.
+- **One guidance pointer.** End with a single "Framework guidance" line
+  pointing at the documentation and the CLI's own help — no per-topic
+  routing table.
 - **Section structure:** title + one-liner, Project overview, Important
   files, Build and test (Build and run for the system host only), optional
   Development notes / Testing, Framework guidance.
