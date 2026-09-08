@@ -30,11 +30,9 @@ override seam on `Composition.ConfigureServices` /
 `Receive.ServiceCollectionExtensions.AddReceivePipeline`, so the fake never
 re-wires the builder chain. No sidecar, no Testcontainers.
 
-Note on versions: the framework packages pin at `0.3.0-beta.4` while
-`Intropy.Framework.Testing` pins at `0.3.0-beta.5` — the first published build
-shipping `FakeEnqueueStep`. The integration test project suppresses NU1605 for
-that deliberate pairing (the transactional block types Testing builds on are
-identical across beta.4 and beta.5).
+Note on versions: every `Intropy.Framework.*` package — including
+`Intropy.Framework.Testing` — pins at `1.0.0-beta.1`, so the integration fakes
+and the framework types they build on always come from the same build.
 
 Components do not run standalone: the job runs via its system host, which
 provides every Dapr component (storage bindings, pub/sub, platform services —
