@@ -26,7 +26,7 @@ directory it lives in, so an organization prefix would overstate its reach.
 The first `intropy int create` into a system directory scaffolds it as a
 sibling; every later component render finds its `.intropy/scaffold.json` and
 skips it, so the library is created exactly once. The
-`intropy.dev/template-role: shared-library` label is recorded in the scaffold
+`intropy.io/template-role: shared-library` label is recorded in the scaffold
 record so system assembly knows this project is not a block.
 
 ## Parameters

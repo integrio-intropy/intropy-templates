@@ -1,0 +1,33 @@
+using {{ .name }}.Model;
+using {{ .name }}.Send;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Unit.Send;
+
+public class ExtractorTests
+{
+{{- if .empty }}
+    // Add tests as you implement the pipeline steps.
+{{- else }}
+    [Fact]
+    public async Task ExecuteAsync_WithOrder_ReturnsItUnchanged()
+    {
+        // Arrange
+        var extractor = new Extractor();
+        var order = new In(
+            OrderId: "ORD-1001",
+            CustomerId: "CUST-42",
+            OrderDate: DateTimeOffset.UtcNow.AddDays(-1),
+            Lines: [new Line("SKU-1", 2, 10.0m)]);
+
+        // Act
+        var (result, _) = await extractor.ExecuteAsync(
+            order, new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        // Assert
+        var success = Assert.IsType<BusinessStepResult<In>.Success>(result);
+        Assert.Equal(order, success.Value);
+    }
+{{- end }}
+}

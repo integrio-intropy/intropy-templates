@@ -1,4 +1,4 @@
-apiVersion: intropy.dev/v1
+apiVersion: intropy.io/v1
 kind: Template
 metadata:
   name: deploy-host
@@ -6,7 +6,7 @@ metadata:
   description: The Dapr components a system's blocks share, as one ArgoCD Application.
   tags: [deploy, gitops, kustomize, dapr]
   labels:
-    intropy.dev/template-kind: deploy
+    intropy.io/template-kind: deploy
 spec:
   parameters:
     type: object

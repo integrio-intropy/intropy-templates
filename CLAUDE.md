@@ -16,7 +16,7 @@ one manifest format, one source of truth per template.
 
 ```
 <template>/
-  template.yaml          # required: the intropy.dev/v1 manifest
+  template.yaml          # required: the intropy.io/v1 manifest
   skeleton/              # required: rendered into the user's --output
     <files…>             # `.tmpl` files are templated; everything else is copied
   README.md              # optional: author-facing — what this template produces
@@ -43,17 +43,17 @@ Rules:
 ## Manifest schema (`<template>/template.yaml`)
 
 ```yaml
-apiVersion: intropy.dev/v1
+apiVersion: intropy.io/v1
 kind: Template
 metadata:
   name: <kebab-case>           # convention: match the directory name
   title: <Title Case>
   description: <one sentence>
   tags: [example, go, http]
-  labels:                      # two intropy.dev/* keys are load-bearing (see below)
+  labels:                      # two intropy.io/* keys are load-bearing (see below)
     intropy.io/template-level: example
-    intropy.dev/block-kind: extractor   # extractor | loader | aggregator | transactional-integration
-    intropy.dev/data-flow: "in"         # in | out | both | internal
+    intropy.io/block-kind: extractor   # extractor | loader | aggregator | transactional-integration
+    intropy.io/data-flow: "in"         # in | out | both | internal
 spec:
   parameters:                  # raw JSON Schema; type must be "object"
     type: object
@@ -89,9 +89,9 @@ Notes:
   composite values needed in multiple skeleton files (e.g. a module path).
   Output is always a string. Don't chain entries — map iteration order
   is non-deterministic.
-- **Two labels are load-bearing.** The CLI reads `intropy.dev/block-kind`
+- **Two labels are load-bearing.** The CLI reads `intropy.io/block-kind`
   (`extractor` | `loader` | `aggregator` | `transactional-integration`) and
-  `intropy.dev/data-flow` (`in` | `out` | `both` | `internal`) at render time
+  `intropy.io/data-flow` (`in` | `out` | `both` | `internal`) at render time
   and records them in the scaffolded project's `.intropy/scaffold.json`, which
   `intropy sys create` later assembles into the system declaration. Templates
   that are a system block must declare both. Everything else under `labels`
@@ -112,8 +112,8 @@ Notes:
   - A dependency render never prompts — the `values` map plus the dependency
     template's own defaults must cover all its required parameters.
   - Shared-support templates (like `shared-contracts`) declare
-    `intropy.dev/template-role: shared-library` and **no**
-    `intropy.dev/block-kind` / `data-flow` labels; the role is recorded in
+    `intropy.io/template-role: shared-library` and **no**
+    `intropy.io/block-kind` / `data-flow` labels; the role is recorded in
     scaffold.json so system assembly can tell them apart from blocks.
   - A skeleton may reference its declared dependencies (e.g. a
     `ProjectReference` to `../../<dep>/…`) — the mechanism guarantees the
@@ -203,9 +203,9 @@ Every skeleton ships an `AGENTS.md.tmpl` at its root. `AGENTS.md` (per the
 [agents.md](https://agents.md/) standard, auto-loaded by most coding agents)
 is the scaffolded project's **manifest for agents**: the facts about *this*
 component that no skill can know. It is not a tutorial — generic framework
-how-to lives in the Intropy skills collection (`intropy skills collection add
---name intropy --ref harbor.intropy.io/skills/index:latest`), which
-`int create` offers to install into `.agents/skills/`.
+how-to lives in the Intropy documentation at <https://docs.intropy.io>, and CLI
+facts come from `intropy template show` and `--help` at the moment they are
+needed.
 
 Each skeleton also ships a one-line `CLAUDE.md` containing exactly
 `@AGENTS.md` — Claude Code doesn't auto-load AGENTS.md, so this import gives
@@ -230,8 +230,9 @@ Rules for authoring `AGENTS.md.tmpl`:
 - **Project-specific deviations are facts.** Deliberate departures from
   framework defaults (e.g. "idempotency omitted in this sample; add
   `.WithIdempotency(...)` in …") belong in a short Development notes section.
-- **One skills pointer.** End with a single "Framework guidance" line
-  pointing at the skills collection — no per-skill routing table.
+- **One guidance pointer.** End with a single "Framework guidance" line
+  pointing at the documentation and the CLI's own help — no per-topic
+  routing table.
 - **Section structure:** title + one-liner, Project overview, Important
   files, Build and test (Build and run for the system host only), optional
   Development notes / Testing, Framework guidance.

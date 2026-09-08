@@ -1,8 +1,13 @@
-{{- if not .empty -}}
 namespace {{ .name }};
+
+{{- if .empty }}
+
+// The line item record embedded in {{ .contract }}. Add it when the contract
+// takes its real shape; its Lines property references this record.
+{{- else }}
 
 public record OrderLine(
     string Sku,
     int Quantity,
     decimal UnitPrice);
-{{ end -}}
+{{- end }}
