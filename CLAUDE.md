@@ -203,7 +203,7 @@ Every skeleton ships an `AGENTS.md.tmpl` at its root. `AGENTS.md` (per the
 [agents.md](https://agents.md/) standard, auto-loaded by most coding agents)
 is the scaffolded project's **manifest for agents**: the facts about *this*
 component that no skill can know. It is not a tutorial — generic framework
-how-to lives in the Intropy documentation at <https://intropy.dev>, and CLI
+how-to lives in the Intropy documentation at <https://docs.intropy.io>, and CLI
 facts come from `intropy template show` and `--help` at the moment they are
 needed.
 
