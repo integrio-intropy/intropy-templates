@@ -128,7 +128,7 @@ public class Sweep(
             [Constants.ContextKeyFileName] = fileName
         });
 
-        var (result, _) = await pipeline.Execute(content, context, ct);
+        var (result, _) = await pipeline.Execute(content, context, false, ct);
 
         switch (result)
         {

@@ -67,7 +67,7 @@ public class PublishIntegrationTests
         var json = """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
         // Act
-        var (result, _) = await pipeline.Execute(json, context, CancellationToken.None);
+        var (result, _) = await pipeline.Execute(json, context, false, CancellationToken.None);
 
         // Assert: with unimplemented steps the input is incident-routed, so
         // the pipeline result is a Success with nothing published — this passes
@@ -129,7 +129,7 @@ public class PublishIntegrationTests
         var json = """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
         // Act
-        var (result, _) = await pipeline.Execute(json, context, CancellationToken.None);
+        var (result, _) = await pipeline.Execute(json, context, false, CancellationToken.None);
 
         // Assert
         Assert.True(result is Intropy.Framework.Core.Pipeline.Abstractions.Results.StepResult<CloudNative.CloudEvents.CloudEvent>.Success,
