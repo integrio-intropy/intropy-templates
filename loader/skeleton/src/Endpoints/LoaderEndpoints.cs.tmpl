@@ -51,7 +51,7 @@ public static class LoaderEndpoints
             // incident is not auto-resolved by a later successful redelivery.
             var context = new Context(new Dictionary<string, string>(), IsRetry: false);
 
-            var (result, finalContext) = await pipeline.Execute(ToCloudEvent(envelope.RootElement), context, ct);
+            var (result, finalContext) = await pipeline.Execute(ToCloudEvent(envelope.RootElement), context, false, ct);
             var subject = finalContext.Metadata.GetValueOrDefault(
                 Constants.ContextKeyCloudEventSubject,
                 envelope.RootElement.GetProperty("id").GetString() ?? "");
