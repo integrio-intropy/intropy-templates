@@ -1,27 +1,15 @@
-{{- /* The system's messages, one MessageRef<T> each. The primary input is
-the payload's `messages` section (internal publications only — the CLI
-excludes registry-resolved, external ones, whose definition the registry
-serves). The payload's message entries carry identity and contract but no
-channel (C4 shape: {name, type, contract?, dataschema?, publisher?}), so
-the channel resolves here by join: the `topics` entries named after the
-message. That join is exact for every shape assembly produces — an internal
-publication's topic defaults to the message name, and a legacy flat record's
-message name is the topic name — so convergence holds:
+{{- /* The system's messages, one MessageRef<T> each, rendered from the
+payload's `messages` section — the message-first view of the workspace
+(internal publications only; the CLI excludes registry-resolved, external
+ones, whose definition the registry serves). The payload's message entries
+carry identity and contract but no channel (C4 shape: {name, type,
+contract?, dataschema?, publisher?}), so the channel resolves here by join:
+the `topics` entries named after the message. That join is exact: assembly
+gives an internal publication the message-named topic on the system pubsub.
 
-  - messages non-empty               → declare from messages
-  - messages absent/empty, topics set → legacy fallback: one message per
-                                       topic (message name = topic name —
-                                       the only identity the flat
-                                       vocabulary had). The pinned topology
-                                       has no TopicRef, so this is not the
-                                       old Topics.cs — it is the same
-                                       message-first declaration the old
-                                       records' message view implies.
-  - both empty                       → no file at all (transactional-only
-                                       systems stay topic-free).
-
-Legacy fallback note: a topics-only payload whose topic carries no contract
-gets a loud failure, not a declaration — this template cannot invent a type.
+No fallback exists: an older payload that carries topics but no messages
+breaks loudly with a re-scaffold instruction — old workspaces migrate by
+re-scaffolding, not by this template guessing a message view from topics.
 */ -}}
 using Intropy.Topology;
 {{- if hasKey . "sharedContracts" }}
@@ -42,7 +30,6 @@ public static class Messages
 {{- $_ := set $pubsubOf $t.name $t.pubsub }}
 {{- end }}
 {{- end }}
-{{- if and (hasKey . "messages") (gt (len .messages) 0) }}
 {{- range $i, $m := .messages }}
 {{- $field := regexReplaceAll "[-._]" $m.name " " | title | replace " " "" }}
 {{- if hasKey $seen $field }}
@@ -66,21 +53,5 @@ public static class Messages
 {{ end }}
     /// <summary>{{ $m.contract }} messages (pubsub '{{ $pubsub }}'); the topic name defaults to the message name.</summary>
     public static readonly MessageRef<{{ $m.contract }}> {{ $field }} = MessageRef<{{ $m.contract }}>.Define("{{ $m.name }}", "{{ $pubsub }}");
-{{- end }}
-{{- else }}
-{{- range $i, $t := .topics }}
-{{- $field := regexReplaceAll "[-._]" $t.name " " | title | replace " " "" }}
-{{- if hasKey $seen $field }}
-{{- fail (printf "topics %q and %q both derive the Messages.cs field %s — rename one topic in the components' scaffold records" (index $seen $field) $t.name $field) }}
-{{- end }}
-{{- $_ := set $seen $field $t.name }}
-{{- if not (hasKey $t "contract") }}
-{{- fail (printf "topic %q carries no contract in the system payload — re-scaffold its integration with a template release that records the contract type, or add \"contract\": \"<TypeName>\" to the record's values" $t.name) }}
-{{- end }}
-{{- if $i }}
-{{ end }}
-    /// <summary>{{ $t.contract }} messages (pubsub '{{ $t.pubsub }}'); the topic name defaults to the message name.</summary>
-    public static readonly MessageRef<{{ $t.contract }}> {{ $field }} = MessageRef<{{ $t.contract }}>.Define("{{ $t.name }}", "{{ $t.pubsub }}");
-{{- end }}
 {{- end }}
 }

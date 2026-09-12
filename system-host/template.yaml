@@ -38,21 +38,19 @@ spec:
       # The payload below. Each component carries the raw message/port
       # names it touches; the skeleton joins them to the fields Messages.cs
       # and Ports.cs declare. Empty lists render a valid empty system,
-      # so no minItems.
+      # so no minItems. `topics` is the transport list the message's channel
+      # resolves from — the pubsub for the message named after the topic —
+      # kept for the join, never for message declarations.
       topics:
         type: array
         items:
           type: object
           additionalProperties: true
-      # The message-first section, primary input for the declaration:
-      # one entry per internal message (internal publications only —
-      # registry-resolved, external ones are served by the registry and
-      # excluded by the CLI's assembly). Entries carry
-      # {name, type, contract?, dataschema?, publisher?}; the channel is
-      # looked up from `topics` by name. Legacy payloads from CLIs predating
-      # the key omit it — the skeleton then synthesizes the declarations
-      # from `topics` (message name = topic name back then), the fallback
-      # render that keeps old workspaces assembling.
+      # The message-first section, the primary input for the declaration:
+      # one entry per internal message (registry-resolved, external ones are
+      # served by the registry and excluded by the CLI's assembly). Entries
+      # carry {name, type, contract?, dataschema?, publisher?}; the channel
+      # is looked up from `topics` by name.
       messages:
         type: array
         items:
@@ -77,26 +75,24 @@ spec:
         additionalProperties: true
   files:
     # A message-free system has no contract types to declare; Ports.cs
-    # stays (ports exist without messages). The declaration renders from
-    # `messages`; a legacy topics-only payload falls back to synthesizing
-    # each message from its topic (message name = topic name, the only
-    # identity the flat vocabulary had).
+    # stays (ports exist without messages). A payload carrying topics but
+    # no messages is an old CLI's shape: the components' wiring fails the
+    # render with a re-scaffold instruction rather than render from topics.
     - path: Messages.cs.tmpl
-      when: '{{ or (and (hasKey . "messages") (gt (len .messages) 0)) (gt (len .topics) 0) }}'
+      when: '{{ and (hasKey . "messages") (gt (len .messages) 0) }}'
   dependencies:
     # The system's contract types. Skipped when the workspace already has a
     # shared-library scaffold (the CLI passes it as sharedContracts) or when
     # there is nothing to type. The dependency machinery reuses the sibling
     # rather than overwriting it when several components declared it.
     - template: shared-contracts
-      when: '{{ and (not (hasKey . "sharedContracts")) (or (and (hasKey . "messages") (gt (len .messages) 0)) (gt (len .topics) 0)) }}'
+      when: '{{ and (not (hasKey . "sharedContracts")) (hasKey . "messages") (gt (len .messages) 0) }}'
       output: Contracts
       values:
         name: Contracts
-        # First contract in the payload: messages first (the message-first
-        # view), topics as the legacy fallback. One contract type per
+        # First contract in the message view — one contract type per
         # scaffolded contracts project.
-        contract: '{{ $c := "" }}{{ if hasKey . "messages" }}{{ range .messages }}{{ if and (eq $c "") (hasKey . "contract") .contract }}{{ $c = .contract }}{{ end }}{{ end }}{{ end }}{{ if eq $c "" }}{{ range .topics }}{{ if and (eq $c "") (hasKey . "contract") .contract }}{{ $c = .contract }}{{ end }}{{ end }}{{ end }}{{ $c }}'
+        contract: '{{ $c := "" }}{{ range .messages }}{{ if and (eq $c "") (hasKey . "contract") .contract }}{{ $c = .contract }}{{ end }}{{ end }}{{ $c }}'
   values:
     # Must match the CLI's pascalCase(name): the CLI's payload assembly
     # derives the same project name for its result summary, and a

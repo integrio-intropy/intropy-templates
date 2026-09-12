@@ -111,11 +111,14 @@ Notes:
   `subscribe`/`publishes` blocks (`int create --subscribe`/`--publishes`
   resolve a registry message and snapshot its channel); a template must
   **never** derive `subscribe`/`publishes` keys in `spec.values` or any
-  skeleton. Legacy tolerance: workspaces scaffolded before this migration
-  carry flat topic/contract records and topics-only payloads — component
-  skeletons keep `topic`/`contract` parameters, and the system-host falls
-  back to synthesizing each message from its topic (message name = topic
-  name) when the payload's `messages` section is absent.
+  skeleton. The hand-typed path (topic/contract parameters, no registry)
+  is a first-class authoring surface, not a compatibility mode: it records
+  flat values the assembly reads as a message named after the topic. What
+  is explicitly gone is any tolerance for pre-message-first payloads: a
+  topics-only payload, or a component without a message, fails the host
+  render with a re-scaffold instruction — old workspaces migrate by
+  re-scaffolding, and no template may guess a message view from topic
+  names.
 - **Never derive CloudEvent identity from a channel name.** No template may
   ship an `eventTypeValue`-style derivation (e.g. `<org>.<first>.<last>` of
   the topic) — the deleted extractor/loader `eventTypeValue` values were the

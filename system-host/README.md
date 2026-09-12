@@ -21,7 +21,7 @@ unit.
 
 | Files | Rendered from |
 |---|---|
-| `Messages.cs` | `messages` — one `MessageRef<T>` field per internal message, channel resolved from `topics` by name (the topic name defaults to the message name). A legacy topics-only payload falls back to one message per topic (message name = topic name, the only identity the flat vocabulary had) |
+| `Messages.cs` | `messages` — one `MessageRef<T>` field per internal message, channel resolved from `topics` by name (the topic name defaults to the message name) |
 | `Ports.cs` | `ports` — one `PortRef` per port (the name is the whole identity; the deployed binding type is environment-owned deployment configuration) |
 | `<Project>Development.cs` | `ports` — one `development.Files(...).RootPath("./test/<name>")` resolution per port, plus OpenAPI-backed mocks for both platform services (the skeleton's `Services.cs` + `mocks/` exist regardless of payload) |
 | `<Project>System.cs` | `components` — one `builder.Add<Kind>(...)` chain per component, wired `.Publishes(...)`/`.Subscribes(...)` through `Messages.*` |
@@ -38,6 +38,10 @@ payload exclude from the message view — fails the render loudly: the host
 cannot type a `MessageRef<T>` from nothing. That failure is a CLI-payload
 deficit to fix upstream (declare the message by hand in `Messages.cs` to
 unblock a manual edit).
+
+There is no backwards-compatibility surface: a payload that carries topics
+but no `messages`, or components without `message` keys, fails the render
+with a re-scaffold instruction. Old workspaces migrate by re-scaffolding.
 
 A port's name is its whole identity — the deployed binding's type and
 connection values are environment-owned deployment configuration the topology
@@ -70,8 +74,8 @@ identifiers and the joins from components to them.
 | key | shape | notes |
 |---|---|---|
 | `name` | string | DNS-1123 system name; becomes `SystemName`. |
-| `topics` | list of `{pubsub, name, contract}` | The transport list: `contract` is the shared-contracts record and the message's channel resolves from these entries by name. Sorted by (pubsub, name). |
-| `messages` | list of `{name, type, contract?, dataschema?, publisher?}` — optional | The message-first view, primary input for `Messages.cs`: one entry per internal message (`type` repeats the name). Registry-resolved (external) publications are excluded — the registry serves their definition. Legacy payloads from CLIs predating the key omit it; the skeleton then synthesizes the messages from `topics`. |
+| `topics` | list of `{pubsub, name, contract}` | The transport list the message's channel resolves from — the pubsub for the message named after the topic. Kept for the join, never for message declarations. Sorted by (pubsub, name). |
+| `messages` | list of `{name, type, contract?, dataschema?, publisher?}` — optional | The message-first view, primary input for `Messages.cs`: one entry per internal message (`type` repeats the name). Registry-resolved (external) publications are excluded — the registry serves their definition. A payload carrying topics but no messages is an older CLI's shape: the render fails with a re-scaffold instruction. |
 | `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
 | `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. The wiring fields follow the component's shape: a message-wiring block carries `message` (the name), the resolved `topic: {pubsub, name}`, `dataschema` when external, plus `port` when it has a port; a transactional integration — port-to-port, no message — carries `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
 | `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Messages.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A message-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |

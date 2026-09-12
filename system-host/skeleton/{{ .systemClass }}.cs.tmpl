@@ -1,20 +1,17 @@
 {{- /* Join each component's wiring names to the fields Messages.cs and
 Ports.cs declare, keyed by the raw names so the derivation matches the
 declaration templates exactly. The message field is keyed by message name;
-a component entry without `message` (a legacy payload from an older CLI)
-joins through its topic, whose name was the message name back then. A
-message with no Messages.cs field means the payload gave no contract for it
-— registry-resolved (external) publications arrive without one, and this
-template cannot invent a type; that failure is the drift signal the CLI's
-payload contract must answer. */ -}}
+the `messages` payload section is the only source — no fallback: a component
+without a message key, or whose message has no declared field, breaks the
+render loudly with a re-scaffold instruction (old workspaces migrate by
+re-scaffolding, not by this template guessing from topics). A message with
+no Messages.cs field also names the external-publication case: a
+registry-resolved publication reaches the payload without a contract, and
+this template cannot invent a type. */ -}}
 {{- $msgField := dict -}}
-{{- if and (hasKey . "messages") (gt (len .messages) 0) }}
+{{- if hasKey . "messages" }}
 {{- range $m := .messages }}
 {{- $_ := set $msgField $m.name (regexReplaceAll "[-._]" $m.name " " | title | replace " " "") }}
-{{- end }}
-{{- else }}
-{{- range $t := .topics }}
-{{- $_ := set $msgField $t.name (regexReplaceAll "[-._]" $t.name " " | title | replace " " "") }}
 {{- end }}
 {{- end }}
 {{- $portField := dict -}}
@@ -33,14 +30,13 @@ public sealed class {{ .systemClass }} : ISystemDefinition
 {{- range .components }}
 {{- $mname := "" -}}
 {{- if ne .kind "transactional-integration" }}
-{{- /* The message a block publishes or subscribes, by name (message
-   first; topic name for legacy entries without the key). Declared in the
-   range body: if-blocks close template scope, and the branches below need
-   the name. */ -}}
+{{- /* The message a block publishes or subscribes, by name. Declared in
+   the range body: if-blocks close template scope, and the branches below
+   need the name. */ -}}
 {{- if hasKey . "message" -}}
 {{- $mname = .message -}}
-{{- else if hasKey . "topic" -}}
-{{- $mname = .topic.name -}}
+{{- else -}}
+{{- fail (printf "component %q declares no message — re-scaffold the integration with a template release that records the message block; the system host no longer derives wiring from topic names" .appId) }}
 {{- end -}}
 {{- if not (hasKey $msgField $mname) }}
 {{- fail (printf "component %q wires message %q, but the system payload carries no contract for it — registry-resolved (external) publications reach the payload without a contract type, and this template cannot invent one; declare the message by hand in Messages.cs or land the contract in the payload" .appId $mname) }}
