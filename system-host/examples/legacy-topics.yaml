@@ -1,0 +1,31 @@
+# Render fixture: a legacy topics-only payload — what an older CLI (predating
+# the message-first payload) sends for the same order-flow workspace. The
+# fallback render synthesizes each message from its topic (message name =
+# topic name, the only message identity the flat vocabulary had) and produces
+# the same Messages.cs the message-first payload would. Do not extend this
+# shape; it is tolerance, not an authoring surface.
+#   intropy int create system-host -o /tmp/system-host-legacy -f system-host/examples/legacy-topics.yaml --version main --no-input
+name: order-flow
+topics:
+  - pubsub: pubsub
+    name: orders
+    contract: Order
+ports:
+  - name: order-extractor-source
+  - name: order-loader-destination
+components:
+  - appId: order-extractor
+    kind: extractor
+    topic:
+      pubsub: pubsub
+      name: orders
+    port: order-extractor-source
+  - appId: order-loader
+    kind: loader
+    topic:
+      pubsub: pubsub
+      name: orders
+    port: order-loader-destination
+sharedContracts:
+  name: Contracts
+  include: ../Contracts/Contracts.csproj

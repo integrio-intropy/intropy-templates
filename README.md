@@ -69,3 +69,10 @@ conventions. In short:
 - Reference parameters and derived values with `{{ .paramName }}`.
 - The renderer runs with `missingkey=error`, so a typo like `{{ .Name }}`
   fails the render instead of producing an empty string.
+- **Message wiring is message-first.** A block component's record carries a
+  `subscribe`/`publishes` block — written only by the CLI
+  (`int create --subscribe`/`--publishes`, resolved against the registry
+  message-parameters label `intropy.io/message-params`); templates never
+  derive those keys. The message name is the identity and the CloudEvents
+  `type`; the `eventType` parameter is a migration override, and deriving an
+  event type from a topic name (`eventTypeValue`-style) is banned.

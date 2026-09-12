@@ -96,6 +96,33 @@ Notes:
   `intropy sys create` later assembles into the system declaration. Templates
   that are a system block must declare both. Everything else under `labels`
   is free-form.
+- **The message-params label is load-bearing too.**
+  `intropy.io/message-params` lists the comma-separated names of the
+  manifest parameters the CLI seeds from a resolved registry message when
+  `int create --subscribe`/`--publishes` runs. A template without the label
+  declares no message parameters: both flags are usage errors against it,
+  and its parameters get no message suggestions. One create wires one
+  message — under the flags the label may name at most one parameter
+  (`message`).
+- **Message wiring (message-first).** A block component's wiring is a
+  message: one declaration carries identity (message name, which doubles as
+  the CloudEvents type), channel (pubsub + topic), and contract (the shared
+  .NET type). The CLI is the only writer of the scaffold record's
+  `subscribe`/`publishes` blocks (`int create --subscribe`/`--publishes`
+  resolve a registry message and snapshot its channel); a template must
+  **never** derive `subscribe`/`publishes` keys in `spec.values` or any
+  skeleton. Legacy tolerance: workspaces scaffolded before this migration
+  carry flat topic/contract records and topics-only payloads — component
+  skeletons keep `topic`/`contract` parameters, and the system-host falls
+  back to synthesizing each message from its topic (message name = topic
+  name) when the payload's `messages` section is absent.
+- **Never derive CloudEvent identity from a channel name.** No template may
+  ship an `eventTypeValue`-style derivation (e.g. `<org>.<first>.<last>` of
+  the topic) — the deleted extractor/loader `eventTypeValue` values were the
+  topic-first guess this rule outlaws. The event type is the seeded message
+  name; the `eventType` parameter is a flat-path migration override, never
+  a fallback derivation. Likewise do not derive a contract type from a
+  topic name: contract stays a hand-set parameter.
 - **`spec.dependencies` composes whole templates at the output level.** Each
   entry names a sibling template in this repo, an `output` (a Go template
   that must render to a single path segment — the dependency is created as a

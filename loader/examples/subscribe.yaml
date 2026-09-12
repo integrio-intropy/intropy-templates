@@ -1,0 +1,19 @@
+# Render fixture: the registry-message path — the shape `--subscribe`
+# produces. The `message` parameter is what --subscribe seeds from the
+# resolved registry message (message identity, and the CloudEvents type of
+# what arrives), and the `subscribe` block below is the channel snapshot the
+# CLI writes into the scaffold record (values key: subscribe). Render it
+# directly only to preview: real scaffolds get the block from the flag, not a
+# values file — the CLI is the only block writer.
+#   intropy int create loader -o /tmp/loader-msg -f loader/examples/subscribe.yaml --version main --no-input
+name: ProductLoader
+organization: Maxbo
+topic: sbt-test-product-extractor-001
+contract: ExportEvent
+message: io.intropy.maxbo.product.export
+subscribe:
+  message: io.intropy.maxbo.product.export
+  pubsub: product-distribution-pubsub
+  topic: sbt-test-product-extractor-001
+  dataschema: /schemagroups/io.intropy.maxbo.product/schemas/product-export.v1
+empty: false

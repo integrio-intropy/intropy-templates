@@ -15,7 +15,8 @@ writes the transformed result to a second file binding.
   from the topology's minted InternalQueue, scoped to this component alone
 - Topic: `hop` — the component-owned internal hop (receive publishes each
   source file for the send side to process). Invisible to the system
-  topology; uniqueness comes from the pubsub scope, not the topic name
+  topology — a minted internal queue, never a `MessageRef`; uniqueness
+  comes from the pubsub scope, not the topic name
 - Source port: `{{ .fromPort }}` — the named interface the component
   reads the outside world through; the system host declares it in
   `Ports.cs` and the Dapr binding uses the same name, resolved to a local

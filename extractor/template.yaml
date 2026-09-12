@@ -13,6 +13,7 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: extractor
     intropy.io/data-flow: "in"
+    intropy.io/message-params: message
 
 spec:
   parameters:
@@ -36,13 +37,19 @@ spec:
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the extractor publishes to. The extractor's half of the system contract — scaffold the consuming loader with the same value.
+        description: The pub/sub topic the extractor publishes to — the channel half of the message. Registry resolution (--publishes) sets it from the resolved channel; the flat hand-typed path names it here and the consuming loader uses the same value.
         pattern: "^[a-z][a-z0-9-]*$"
       contract:
         type: string
         title: Contract type
-        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
+        description: PascalCase name of the shared-contracts record the message carries — the typed second half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the message with. The sample logic uses Order. Not resolved by registry resolution; never derived from a topic name.
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      message:
+        type: string
+        title: Message
+        description: Logical name of the published message — seeded by --publishes from the resolved registry message and doubles as the CloudEvents type. Leave empty on the flat hand-typed path to fall back to the eventType override.
+        pattern: "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
+        default: ""
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -61,7 +68,7 @@ spec:
       eventType:
         type: string
         title: CloudEvent type
-        description: Envelope `type` for published events. The default derives as <organization-lower>.<first-topic-segment>.<last-topic-segment>; set it to preserve an existing event identity during a migration.
+        description: Envelope `type` for published events when the message name does not already carry it. The registry-resolved message identity wins over this override; set the override only on the flat migration path to preserve an existing event identity.
         default: ""
       empty:
         type: boolean
@@ -88,11 +95,12 @@ spec:
     # a local file transport by default (external system and transport are
     # never asked for at scaffold time).
     port: '{{ .name | kebabcase | replace "." "-" }}-source'
-    # CloudEvent identity: overridable to preserve an existing identity during a
-    # migration; otherwise derived (type: <org>.<first>.<last> of the kebab topic,
-    # e.g. product-export -> maxbo.product.export).
+    # CloudEvent identity: the type is the message itself (the CLI seeds the
+    # message parameter from the resolved registry message — D1: message
+    # identity is the CloudEvents type); the eventType parameter stays as
+    # the flat-path migration override. No derivation exists: a topic name
+    # is never guessed into an event type.
     eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
-    eventTypeValue: '{{ printf "%s.%s.%s" (.organization | lower) (index (regexSplit "-" .topic -1) 0) (index (regexSplit "-" .topic -1) (sub (len (regexSplit "-" .topic -1)) 1)) }}'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'

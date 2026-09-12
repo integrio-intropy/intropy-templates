@@ -5,8 +5,8 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "pubsub";
-    public const string TopicName = "{{ .topic }}";
+    public const string PubSubName = "{{ if and (hasKey . "publishes") .publishes.pubsub }}{{ .publishes.pubsub }}{{ else }}pubsub{{ end }}";
+    public const string TopicName = "{{ if and (hasKey . "publishes") .publishes.topic }}{{ .publishes.topic }}{{ else }}{{ .topic }}{{ end }}";
 
     // The source port: the named interface this component reads the outside
     // world through. The name is the port's whole identity — declared in the
@@ -21,15 +21,19 @@ public static class Constants
     public const string SourceFileAdapterKey = "source";
 
     // CloudEvent envelope: where the data came from and what kind of event it is.
+    // The type is the message name (the CLI's message-parameters seed —
+    // message identity is the CloudEvents type), falling back to the
+    // eventType override on the flat migration path. Never derived from the
+    // topic name.
 {{- if .eventSource }}
     public const string EventSource = "{{ .eventSource }}";
 {{- else }}
     public const string EventSource = "{{ .eventSourceValue }}";
 {{- end }}
-{{- if .eventType }}
-    public const string EventType = "{{ .eventType }}";
+{{- if .message }}
+    public const string EventType = "{{ .message }}";
 {{- else }}
-    public const string EventType = "{{ .eventTypeValue }}";
+    public const string EventType = "{{ .eventType }}";
 {{- end }}
 
     public const string ContextKeyFileName = "file_name";

@@ -13,6 +13,7 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: loader
     intropy.io/data-flow: "out"
+    intropy.io/message-params: message
 
 spec:
   parameters:
@@ -36,13 +37,19 @@ spec:
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value.
+        description: The pub/sub topic the loader subscribes to — the channel half of the message. Registry resolution (--subscribe) sets it from the resolved producing channel; the flat hand-typed path names it here and the publishing extractor uses the same value.
         pattern: "^[a-z][a-z0-9-]*$"
       contract:
         type: string
         title: Contract type
-        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
+        description: PascalCase name of the shared-contracts record the message carries — the typed second half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the message with. The sample logic uses Order. Registry resolution carries no contract; the type stays a hand-set decision and is never derived from a topic name.
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      message:
+        type: string
+        title: Message
+        description: Logical name of the subscribed message — seeded by --subscribe from the resolved registry message and doubles as the CloudEvents type. Leave empty on the flat hand-typed path; the subscription route keys off the topic either way.
+        pattern: "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
+        default: ""
       idempotencyAppId:
         type: string
         title: Idempotency service app-id

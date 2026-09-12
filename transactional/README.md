@@ -41,7 +41,7 @@ send pipeline wires in, in non-empty mode).
 
 The template declares `intropy.io/block-kind: transactional-integration`, so
 `intropy sys create` assembles it into the system host as a
-port-to-port block with no system topic. The scaffold record
+port-to-port block with no system message. The scaffold record
 (`.intropy/scaffold.json`) carries the derived wiring values the host needs:
 `fromPort`/`toPort` (the two ports, `<app-id>-source` /
 `<app-id>-destination`; the Dapr binding names are the same port names) and

@@ -14,6 +14,7 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
 - App port: assigned by the system host in development; 8080 in the
   container image
 - Subscription endpoint: `POST /events/{{ .topic }}`
+- Message: `{{ .message }}` — the subscribed message's logical name (doubles as the CloudEvents type the publisher set); seeded by `--subscribe` from the resolved registry message and carried in the scaffold record's subscribe block
   (`src/Endpoints/LoaderEndpoints.cs`), announced to the sidecar via
   `GET /dapr/subscribe`; the ack is the response body's `status` field
   (SUCCESS / RETRY)
@@ -21,8 +22,8 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
 - App id: `{{ .appId }}`
 - Pub/sub component: `pubsub` — provided by the system host; messages are
   published from there
-- Topic: `{{ .topic }}` — the loader's half of the system contract; the
-  publishing extractor uses the same topic
+- Topic: `{{ .topic }}` — the channel the message arrives over (pubsub `pubsub`); the
+  publishing extractor publishes to the same channel
 - Destination port: `{{ .port }}` — the named interface the loader
   writes the outside world through; the system host declares it in
   `Ports.cs` and the Dapr binding uses the same name, resolved to a local

@@ -1,10 +1,22 @@
-{{- /* Join each component's wiring names to the fields Topics.cs and
+{{- /* Join each component's wiring names to the fields Messages.cs and
 Ports.cs declare, keyed by the raw names so the derivation matches the
-declaration templates exactly. */ -}}
-{{- $topicField := dict -}}
-{{- range $t := .topics -}}
-{{- $_ := set $topicField (printf "%s/%s" $t.pubsub $t.name) (regexReplaceAll "[-._]" $t.name " " | title | replace " " "") -}}
-{{- end -}}
+declaration templates exactly. The message field is keyed by message name;
+a component entry without `message` (a legacy payload from an older CLI)
+joins through its topic, whose name was the message name back then. A
+message with no Messages.cs field means the payload gave no contract for it
+— registry-resolved (external) publications arrive without one, and this
+template cannot invent a type; that failure is the drift signal the CLI's
+payload contract must answer. */ -}}
+{{- $msgField := dict -}}
+{{- if and (hasKey . "messages") (gt (len .messages) 0) }}
+{{- range $m := .messages }}
+{{- $_ := set $msgField $m.name (regexReplaceAll "[-._]" $m.name " " | title | replace " " "") }}
+{{- end }}
+{{- else }}
+{{- range $t := .topics }}
+{{- $_ := set $msgField $t.name (regexReplaceAll "[-._]" $t.name " " | title | replace " " "") }}
+{{- end }}
+{{- end }}
 {{- $portField := dict -}}
 {{- range $c := .ports -}}
 {{- $_ := set $portField $c.name (regexReplaceAll "[-._]" $c.name " " | title | replace " " "") -}}
@@ -19,12 +31,25 @@ public sealed class {{ .systemClass }} : ISystemDefinition
     public void Define(SystemBuilder builder)
     {
 {{- range .components }}
+{{- if ne .kind "transactional-integration" }}
+{{- /* The message a block publishes or subscribes, by name (message
+   first; topic name for legacy entries without the key). */ -}}
+{{- $mname := "" -}}
+{{- if hasKey . "message" -}}
+{{- $mname = .message -}}
+{{- else if hasKey . "topic" -}}
+{{- $mname = .topic.name -}}
+{{- end -}}
+{{- if not (hasKey $msgField $mname) }}
+{{- fail (printf "component %q wires message %q, but the system payload carries no contract for it — registry-resolved (external) publications reach the payload without a contract type, and this template cannot invent one; declare the message by hand in Messages.cs or land the contract in the payload" .appId $mname) }}
+{{- end }}
+{{- end }}
 {{- if eq .kind "extractor" }}
         builder.AddExtractor("{{ .appId }}")
 {{- if hasKey . "port" }}
             .From(Ports.{{ index $portField .port }})
 {{- end }}
-            .Publishes(Topics.{{ index $topicField (printf "%s/%s" .topic.pubsub .topic.name) }})
+            .Publishes(Messages.{{ index $msgField $mname }})
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
 {{- else if eq .kind "transactional-integration" }}
@@ -33,14 +58,16 @@ public sealed class {{ .systemClass }} : ISystemDefinition
             .To(Ports.{{ index $portField .toPort }})
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
-{{- else }}
+{{- else if eq .kind "loader" }}
         builder.AddLoader("{{ .appId }}")
-            .Subscribes(Topics.{{ index $topicField (printf "%s/%s" .topic.pubsub .topic.name) }})
+            .Subscribes(Messages.{{ index $msgField $mname }})
 {{- if hasKey . "port" }}
             .To(Ports.{{ index $portField .port }})
 {{- end }}
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
+{{- else }}
+{{- fail (printf "component %q has kind %q — the host declares extractor, loader, and transactional-integration components; add a branch for new kinds when their blocks exist" .appId .kind) }}
 {{- end }}
 {{- end }}
     }

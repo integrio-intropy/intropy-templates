@@ -1,0 +1,19 @@
+# Render fixture: the registry-message path — the shape `--publishes`
+# produces. The `message` parameter is what --publishes seeds from the
+# resolved registry message (message identity and CloudEvents type), and the
+# `publishes` block below is the channel snapshot the CLI writes into the
+# scaffold record (values key: publishes). Render it directly only to
+# preview: real scaffolds get the block from the flag, not a values file —
+# the CLI is the only block writer.
+#   intropy int create extractor -o /tmp/extractor-msg -f extractor/examples/publishes.yaml --version main --no-input
+name: ProductExtractor
+organization: Maxbo
+topic: sbt-test-product-extractor-001
+contract: ExportEvent
+message: io.intropy.maxbo.product.export
+publishes:
+  message: io.intropy.maxbo.product.export
+  pubsub: product-distribution-pubsub
+  topic: sbt-test-product-extractor-001
+  dataschema: /schemagroups/io.intropy.maxbo.product/schemas/product-export.v1
+empty: false

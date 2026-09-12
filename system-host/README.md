@@ -21,16 +21,23 @@ unit.
 
 | Files | Rendered from |
 |---|---|
-| `Topics.cs` | `topics` — one `TopicRef<T>` field per topic |
+| `Messages.cs` | `messages` — one `MessageRef<T>` field per internal message, channel resolved from `topics` by name (the topic name defaults to the message name). A legacy topics-only payload falls back to one message per topic (message name = topic name, the only identity the flat vocabulary had) |
 | `Ports.cs` | `ports` — one `PortRef` per port (the name is the whole identity; the deployed binding type is environment-owned deployment configuration) |
 | `<Project>Development.cs` | `ports` — one `development.Files(...).RootPath("./test/<name>")` resolution per port, plus OpenAPI-backed mocks for both platform services (the skeleton's `Services.cs` + `mocks/` exist regardless of payload) |
-| `<Project>System.cs` | `components` — one `builder.Add<Kind>(...)` chain per component |
+| `<Project>System.cs` | `components` — one `builder.Add<Kind>(...)` chain per component, wired `.Publishes(...)`/`.Subscribes(...)` through `Messages.*` |
 | `<Project>.SystemHost.csproj` | `sharedContracts.include` — the `ProjectReference` to the workspace's shared contracts project |
 | `Program.cs`, `Taskfile.yml`, `Properties/launchSettings.json`, `Services.cs`, `mocks/`, `sample-data/`, `AGENTS.md`, `README.md`, `.gitignore` | static shell |
 
 Contract types are not generated: the host references the workspace's shared
 contracts project (the `shared-library` scaffold, typically `Contracts/`),
 whose path arrives in the payload as `sharedContracts.include`.
+
+A component whose message carries no contract anywhere in the payload — a
+registry-resolved (external) publication, which the CLI's block record and
+payload exclude from the message view — fails the render loudly: the host
+cannot type a `MessageRef<T>` from nothing. That failure is a CLI-payload
+deficit to fix upstream (declare the message by hand in `Messages.cs` to
+unblock a manual edit).
 
 A port's name is its whole identity — the deployed binding's type and
 connection values are environment-owned deployment configuration the topology
@@ -47,7 +54,7 @@ rendering outside `sys create`, create them by hand.
 A transactional integration's internal pub/sub hop — the receive side
 publishes each source file for the send side to process — is component-owned:
 the topic lives in the component's own constants and is deliberately invisible
-to the topology, so `Topics.cs` and the payload's `topics` list never mention
+to the topology, so `Messages.cs` and the payload's `topics` list never mention
 it. The host declares only the two ports.
 
 ## The payload contract
@@ -63,9 +70,10 @@ identifiers and the joins from components to them.
 | key | shape | notes |
 |---|---|---|
 | `name` | string | DNS-1123 system name; becomes `SystemName`. |
-| `topics` | list of `{pubsub, name, contract}` | `contract` is the shared-contracts record. The skeleton derives the PascalCase `Topics` identifier. Sorted by (pubsub, name). |
+| `topics` | list of `{pubsub, name, contract}` | The transport list: `contract` is the shared-contracts record and the message's channel resolves from these entries by name. Sorted by (pubsub, name). |
+| `messages` | list of `{name, type, contract?, dataschema?, publisher?}` — optional | The message-first view, primary input for `Messages.cs`: one entry per internal message (`type` repeats the name). Registry-resolved (external) publications are excluded — the registry serves their definition. Legacy payloads from CLIs predating the key omit it; the skeleton then synthesizes the messages from `topics`. |
 | `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
-| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. The wiring fields follow the component's shape: a topic block carries `topic: {pubsub, name}` plus `port` when it has a port; a transactional integration — port-to-port, no topic — carries `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Topics`/`Ports` fields. |
+| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. The wiring fields follow the component's shape: a message-wiring block carries `message` (the name), the resolved `topic: {pubsub, name}`, `dataschema` when external, plus `port` when it has a port; a transactional integration — port-to-port, no message — carries `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
 | `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Topics.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A topics-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
 
 Derived `projectName`/`systemClass` (`order-flow` → `OrderFlow` /
@@ -87,10 +95,10 @@ intropy int create system-host -o /tmp/system-host-out \
 requires the `Intropy.Topology.Aspire` / `Intropy.Topology.Generation`
 packages to be resolvable from the configured NuGet feeds.
 
-Do not lower the pin below 0.4.1. The topology carries only minted facts
-(port identity is the name alone, no declared transport; activation cadence
-lives in deployment configuration), the transactional integration builder
-exists (`From`/`To` ports, enforced by a completeness rule), and the Aspire
-host treats run-to-completion kinds' finished sidecars as their intended
-terminal state. Earlier versions cannot compile or run this skeleton's
-declarations.
+The Intropy.Topology / .Aspire / .Generation pins sit at **1.1.0-rc.1** — the
+message-first topology prerelease (`MessageRef<T>` replaces `TopicRef`; one
+declaration carries identity + channel + contract). Do not lower any pin:
+the declaration shape and the run semantics require it (message-first refs,
+transactional `From`/`To` ports, run-to-completion terminal state). A
+template release and its pin are one atomic unit; Wave 2 of the rollout plan
+raises these pins to the stable topology release.

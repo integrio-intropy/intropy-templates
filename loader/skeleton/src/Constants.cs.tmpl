@@ -5,8 +5,14 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "pubsub";
-    public const string TopicName = "{{ .topic }}";
+    public const string PubSubName = "{{ if and (hasKey . "subscribe") .subscribe.pubsub }}{{ .subscribe.pubsub }}{{ else }}pubsub{{ end }}";
+    public const string TopicName = "{{ if and (hasKey . "subscribe") .subscribe.topic }}{{ .subscribe.topic }}{{ else }}{{ .topic }}{{ end }}";
+
+    // The subscribed message's logical name — seeded by --subscribe from the
+    // resolved registry message, where it doubles as the CloudEvents type of
+    // what the sidecar delivers (the envelope's `type` field). The flat path
+    // leaves it empty; the envelope still carries the type the publisher set.
+    public const string MessageName = "{{ .message }}";
 
     // The destination port: the named interface this component writes the
     // outside world through. The name is the port's whole identity —

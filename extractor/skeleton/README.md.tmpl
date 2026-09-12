@@ -32,11 +32,13 @@ delete source file ──▶ next file
 exit 0
 ```
 
-`EventSource`/`EventType` in `src/Constants.cs` come from the scaffold
-parameters `eventSource`/`eventType`; unset, they derive as
-`urn:<organization>:<app-id>` and `<organization-lower>.<first-topic-segment>.<last-topic-segment>`.
-Set them when migrating an existing component so consumers keep seeing the
-same envelope. Settings live in `src/appsettings.json`, overridable by
+`EventSource`/`EventType` in `src/Constants.cs`: the source derives as
+`urn:<organization>:<app-id>` (`eventSource` overrides it for migrations).
+The type is the message name — seeded by `--publishes` from the resolved
+registry message. On the flat path (no `--publishes`), the `eventType`
+parameter overrides it; there is no derivation — a topic name is never
+guessed into an event type, so set `eventType` when migrating an existing
+component whose type must stay. Settings live in `src/appsettings.json`, overridable by
 `appsettings.{Environment}.json` and environment variables; deployment
 overlays the file via ConfigMap and `IConfiguration` is in DI.
 

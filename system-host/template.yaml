@@ -14,10 +14,10 @@ metadata:
 
 spec:
   # `intropy sys create` renders this template with the facts-only value
-  # payload and --no-input: topic and port names, component wiring, and
+  # payload and --no-input: message and port names, component wiring, and
   # the detected contracts sibling when one exists. The skeleton derives
   # everything that exists only inside the generated files — the
-  # Topics/Ports field identifiers and the joins from components to
+  # Messages/Ports field identifiers and the joins from components to
   # them. The payload parameters are required so an older CLI that only sets
   # `name` fails validation loudly instead of rendering an empty system.
   # They are supplied programmatically — never via --set or prompts — so
@@ -35,11 +35,25 @@ spec:
         title: System name
         description: DNS-1123 name of the integration system (e.g. order-flow). Becomes the SystemName. The pub/sub component is always named `pubsub` (system-independent), so a component runs the same standalone or under this host.
         pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
-      # The payload below. Each component carries the raw topic/port
-      # names it touches; the skeleton joins them to the fields Topics.cs
+      # The payload below. Each component carries the raw message/port
+      # names it touches; the skeleton joins them to the fields Messages.cs
       # and Ports.cs declare. Empty lists render a valid empty system,
       # so no minItems.
       topics:
+        type: array
+        items:
+          type: object
+          additionalProperties: true
+      # The message-first section, primary input for the declaration:
+      # one entry per internal message (internal publications only —
+      # registry-resolved, external ones are served by the registry and
+      # excluded by the CLI's assembly). Entries carry
+      # {name, type, contract?, dataschema?, publisher?}; the channel is
+      # looked up from `topics` by name. Legacy payloads from CLIs predating
+      # the key omit it — the skeleton then synthesizes the declarations
+      # from `topics` (message name = topic name back then), the fallback
+      # render that keeps old workspaces assembling.
+      messages:
         type: array
         items:
           type: object
@@ -55,33 +69,39 @@ spec:
           type: object
           additionalProperties: true
       # Optional: present only when the workspace has a shared-library
-      # scaffold. A topics-free system (e.g. only transactional
-      # integrations) renders with no contracts reference; a topic-bearing
+      # scaffold. A message-free system (e.g. only transactional
+      # integrations) renders with no contracts reference; a message-bearing
       # system without one gets the project from the dependency below.
       sharedContracts:
         type: object
         additionalProperties: true
   files:
-    # A topic-free system has no contract types to declare; Ports.cs
-    # stays (ports exist without topics).
-    - path: Topics.cs.tmpl
-      when: '{{ gt (len .topics) 0 }}'
+    # A message-free system has no contract types to declare; Ports.cs
+    # stays (ports exist without messages). The declaration renders from
+    # `messages`; a legacy topics-only payload falls back to synthesizing
+    # each message from its topic (message name = topic name, the only
+    # identity the flat vocabulary had).
+    - path: Messages.cs.tmpl
+      when: '{{ or (and (hasKey . "messages") (gt (len .messages) 0)) (gt (len .topics) 0) }}'
   dependencies:
     # The system's contract types. Skipped when the workspace already has a
     # shared-library scaffold (the CLI passes it as sharedContracts) or when
-    # there are no topics to type. The dependency machinery reuses the
-    # sibling rather than overwriting it when several components declared it.
+    # there is nothing to type. The dependency machinery reuses the sibling
+    # rather than overwriting it when several components declared it.
     - template: shared-contracts
-      when: '{{ and (gt (len .topics) 0) (not (hasKey . "sharedContracts")) }}'
+      when: '{{ and (not (hasKey . "sharedContracts")) (or (and (hasKey . "messages") (gt (len .messages) 0)) (gt (len .topics) 0)) }}'
       output: Contracts
       values:
         name: Contracts
-        contract: '{{ (index .topics 0).contract }}'
+        # First contract in the payload: messages first (the message-first
+        # view), topics as the legacy fallback. One contract type per
+        # scaffolded contracts project.
+        contract: '{{ $c := "" }}{{ if hasKey . "messages" }}{{ range .messages }}{{ if and (eq $c "") (hasKey . "contract") .contract }}{{ $c = .contract }}{{ end }}{{ end }}{{ end }}{{ if eq $c "" }}{{ range .topics }}{{ if and (eq $c "") (hasKey . "contract") .contract }}{{ $c = .contract }}{{ end }}{{ end }}{{ end }}{{ $c }}'
   values:
     # Must match the CLI's pascalCase(name): the CLI's payload assembly
     # derives the same project name for its result summary, and a
     # derivation that disagrees renders files under names the CLI's
     # summary does not report.
     projectName: '{{ .name | replace "-" " " | title | replace " " "" }}'
-    systemClass: '{{ .name | replace "-" " " | title | replace " " "" }}System'
+    systemClass: '{{ .name | replace "-" " " | title | replace " " "" }}'
     pubsub: 'pubsub'

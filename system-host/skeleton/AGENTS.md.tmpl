@@ -22,7 +22,7 @@ declaration — an Aspire run backend and a generation backend.
 - `{{ .systemClass }}.cs` — the `ISystemDefinition`: `Define(SystemBuilder)` declares
   every component and its edges. Rendered from the sibling components' scaffold
   records by `intropy sys create`; owned by you afterwards.
-- `Topics.cs` — the system's topics as typed refs (`TopicRef<T>`), declared as
+- `Messages.cs` — the system's messages as typed refs (`MessageRef<T>`), declared as
   static fields. Same regenerate-then-yours lifecycle. `Apis.cs` appears
   the same way once components declare APIs.
 - `Ports.cs` — the system's ports as refs (`PortRef`), declared as
@@ -42,7 +42,7 @@ declaration — an Aspire run backend and a generation backend.
 - `mocks/` — the OpenAPI 3.0.x documents backing the platform-service mocks,
   served by Microcks during `task run`.
 {{- if hasKey . "sharedContracts" }}
-- `{{ .sharedContracts.name }}/` — the contract records carried on topics and APIs,
+- `{{ .sharedContracts.name }}/` — the contract records the messages carry,
   shared by this host and every component project (csproj reference:
   `{{ .sharedContracts.include }}`).
 {{- end }}

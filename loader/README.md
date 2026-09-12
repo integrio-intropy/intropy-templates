@@ -7,8 +7,9 @@ into a CloudEvent, runs it through the Intropy loader pipeline
 (`Intropy.Framework.Blocks.Loader`), and writes the result as
 `{orderId}.json` through a local destination folder binding. In production
 the loader runs as a Deployment (unlike the run-to-completion `extractor`).
-The loader is the consuming half of a system contract — scaffold the
-publishing extractor with the same `topic` value.
+The loader is the consuming half of a system: scaffold the publishing
+extractor with the same `topic` value (or wire both with
+`--subscribe`/`--publishes` against the same registry message).
 
 The rendered project is an ASP.NET service with a Taskfile (`task build`,
 `task test`, `task coverage` — the component-level loop), a `/healthz`
@@ -59,8 +60,9 @@ pipeline code, unless `empty=true`) to match.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderLoader`).                |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `topic`        | yes      | Pub/sub topic the loader subscribes to (kebab-case); the publishing extractor uses the same.          |
-| `contract`     | yes      | PascalCase shared-contracts record the topic carries; the sample uses `Order` (see above).            |
+| `topic`        | yes      | Pub/sub topic the loader subscribes to (kebab-case) — the channel half of the message; the publishing extractor uses the same. Registry resolution sets it from the resolved producing channel. |
+| `contract`     | yes      | PascalCase shared-contracts record the message carries; the sample uses `Order` (see above). Registry resolution carries no contract; the type stays a hand-set decision and is never derived from a topic. |
+| `message`      | no       | Logical name of the subscribed message, doubling as the CloudEvents `type` of what arrives. Seeded by `--subscribe` from the resolved registry message (recorded in the scaffold record's subscribe block). |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; no idempotency lambdas).     |

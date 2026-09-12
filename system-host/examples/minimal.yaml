@@ -1,16 +1,22 @@
 # Render fixture: the full value payload, as `intropy sys create` assembles it
 # from the tutorial's order-flow workspace (one extractor, one loader, one
 # transactional integration, the shared Contracts project). The payload is
-# facts-only: each component carries the raw topic/port names it touches, and
-# the skeleton derives the Topics/Ports field identifiers and the joins.
-# sharedContracts.include is the ProjectReference path from the host's output
-# directory to the contracts csproj.
+# facts-only: each component carries the raw message/port names it touches,
+# and the skeleton derives the Messages/Ports field identifiers and the joins.
+# `messages` is the message-first view (internal publications; the channel is
+# resolved from `topics` by name); `components` carry `message` together with
+# the resolved `topic` block. sharedContracts.include is the ProjectReference
+# path from the host's output directory to the contracts csproj.
 #   intropy int create system-host -o /tmp/system-host-out -f system-host/examples/minimal.yaml --version main --no-input
 name: order-flow
 topics:
   - pubsub: pubsub
     name: orders
     contract: Order
+messages:
+  - name: orders
+    contract: Order
+    publisher: order-extractor
 ports:
   - name: erp-destination
   - name: erp-source
@@ -19,18 +25,20 @@ ports:
 components:
   - appId: order-extractor
     kind: extractor
+    message: orders
     topic:
       pubsub: pubsub
       name: orders
     port: order-extractor-source
   - appId: order-loader
     kind: loader
+    message: orders
     topic:
       pubsub: pubsub
       name: orders
     port: order-loader-destination
-  # A transactional integration: port-to-port, no topic. Its wiring
-  # fields follow its shape — fromPort/toPort instead of topic.
+  # A transactional integration: port-to-port, no message. Its wiring
+  # fields follow its shape — fromPort/toPort instead of message/topic.
   - appId: erp-sync
     kind: transactional-integration
     fromPort: erp-source
