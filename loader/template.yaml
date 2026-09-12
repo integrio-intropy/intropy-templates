@@ -48,7 +48,6 @@ spec:
         type: string
         title: Message
         description: Logical name of the subscribed message — seeded by --subscribe from the resolved registry message and doubles as the CloudEvents type. Leave empty on the flat hand-typed path; the subscription route keys off the topic either way.
-        pattern: "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
         default: ""
       idempotencyAppId:
         type: string

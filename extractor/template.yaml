@@ -48,7 +48,6 @@ spec:
         type: string
         title: Message
         description: Logical name of the published message — seeded by --publishes from the resolved registry message and doubles as the CloudEvents type. Leave empty on the flat hand-typed path to fall back to the eventType override.
-        pattern: "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
         default: ""
       idempotencyAppId:
         type: string
