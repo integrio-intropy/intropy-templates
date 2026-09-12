@@ -8,7 +8,6 @@
 #   intropy int create loader -o /tmp/loader-msg -f loader/examples/subscribe.yaml --version main --no-input
 name: ProductLoader
 organization: Maxbo
-topic: sbt-test-product-extractor-001
 contract: ExportEvent
 message: io.intropy.maxbo.product.export
 subscribe:

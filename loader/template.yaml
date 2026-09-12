@@ -33,11 +33,6 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
-      topic:
-        type: string
-        title: Endpoint channel (topic)
-        description: Override — route the message over this existing channel instead of the default (the message name itself). Registry resolution (--subscribe) records the resolved producing channel in the scaffold record's subscribe block and leaves this empty; set it to the same value the block carries, and the publishing extractor's message must name the identical channel.
-        default: ""
       contract:
         type: string
         title: Payload type
@@ -81,6 +76,10 @@ spec:
     # Recorded in .intropy/scaffold.json; `intropy sys create` reads it and
     # the CLI assembly derives the same value for records that predate it.
     payloadType: '{{ if .contract }}{{ .contract }}{{ else }}{{ if .message }}{{ .message | regexReplaceAll "[^0-9A-Za-z]+" " " | title | replace " " "" }}{{ else }}{{ fail "message is required: the payload type derives from it (or set the contract override)" }}{{ end }}{{ end }}'
+    # The channel the message arrives on: the registry-resolved producing
+    # snapshot when the CLI wrote a subscribe block, otherwise the message
+    # name. One derivation, so every file that names the channel agrees.
+    channel: '{{ if and (hasKey . "subscribe") .subscribe.topic }}{{ .subscribe.topic }}{{ else }}{{ .message }}{{ end }}'
     # The pub/sub component name the skeleton subscribes through
     # (Constants.cs). Recorded in .intropy/scaffold.json for
     # `intropy sys create`, together with the payload type above.

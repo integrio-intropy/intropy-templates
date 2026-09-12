@@ -8,7 +8,6 @@
 #   intropy int create extractor -o /tmp/extractor-msg -f extractor/examples/publishes.yaml --version main --no-input
 name: ProductExtractor
 organization: Maxbo
-topic: sbt-test-product-extractor-001
 contract: ExportEvent
 message: io.intropy.maxbo.product.export
 publishes:

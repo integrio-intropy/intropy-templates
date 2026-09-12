@@ -33,11 +33,6 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
-      topic:
-        type: string
-        title: Endpoint channel (topic)
-        description: Override — route the message over this existing channel instead of the default (the message name itself). Registry resolution (--publishes) records the resolved channel in the scaffold record's publishes block and leaves this empty; set it to the same value the block carries, and the consuming loader's message must name the identical channel.
-        default: ""
       contract:
         type: string
         title: Payload type
@@ -62,11 +57,6 @@ spec:
         type: string
         title: CloudEvent source
         description: Envelope `source` (URI) for published events. The default derives as urn:<organization>:<app-id>; set it to preserve an existing event identity during a migration.
-        default: ""
-      eventType:
-        type: string
-        title: CloudEvent type
-        description: Envelope `type` for published events when the message name does not already carry it. The registry-resolved message identity wins over this override; set the override only on the flat migration path to preserve an existing event identity.
         default: ""
       empty:
         type: boolean
@@ -101,12 +91,15 @@ spec:
     # a local file transport by default (external system and transport are
     # never asked for at scaffold time).
     port: '{{ .name | kebabcase | replace "." "-" }}-source'
-    # CloudEvent identity: the type is the message itself (the CLI seeds the
-    # message parameter from the resolved registry message — D1: message
-    # identity is the CloudEvents type); the eventType parameter stays as
-    # the flat-path migration override. No derivation exists: a topic name
-    # is never guessed into an event type.
+    # CloudEvent identity: the type is the message itself (D1 — message
+    # identity is the CloudEvents type). No derivation and no override
+    # exist: a topic name is never guessed into an event type, and a
+    # second way to name the event is a second identity.
     eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
+    # The channel the message is published on: the registry-resolved
+    # snapshot when the CLI wrote a publishes block, otherwise the message
+    # name. One derivation, so every file that names the channel agrees.
+    channel: '{{ if and (hasKey . "publishes") .publishes.topic }}{{ .publishes.topic }}{{ else }}{{ .message }}{{ end }}'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'

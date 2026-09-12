@@ -124,16 +124,24 @@ Notes:
   the topic) — the deleted extractor/loader `eventTypeValue` values were the
   topic-first guess this rule outlaws. The event type is the seeded message
   name; the `eventType` parameter is a flat-path migration override, never
-  a fallback derivation. Likewise do not derive a contract type from a
-  topic name: contract stays a hand-set parameter.
+  a fallback derivation. The single-message declaration also means:
+  `topic`/`contract` are **optional overrides** — the endpoint channel
+  defaults to the message name (the topology's two-argument
+  `MessageRef.Define` convention) and the payload type derives from the
+  message identity (PascalCase; the template-level `payloadType` value and
+  the CLI's `internal/template.PascalCase` apply the same rule). Overrides
+  win when recorded; older records carrying both keys keep the strict
+  regime, so no migration cliff. A contract name is never derived from a
+  topic name.
 - **Registry (xregistry) vocabulary is scoped to cross-system messages.**
   Whether intropy implements an xregistry is undecided, and if it does it is
   for **cross-system** events only: internal messages are system-declared on
-  the hand-typed path (message, topic, contract — as a sibling pair), and no
-  template or gate may make registry machinery a prerequisite for scaffolding
-  them. Schema-derived type naming from a block's `dataschema` a possible
-  future direction for the cross-system path; it is not this library's
-  behavior.
+  the hand-typed path — a single `message` property, with the endpoint
+  channel and payload type derived from it and optional `topic`/`contract`
+  overrides — and no template or gate may make registry machinery a
+  prerequisite for scaffolding them. Schema-derived type naming from a
+  block's `dataschema` remains a possible future direction for the
+  cross-system path; it is not this library's behavior.
 - **`spec.dependencies` composes whole templates at the output level.** Each
   entry names a sibling template in this repo, an `output` (a Go template
   that must render to a single path segment — the dependency is created as a

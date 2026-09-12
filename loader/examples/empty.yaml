@@ -6,6 +6,6 @@
 name: OrderLoader
 organization: Fluxia
 message: orders
-# topic and payload type derive from the message: channel 'orders', type 'Orders'.
-# The `topic`/`contract` parameters are overrides for leaving those defaults.
+# The channel and payload type derive from the message: topic 'orders',
+# type 'Orders'. `contract` overrides the derived type name when it reads badly.
 empty: true

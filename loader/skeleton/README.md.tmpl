@@ -1,6 +1,6 @@
 # {{ .name }}
 
-.NET loader integration. An ASP.NET service subscribes to the `{{ if .topic }}{{ .topic }}{{ else }}{{ .message }}{{ end }}`
+.NET loader integration. An ASP.NET service subscribes to the `{{ .channel }}`
 topic of the Dapr pub/sub: the sidecar POSTs each delivered message to the
 subscription endpoint, which runs it through the Intropy loader pipeline and
 writes the result as `{orderId}.json` through the destination binding. The
@@ -9,7 +9,7 @@ loader is a long-running service (a Deployment in production).
 ## How a message flows
 
 ```
-sidecar POSTs CloudEvent from '{{ if .topic }}{{ .topic }}{{ else }}{{ .message }}{{ end }}'
+sidecar POSTs CloudEvent from '{{ .channel }}'
    │
    ▼
 deserialize ──▶ validate ──▶ transform

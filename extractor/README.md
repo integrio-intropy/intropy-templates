@@ -7,7 +7,7 @@ result as a CloudEvent to a pub/sub topic, deletes the source file, and
 exits. Scheduling lives outside the block — activation cadence is deployment
 configuration (a Kubernetes CronJob in production); locally the system host
 runs the block once at startup. The extractor publishes the system's message:
-scaffold the consuming loader with the same `topic` value (or wire both
+scaffold the consuming loader with the same `message` value (or wire both
 against the same registry message, letting the flags record the resolved
 channel).
 
@@ -57,14 +57,11 @@ renames its canonical record to match.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderExtractor`).            |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `topic`        | no       | Override — the endpoint channel the message flows over, when it must differ from the message name (an existing broker topic). Defaults to the message; registry resolution records the resolved channel in the record's publishes block. |
-| `contract`     | no       | Override — pins the payload type name instead of deriving it (PascalCase of the message: `orders` derives `Orders`). The generated record in the shared-contracts sibling is named after it; the dependency threads it to the sibling. Never derived from a topic. |
-| `contract`     | yes      | PascalCase payload type the message carries — the generated record in the shared-contracts sibling; the sample uses `Order`. Threaded to the `shared-contracts` dependency, which names its canonical record after it. Never resolved by registry resolution and never derived from a topic. |
-| `message`      | yes      | The one declaration everything derives from: the endpoint channel defaults to it, the payload type is its PascalCase projection, and it doubles as the CloudEvents `type`. Seeded by `--publishes` from the resolved registry message, or set by hand; the consuming loader declares the identical name. The `eventType` parameter remains a migration override. |
+| `contract`     | no       | Override — pins the payload type name instead of deriving it (PascalCase of the message: `orders` derives `Orders`). Worth setting when the message is a dotted registry id, where the derived name reads badly. The generated record in the shared-contracts sibling is named after it; the dependency threads it to the sibling. Never derived from a topic. |
+| `message`      | yes      | The one declaration everything derives from: the channel it travels on is named after it, the payload type is its PascalCase projection, and it doubles as the CloudEvents `type`. Seeded by `--publishes` from the resolved registry message, or set by hand; the consuming loader declares the identical name. |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `eventSource`  | no       | CloudEvent `source` for published events. Unset, derives as `urn:<organization>:<app-id>`; set it to preserve an existing event identity during a migration. |
-| `eventType`    | no       | CloudEvent `type` override for the flat migration path. The registry-resolved message identity wins over it; before this release a topic-derived guess (`product-export` → `maxbo.product.export`) filled the slot — that derivation is deleted: a topic name is never guessed into an event type. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; extractor lambdas throw).    |
 
 ## Render

@@ -30,7 +30,7 @@ production); locally the system host runs the block once at startup.
 - Message: `{{ .message }}` — what the extractor publishes; the message name doubles
   as the CloudEvents type. Set by `--publishes` from the resolved registry
   message; carried in the scaffold record's publishes block.
-- Endpoint channel: `{{ if .topic }}{{ .topic }}{{ else }}{{ .message }}{{ end }}` — the topic the message flows over (pubsub `pubsub`); it defaults to the message name and the template's `topic` parameter overrides it. The
+- Channel: `{{ .channel }}` — the topic the message flows over (pubsub `pubsub`). It is the message name; only a registry-resolved `publishes` block routes the message elsewhere. The
   consuming loader subscribes to the same channel
 - CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ if .message }}{{ .message }}{{ else }}{{ .eventType }}{{ end }}` (the message name IS the type; a scaffold without one fails the render)
 - Idempotency Service: reached via Dapr service invocation, app id
