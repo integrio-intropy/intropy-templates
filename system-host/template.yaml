@@ -103,5 +103,5 @@ spec:
     # derivation that disagrees renders files under names the CLI's
     # summary does not report.
     projectName: '{{ .name | replace "-" " " | title | replace " " "" }}'
-    systemClass: '{{ .name | replace "-" " " | title | replace " " "" }}'
+    systemClass: '{{ .name | replace "-" " " | title | replace " " "" }}System'
     pubsub: 'pubsub'
