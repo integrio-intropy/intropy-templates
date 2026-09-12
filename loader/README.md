@@ -60,8 +60,8 @@ pipeline code, unless `empty=true`) to match.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderLoader`).                |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `topic`        | yes      | Pub/sub topic the loader subscribes to (kebab-case) — the channel the message flows over; the publishing extractor uses the same. Registry resolution records the resolved producing channel in the record's subscribe block; set this to match. |
-| `contract`     | yes      | PascalCase shared-contracts record the message carries; the sample uses `Order` (see above). Registry resolution carries no contract; the type stays a hand-set decision and is never derived from a topic. |
+| `topic`        | yes      | The endpoint channel the message arrives over (Dapr topic, kebab-case); the publishing extractor uses the same. Registry resolution records the resolved producing channel in the record's subscribe block; set this to match. |
+| `contract`     | yes      | PascalCase payload type the message carries — the generated record in the shared-contracts sibling; the sample uses `Order` (see above). Registry resolution carries no payload type; the type stays a hand-set decision and is never derived from a topic. |
 | `message`      | no       | Logical name of the subscribed message, doubling as the CloudEvents `type` of what arrives. Seeded by `--subscribe` from the resolved registry message (recorded in the scaffold record's subscribe block). |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |

@@ -30,14 +30,14 @@ production); locally the system host runs the block once at startup.
 - Message: `{{ .message }}` — what the extractor publishes; the message name doubles
   as the CloudEvents type. Set by `--publishes` from the resolved registry
   message; carried in the scaffold record's publishes block.
-- Topic: `{{ .topic }}` — the channel the message flows over (pubsub `pubsub`); the
+- Endpoint channel: `{{ .topic }}` — the topic the message flows over (pubsub `pubsub`); the
   consuming loader subscribes to the same channel
 - CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ if .message }}{{ .message }}{{ else }}{{ .eventType }}{{ end }}` (the message name IS the type; a scaffold without one fails the render)
 - Idempotency Service: reached via Dapr service invocation, app id
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
   `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the published contract (`{{ .contract }}`, `OrderLine`) lives in the
+- Shared contracts: the published payload type (`{{ .contract }}`) lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
   dependency declaration; when it already exists (another component created

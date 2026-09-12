@@ -34,7 +34,7 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
   `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the consumed contract (`{{ .contract }}`, `OrderLine`) lives in the
+- Shared contracts: the consumed payload type (`{{ .contract }}`) lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
   dependency declaration; when it already exists (another component created

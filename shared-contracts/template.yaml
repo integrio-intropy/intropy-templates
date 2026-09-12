@@ -26,11 +26,11 @@ spec:
       contract:
         type: string
         title: Contract type
-        description: PascalCase name of the canonical contract record the system's topics carry — the record this library is scaffolded around. Component templates pass their own contract parameter down.
+        description: PascalCase name of the canonical payload type the system's messages are typed with — the record this library is scaffolded around. Component templates pass their own contract parameter down.
         pattern: "^[A-Z][A-Za-z0-9]*$"
         default: Order
       empty:
         type: boolean
         title: Empty bodies
-        description: When true, strip the sample contract fields. The library still compiles (the contract record stays as an empty shell for pipeline generics) so a migration agent can fill in the real contract.
+        description: When true, strip the sample payload-type fields. The library still compiles (the payload-type record stays as an empty shell for pipeline generics) so a migration agent can fill in the real type.
         default: false

@@ -36,13 +36,13 @@ spec:
         pattern: "^[A-Z][A-Za-z0-9]*$"
       topic:
         type: string
-        title: Topic
-        description: The pub/sub topic the extractor publishes to — the channel the message flows over. Registry resolution (--publishes) records the resolved channel in the scaffold record's publishes block, never in this parameter; set the topic to the same value the block carries, and the consuming loader names the identical topic.
+        title: Endpoint channel (topic)
+        description: The endpoint channel the extractor's message flows over (the Dapr topic name). Registry resolution (--publishes) records the resolved channel in the scaffold record's publishes block, never in this parameter; set the topic to the same value the block carries, and the consuming loader's message names the identical channel.
         pattern: "^[a-z][a-z0-9-]*$"
       contract:
         type: string
-        title: Contract type
-        description: PascalCase name of the shared-contracts record an internal message carries — the system-declared .NET type the message is typed with, recorded in .intropy/scaffold.json for `intropy sys create` to type the message with. The sample logic uses Order. Declared here by the system author; a scaffold resolved against a registry message carries the schema in its block (dataschema) instead, and schema-derived naming remains a possible future direction, not this template's behavior. Never derived from a topic name.
+        title: Payload type
+        description: PascalCase name of the payload type an internal message carries — the generated .NET record in the shared-contracts sibling that types the message, recorded in .intropy/scaffold.json for `intropy sys create` to type the message with. The sample logic uses Order. Declared here by the system author; a scaffold resolved against a registry message carries the schema in its block (dataschema) instead, and schema-derived naming remains a possible future direction, not this template's behavior. Never derived from a topic name.
         pattern: "^[A-Z][A-Za-z0-9]*$"
       message:
         type: string
