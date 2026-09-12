@@ -37,7 +37,7 @@ spec:
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the loader subscribes to — the channel half of the message. Registry resolution (--subscribe) sets it from the resolved producing channel; the flat hand-typed path names it here and the publishing extractor uses the same value.
+        description: The pub/sub topic the loader subscribes to — the channel half of the message. Registry resolution (--subscribe) records the resolved producing channel in the scaffold record's subscribe block, never in this parameter; set the topic to the same value the block carries, and the publishing extractor names the identical topic.
         pattern: "^[a-z][a-z0-9-]*$"
       contract:
         type: string
