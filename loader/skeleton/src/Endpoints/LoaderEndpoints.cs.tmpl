@@ -33,7 +33,7 @@ public static class LoaderEndpoints
 
     private static async Task<IResult> HandleDeliveryAsync(
         HttpRequest request,
-        [FromServices] Loader<{{ .contract }}, Out, Context> pipeline,
+        [FromServices] Loader<{{ .payloadType }}, Out, Context> pipeline,
         [FromServices] ILoggerFactory loggerFactory,
         CancellationToken ct)
     {

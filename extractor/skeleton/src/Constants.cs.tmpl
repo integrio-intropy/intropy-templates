@@ -6,7 +6,7 @@ public static class Constants
     public const string Organization = "{{ .organization }}";
 
     public const string PubSubName = "{{ if and (hasKey . "publishes") .publishes.pubsub }}{{ .publishes.pubsub }}{{ else }}pubsub{{ end }}";
-    public const string TopicName = "{{ if and (hasKey . "publishes") .publishes.topic }}{{ .publishes.topic }}{{ else }}{{ .topic }}{{ end }}";
+    public const string TopicName = "{{ if and (hasKey . "publishes") .publishes.topic }}{{ .publishes.topic }}{{ else if .topic }}{{ .topic }}{{ else }}{{ .message }}{{ end }}";
 
     // The source port: the named interface this component reads the outside
     // world through. The name is the port's whole identity — declared in the

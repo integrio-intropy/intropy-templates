@@ -144,30 +144,30 @@ public static class Composition
     /// source adapter, sender, idempotency, business incidents — resolves from
     /// the provider, so a test swaps any of them by swapping its registration.
     /// </summary>
-    public static Extractor<Source{{ .contract }}, {{ .contract }}, Context> BuildPipeline(IServiceProvider provider)
+    public static Extractor<Source{{ .payloadType }}, {{ .payloadType }}, Context> BuildPipeline(IServiceProvider provider)
     {
-        return ExtractorBuilder<Source{{ .contract }}, {{ .contract }}, Context>.Create("{{ .name }}.Process", provider)
+        return ExtractorBuilder<Source{{ .payloadType }}, {{ .payloadType }}, Context>.Create("{{ .name }}.Process", provider)
             .WithDeserializer(new Deserializer())
             .WithValidator(new Validator())
             // Point the idempotency check at a stable business identifier and
             // timestamp — per-delivery values (fresh GUID, wall-clock time)
             // make the check pass everything.
             .WithIdempotency(
-                idExtractor: (Source{{ .contract }} order, Context _) =>
+                idExtractor: (Source{{ .payloadType }} order, Context _) =>
 {{- if .empty }}
                     throw new NotImplementedException(),
                 dateExtractor: (_, _) =>
                     throw new NotImplementedException())
 {{- else }}
                     order.OrderId,
-                dateExtractor: (Source{{ .contract }} order, Context _) =>
+                dateExtractor: (Source{{ .payloadType }} order, Context _) =>
                     order.OrderDate)
 {{- end }}
             .WithTransformer(new Transformer())
             // The framework's serialize step owns the CloudEvent envelope (Id,
             // Subject, Time, Data) and validates Subject/Time at serialize time;
             // the publisher adds Source/Type from the registration above.
-            .WithSerializer(new CloudEventSerializeStep<{{ .contract }}, Context>(
+            .WithSerializer(new CloudEventSerializeStep<{{ .payloadType }}, Context>(
 {{- if .empty }}
                 subject: _ => throw new NotImplementedException(),
                 time: _ => throw new NotImplementedException()))

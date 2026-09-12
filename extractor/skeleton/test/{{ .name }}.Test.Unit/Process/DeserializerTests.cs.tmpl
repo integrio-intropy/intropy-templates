@@ -27,7 +27,7 @@ public class DeserializerTests
         var (result, resultContext) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Success>(result);
+        Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
         Assert.False(string.IsNullOrWhiteSpace(resultContext.Metadata[Constants.ContextKeyOrderId]));
     }
 {{- else }}
@@ -43,7 +43,7 @@ public class DeserializerTests
         var (result, _) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
 
         // Assert
-        var success = Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Success>(result);
+        var success = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Single(success.Value.Lines);
     }

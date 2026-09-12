@@ -2,7 +2,7 @@
 
 .NET extractor integration. One run = one sweep: the runner lists the
 inbound folder, runs each swept JSON order through the Intropy extractor
-pipeline, publishes the result as a CloudEvent to the `{{ .topic }}` topic on
+pipeline, publishes the result as a CloudEvent to the `{{ if .topic }}{{ .topic }}{{ else }}{{ .message }}{{ end }}` topic on
 the Dapr pub/sub, deletes the source file, and exits. Scheduling lives
 outside the block — activation cadence is deployment configuration (a
 Kubernetes CronJob in production); locally the system host runs the block
@@ -23,7 +23,7 @@ read ──▶ deserialize ──▶ validate ──▶ transform
 idempotency check
    │
    ▼
-publish CloudEvent to '{{ .topic }}'
+publish CloudEvent to '{{ if .topic }}{{ .topic }}{{ else }}{{ .message }}{{ end }}'
    │
    ▼
 delete source file ──▶ next file
@@ -123,7 +123,7 @@ structured-mode or metadata behavior is ever suspected of diverging.
 
 ## Shared contracts
 
-The canonical contract types (`{{ .contract }}`, `OrderLine`) live in the sibling
+The canonical payload types (`{{ .payloadType }}`) live in the sibling
 `../{{ .contracts }}` project, referenced from `src/{{ .name }}.csproj`. It was
 scaffolded together with this project (or already existed — components in the
 same parent directory share it); the consuming loader deserializes exactly
@@ -153,7 +153,7 @@ failure — via `src/ExtractJob.cs`):
 //         ┌─────────────────────────────┐
 //         │ 1. Deserializer             │
 //         └──────────────┬──────────────┘
-//                        │ parses JSON into Source{{ .contract }}; stamps order_id
+//                        │ parses JSON into Source{{ .payloadType }}; stamps order_id
 //                        ▼
 //         ┌─────────────────────────────┐
 //         │ 2. Validator                ├──── failure ───► Business Incident Service
@@ -168,12 +168,12 @@ failure — via `src/ExtractJob.cs`):
 //         ┌─────────────────────────────┐
 //         │ 4. Transformer              │
 //         └──────────────┬──────────────┘
-//                        │ Source{{ .contract }} → canonical {{ .contract }} (../{{ .contracts }})
+//                        │ Source{{ .payloadType }} → canonical {{ .payloadType }} (../{{ .contracts }})
 //                        ▼
 //         ┌─────────────────────────────┐
 //         │ 5. CloudEventSerializeStep  │
 //         └──────────────┬──────────────┘
-//                        │ wraps {{ .contract }}; validates Subject = order id, Time = order date
+//                        │ wraps {{ .payloadType }}; validates Subject = order id, Time = order date
 //                        ▼
 //         ┌─────────────────────────────┐
 //         │ 6. Dapr topic publisher     │
@@ -184,11 +184,11 @@ failure — via `src/ExtractJob.cs`):
 ```
 {{- if .empty }}
 
-1. `Deserializer` parses the JSON into `Source{{ .contract }}`.
+1. `Deserializer` parses the JSON into `Source{{ .payloadType }}`.
 2. `Validator` enforces business rules.
 3. Idempotency check — cancels duplicates.
-4. `Transformer` maps `Source{{ .contract }}` → the shared `{{ .contract }}` contract.
-5. `CloudEventSerializeStep` (framework) wraps `{{ .contract }}` in a CloudEvent
+4. `Transformer` maps `Source{{ .payloadType }}` → the shared `{{ .payloadType }}` contract.
+5. `CloudEventSerializeStep` (framework) wraps `{{ .payloadType }}` in a CloudEvent
    (Subject and Time are mandatory).
 6. The Dapr topic publisher sends it to `pubsub` / `{{ .topic }}`.
 
@@ -203,16 +203,16 @@ starts green). The suite flips green piece by piece as the steps are
 implemented — the failing tests are the to-do list.
 {{- else }}
 
-1. `Deserializer` parses the JSON into `Source{{ .contract }}` and stamps `order_id` into the
+1. `Deserializer` parses the JSON into `Source{{ .payloadType }}` and stamps `order_id` into the
    pipeline context.
 2. `Validator` enforces required fields and basic business rules; failures are
    routed to the Business Incident Service.
 3. Idempotency check — asks the Idempotency Service whether this `OrderId` /
    `OrderDate` combination was already processed; duplicates cancel the run.
-4. `Transformer` maps `Source{{ .contract }}` → the canonical `{{ .contract }}` shape from the
+4. `Transformer` maps `Source{{ .payloadType }}` → the canonical `{{ .payloadType }}` shape from the
    shared contracts project (`../{{ .contracts }}`) that the consuming loader
    deserializes.
-5. `CloudEventSerializeStep` (framework) wraps `{{ .contract }}` in a CloudEvent with
+5. `CloudEventSerializeStep` (framework) wraps `{{ .payloadType }}` in a CloudEvent with
    `Subject` = order id and `Time` = order date, validating both at serialize
    time.
 6. The Dapr topic publisher sets the envelope source/type and sends it to

@@ -55,6 +55,6 @@ public sealed class FakeEdges
     /// <see cref="Topic"/> is already in the DI graph via <see cref="CreateServices"/>,
     /// so there is nothing left to override.
     /// </summary>
-    public Extractor<Source{{ .contract }}, {{ .contract }}, Context> BuildPipeline(IServiceProvider provider) =>
+    public Extractor<Source{{ .payloadType }}, {{ .payloadType }}, Context> BuildPipeline(IServiceProvider provider) =>
         Composition.Composition.BuildPipeline(provider);
 }

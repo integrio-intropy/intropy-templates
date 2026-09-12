@@ -21,8 +21,7 @@ spec:
     required:
       - name
       - organization
-      - topic
-      - contract
+      - message
     properties:
       name:
         type: string
@@ -37,18 +36,17 @@ spec:
       topic:
         type: string
         title: Endpoint channel (topic)
-        description: The endpoint channel the loader's message arrives over (the Dapr topic name). Registry resolution (--subscribe) records the resolved producing channel in the scaffold record's subscribe block, never in this parameter; set the topic to the same value the block carries, and the publishing extractor's message names the identical channel.
-        pattern: "^[a-z][a-z0-9-]*$"
+        description: Override — route the message over this existing channel instead of the default (the message name itself). Registry resolution (--subscribe) records the resolved producing channel in the scaffold record's subscribe block and leaves this empty; set it to the same value the block carries, and the publishing extractor's message must name the identical channel.
+        default: ""
       contract:
         type: string
         title: Payload type
-        description: PascalCase name of the payload type an internal message carries — the generated .NET record in the shared-contracts sibling that types the message, recorded in .intropy/scaffold.json for `intropy sys create` to type the message with. The sample logic uses Order. Declared here by the system author; a scaffold resolved against a registry message carries the schema in its block (dataschema) instead, and schema-derived naming remains a possible future direction, not this template's behavior. Never derived from a topic name.
-        pattern: "^[A-Z][A-Za-z0-9]*$"
+        description: Override — pin the generated payload type name instead of deriving it from the message (PascalCase of the message; "orders" derives "Orders"). The generated .NET record in the shared-contracts sibling types the message, and `intropy sys create` consumes it from the scaffold record. Older records set it explicitly; the derivation is the default. Never derived from a topic name.
+        default: ""
       message:
         type: string
         title: Message
-        description: Logical name of the subscribed message — seeded by --subscribe from the resolved registry message and doubles as the CloudEvents type. Leave empty on the flat hand-typed path; the subscription route keys off the topic either way.
-        default: ""
+        description: Logical name of the subscribed message — the one declaration everything else derives from (the endpoint channel defaults to it, the payload type is its PascalCase projection), and it doubles as the CloudEvents type of what arrives. Seeded by --subscribe from the resolved registry message; on the hand-typed path the publishing extractor declares the identical name.
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -74,9 +72,17 @@ spec:
     # "Contracts" on purpose: the project is scoped to the system directory it
     # lives in, not to the organization.
     contracts: 'Contracts'
+    # The payload type the message projects to: PascalCase of the message
+    # identity, and the generated record in the shared-contracts sibling is
+    # named after it. The message is the declaration; the topic and this
+    # type are its projections. The explicit `contract` parameter is the
+    # override that wins when set (older records, hand-pinned names).
+    # Recorded in .intropy/scaffold.json; `intropy sys create` reads it and
+    # the CLI assembly derives the same value for records that predate it.
+    payloadType: '{{ if .contract }}{{ .contract }}{{ else }}{{ if .message }}{{ .message | regexReplaceAll "[^0-9A-Za-z]+" " " | title | replace " " "" }}{{ else }}{{ fail "message is required: the payload type derives from it (or set the contract override)" }}{{ end }}{{ end }}'
     # The pub/sub component name the skeleton subscribes through
     # (Constants.cs). Recorded in .intropy/scaffold.json for
-    # `intropy sys create`, together with the contract parameter above.
+    # `intropy sys create`, together with the payload type above.
     pubsub: 'pubsub'
     # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
@@ -89,5 +95,5 @@ spec:
       output: '{{ .contracts }}'
       values:
         name: '{{ .contracts }}'
-        contract: '{{ .contract }}'
+        contract: '{{ .payloadType }}'
         empty: '{{ .empty }}'

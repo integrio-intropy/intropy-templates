@@ -5,6 +5,7 @@
 #   intropy int create loader -o /tmp/loader-empty -f loader/examples/empty.yaml --version main --no-input
 name: OrderLoader
 organization: Fluxia
-topic: orders
+message: orders
+# topic and payload type derive from the message: channel 'orders', type 'Orders'.
+# The `topic`/`contract` parameters are overrides for leaving those defaults.
 empty: true
-contract: Order

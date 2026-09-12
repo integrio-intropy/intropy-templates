@@ -6,21 +6,21 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Deserializer : DeserializeStep<Source{{ .contract }}, Context>
+public class Deserializer : DeserializeStep<Source{{ .payloadType }}, Context>
 {
-    public override Task<(BusinessStepResult<Source{{ .contract }}> Result, Context Context)> ExecuteAsync(
+    public override Task<(BusinessStepResult<Source{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
         string input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();
 {{- else }}
-        var order = JsonSerializer.Deserialize<Source{{ .contract }}>(input,
+        var order = JsonSerializer.Deserialize<Source{{ .payloadType }}>(input,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
         context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
 
-        return Task.FromResult<(BusinessStepResult<Source{{ .contract }}>, Context)>(
-            (new BusinessStepResult<Source{{ .contract }}>.Success(order), context));
+        return Task.FromResult<(BusinessStepResult<Source{{ .payloadType }}>, Context)>(
+            (new BusinessStepResult<Source{{ .payloadType }}>.Success(order), context));
 {{- end }}
     }
 }

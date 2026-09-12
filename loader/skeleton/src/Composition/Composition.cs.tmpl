@@ -135,9 +135,9 @@ public static class Composition
     /// from the provider, so a test swaps any of them by swapping its
     /// registration.
     /// </summary>
-    public static Loader<{{ .contract }}, Out, Context> BuildPipeline(IServiceProvider provider)
+    public static Loader<{{ .payloadType }}, Out, Context> BuildPipeline(IServiceProvider provider)
     {
-        return LoaderBuilder<{{ .contract }}, Out, Context>.Create("{{ .name }}.Process", provider)
+        return LoaderBuilder<{{ .payloadType }}, Out, Context>.Create("{{ .name }}.Process", provider)
             .WithDeserializer(new Deserializer())
             .WithValidator(new Validator())
             // The loader pipeline requires idempotency. It keys off CloudEvent

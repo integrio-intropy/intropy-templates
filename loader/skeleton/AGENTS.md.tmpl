@@ -22,7 +22,7 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
 - App id: `{{ .appId }}`
 - Pub/sub component: `pubsub` — provided by the system host; messages are
   published from there
-- Topic: `{{ .topic }}` — the channel the message arrives over (pubsub `pubsub`); the
+- Endpoint channel: `{{ if .topic }}{{ .topic }}{{ else }}{{ .message }}{{ end }}` — the topic the message arrives over (pubsub `pubsub`); it defaults to the message name and the template's `topic` parameter overrides it. The
   publishing extractor publishes to the same channel
 - Destination port: `{{ .port }}` — the named interface the loader
   writes the outside world through; the system host declares it in
@@ -34,7 +34,7 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
   `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the consumed payload type (`{{ .contract }}`) lives in the
+- Shared contracts: the consumed payload type (`{{ .payloadType }}`) — derived from the message name, pinnable with the `contract` parameter — lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
   dependency declaration; when it already exists (another component created

@@ -19,7 +19,7 @@ public class CompositionTests
     {
         var provider = Composition.Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
 
-        var pipeline = provider.GetRequiredService<Loader<{{ .contract }}, Out, Context>>();
+        var pipeline = provider.GetRequiredService<Loader<{{ .payloadType }}, Out, Context>>();
 
         Assert.NotNull(pipeline);
     }

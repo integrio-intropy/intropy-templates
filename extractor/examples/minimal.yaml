@@ -2,7 +2,7 @@
 #   intropy int create extractor -o /tmp/extractor-out -f extractor/examples/minimal.yaml --version main --no-input
 name: OrderExtractor
 organization: Fluxia
-topic: orders
-contract: Order
 message: orders
+# topic and payload type derive from the message: channel 'orders', type 'Orders'.
+# The `topic`/`contract` parameters are overrides for leaving those defaults.
 empty: false

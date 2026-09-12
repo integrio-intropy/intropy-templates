@@ -6,7 +6,7 @@ public static class Constants
     public const string Organization = "{{ .organization }}";
 
     public const string PubSubName = "{{ if and (hasKey . "subscribe") .subscribe.pubsub }}{{ .subscribe.pubsub }}{{ else }}pubsub{{ end }}";
-    public const string TopicName = "{{ if and (hasKey . "subscribe") .subscribe.topic }}{{ .subscribe.topic }}{{ else }}{{ .topic }}{{ end }}";
+    public const string TopicName = "{{ if and (hasKey . "subscribe") .subscribe.topic }}{{ .subscribe.topic }}{{ else if .topic }}{{ .topic }}{{ else }}{{ .message }}{{ end }}";
 
     // The subscribed message's logical name — seeded by --subscribe from the
     // resolved registry message, where it doubles as the CloudEvents type of
