@@ -23,8 +23,11 @@ public static class Constants
     // CloudEvent envelope: where the data came from and what kind of event it is.
     // The type is the message name (the CLI's message-parameters seed —
     // message identity is the CloudEvents type), falling back to the
-    // eventType override on the flat migration path. Never derived from the
-    // topic name.
+    // eventType override on the flat migration path. Never derived from
+    // the topic name.
+{{- if and (not .message) (not .eventType) }}
+{{- fail (printf "no CloudEvent type: wire a message (set the message parameter, or scaffold with --publishes) or set the eventType override; this scaffold no longer derives event identity from the topic name") }}
+{{- end }}
 {{- if .eventSource }}
     public const string EventSource = "{{ .eventSource }}";
 {{- else }}

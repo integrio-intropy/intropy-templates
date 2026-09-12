@@ -36,9 +36,10 @@ exit 0
 `urn:<organization>:<app-id>` (`eventSource` overrides it for migrations).
 The type is the message name — seeded by `--publishes` from the resolved
 registry message. On the flat path (no `--publishes`), the `eventType`
-parameter overrides it; there is no derivation — a topic name is never
-guessed into an event type, so set `eventType` when migrating an existing
-component whose type must stay. Settings live in `src/appsettings.json`, overridable by
+parameter overrides it. There is no derivation — a topic name is never
+guessed into an event type — and a scaffold with neither `message` nor
+`eventType` fails the render: wire the message, or set `eventType` when
+migrating an existing component whose type must stay. Settings live in `src/appsettings.json`, overridable by
 `appsettings.{Environment}.json` and environment variables; deployment
 overlays the file via ConfigMap and `IConfiguration` is in DI.
 

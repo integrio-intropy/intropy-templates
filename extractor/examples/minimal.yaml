@@ -4,4 +4,5 @@ name: OrderExtractor
 organization: Fluxia
 topic: orders
 contract: Order
+message: orders
 empty: false
