@@ -31,10 +31,12 @@ public sealed class {{ .systemClass }} : ISystemDefinition
     public void Define(SystemBuilder builder)
     {
 {{- range .components }}
+{{- $mname := "" -}}
 {{- if ne .kind "transactional-integration" }}
 {{- /* The message a block publishes or subscribes, by name (message
-   first; topic name for legacy entries without the key). */ -}}
-{{- $mname := "" -}}
+   first; topic name for legacy entries without the key). Declared in the
+   range body: if-blocks close template scope, and the branches below need
+   the name. */ -}}
 {{- if hasKey . "message" -}}
 {{- $mname = .message -}}
 {{- else if hasKey . "topic" -}}
