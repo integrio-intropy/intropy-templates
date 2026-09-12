@@ -2,7 +2,7 @@
 
 The Aspire host project of an Intropy integration system: a .NET Aspire
 AppHost whose one job is to hold the system's source of truth — a typed C#
-declaration of which components exist and which topics connect them — and to
+declaration of which components exist and which messages connect them — and to
 run, validate, or generate the system from that one declaration.
 
 This template is normally rendered by **`intropy sys create`**, not directly:
@@ -63,7 +63,7 @@ it. The host declares only the two ports.
 renders this release with only `name` fails validation loudly instead of
 producing an empty system.
 
-The payload is **facts-only**: each component carries the raw topic/port
+The payload is **facts-only**: each component carries the raw message/port
 names it touches, and the skeleton derives the `Topics`/`Ports` field
 identifiers and the joins from components to them.
 
@@ -74,7 +74,7 @@ identifiers and the joins from components to them.
 | `messages` | list of `{name, type, contract?, dataschema?, publisher?}` — optional | The message-first view, primary input for `Messages.cs`: one entry per internal message (`type` repeats the name). Registry-resolved (external) publications are excluded — the registry serves their definition. Legacy payloads from CLIs predating the key omit it; the skeleton then synthesizes the messages from `topics`. |
 | `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
 | `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. The wiring fields follow the component's shape: a message-wiring block carries `message` (the name), the resolved `topic: {pubsub, name}`, `dataschema` when external, plus `port` when it has a port; a transactional integration — port-to-port, no message — carries `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
-| `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Topics.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A topics-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
+| `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Messages.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A message-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
 
 Derived `projectName`/`systemClass` (`order-flow` → `OrderFlow` /
 `OrderFlowSystem`) must keep matching the CLI's `pascalCase` derivation —
