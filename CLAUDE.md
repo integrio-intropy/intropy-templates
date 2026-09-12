@@ -126,6 +126,14 @@ Notes:
   name; the `eventType` parameter is a flat-path migration override, never
   a fallback derivation. Likewise do not derive a contract type from a
   topic name: contract stays a hand-set parameter.
+- **Registry (xregistry) vocabulary is scoped to cross-system messages.**
+  Whether intropy implements an xregistry is undecided, and if it does it is
+  for **cross-system** events only: internal messages are system-declared on
+  the hand-typed path (message, topic, contract — as a sibling pair), and no
+  template or gate may make registry machinery a prerequisite for scaffolding
+  them. Schema-derived type naming from a block's `dataschema` a possible
+  future direction for the cross-system path; it is not this library's
+  behavior.
 - **`spec.dependencies` composes whole templates at the output level.** Each
   entry names a sibling template in this repo, an `output` (a Go template
   that must render to a single path segment — the dependency is created as a

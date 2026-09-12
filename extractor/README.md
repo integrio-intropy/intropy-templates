@@ -6,9 +6,10 @@ extractor pipeline (`Intropy.Framework.Blocks.Extractor`), publishes the
 result as a CloudEvent to a pub/sub topic, deletes the source file, and
 exits. Scheduling lives outside the block — activation cadence is deployment
 configuration (a Kubernetes CronJob in production); locally the system host
-runs the block once at startup. The extractor is the publishing half of a
-system: scaffold the consuming loader with the same `topic` value (or wire
-both with `--publishes`/`--subscribe` against the same registry message).
+runs the block once at startup. The extractor publishes the system's message:
+scaffold the consuming loader with the same `topic` value (or wire both
+against the same registry message, letting the flags record the resolved
+channel).
 
 The rendered project is a one-shot console job (same shape as `transactional`)
 with a Taskfile (`task build`, `task test`, `task coverage` — the
@@ -56,7 +57,7 @@ renames its canonical record to match.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderExtractor`).            |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `topic`        | yes      | Pub/sub topic the extractor publishes to (kebab-case) — the channel half of the message; the consuming loader subscribes to the same. Registry resolution sets it from the resolved channel. |
+| `topic`        | yes      | Pub/sub topic the extractor publishes to (kebab-case) — the channel the message flows over; the consuming loader subscribes to the same. Registry resolution records the resolved channel in the record's publishes block; set this to match. |
 | `contract`     | yes      | PascalCase shared-contracts record the message carries; the sample uses `Order`. Threaded to the `shared-contracts` dependency, which names its canonical record after it. Never resolved by registry resolution and never derived from a topic. |
 | `message`      | no       | Logical name of the published message, doubling as the CloudEvents `type`. Seeded by `--publishes` from the resolved registry message (recorded in the scaffold record's publishes block); the flat path sets it by hand (or leaves it to the `eventType` override). A scaffold with neither `message` nor `eventType` fails the render — there is no event-identity derivation. |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |

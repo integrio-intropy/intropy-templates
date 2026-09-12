@@ -37,12 +37,12 @@ spec:
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the loader subscribes to — the channel half of the message. Registry resolution (--subscribe) records the resolved producing channel in the scaffold record's subscribe block, never in this parameter; set the topic to the same value the block carries, and the publishing extractor names the identical topic.
+        description: The pub/sub topic the loader subscribes to — the channel the message flows over. Registry resolution (--subscribe) records the resolved producing channel in the scaffold record's subscribe block, never in this parameter; set the topic to the same value the block carries, and the publishing extractor names the identical topic.
         pattern: "^[a-z][a-z0-9-]*$"
       contract:
         type: string
         title: Contract type
-        description: PascalCase name of the shared-contracts record the message carries — the typed second half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the message with. The sample logic uses Order. Registry resolution carries no contract; the type stays a hand-set decision and is never derived from a topic name.
+        description: PascalCase name of the shared-contracts record an internal message carries — the system-declared .NET type the message is typed with, recorded in .intropy/scaffold.json for `intropy sys create` to type the message with. The sample logic uses Order. Declared here by the system author; a scaffold resolved against a registry message carries the schema in its block (dataschema) instead, and schema-derived naming remains a possible future direction, not this template's behavior. Never derived from a topic name.
         pattern: "^[A-Z][A-Za-z0-9]*$"
       message:
         type: string
