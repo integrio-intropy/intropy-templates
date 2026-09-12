@@ -46,7 +46,8 @@ spec:
       message:
         type: string
         title: Message
-        description: Logical name of the published message — the one declaration everything else derives from (the endpoint channel defaults to it, the payload type is its PascalCase projection), and it doubles as the CloudEvents type. Seeded by --publishes from the resolved registry message; on the hand-typed path the consuming loader declares the identical name.
+        description: Logical name of the published message — the one declaration everything else derives from (the endpoint channel defaults to it, the payload type is its PascalCase projection — e.g. 'order-created' derives 'OrderCreated'), and it doubles as the CloudEvents type. Lowercase DNS-1123 subdomain, same rules as the topic names it defaults — an uppercase name fails the scaffold here rather than failing the host's topology validation at run time. Seeded by --publishes from the resolved registry message; on the hand-typed path the consuming loader declares the identical name.
+        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
