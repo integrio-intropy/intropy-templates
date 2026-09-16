@@ -26,7 +26,7 @@ spec:
       contract:
         type: string
         title: Contract type
-        description: PascalCase name of the canonical payload type the system's messages are typed with — the record this library is scaffolded around. Component templates pass their own contract parameter down.
+        description: PascalCase name of the canonical payload type the system's messages are typed with — the record this library is scaffolded around. Component templates pass their derived payload type down.
         pattern: "^[A-Z][A-Za-z0-9]*$"
         default: Order
       empty:

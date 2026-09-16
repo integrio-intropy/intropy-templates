@@ -5,7 +5,7 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "{{ if and (hasKey . "publishes") .publishes.pubsub }}{{ .publishes.pubsub }}{{ else }}pubsub{{ end }}";
+    public const string PubSubName = "pubsub";
     public const string TopicName = "{{ .channel }}";
 
     // The source port: the named interface this component reads the outside
@@ -30,7 +30,7 @@ public static class Constants
 {{- else }}
     public const string EventSource = "{{ .eventSourceValue }}";
 {{- end }}
-    public const string EventType = "{{ .message }}";
+    public const string EventType = "{{ .publishes }}";
 
     public const string ContextKeyFileName = "file_name";
     public const string ContextKeyOrderId = "order_id";

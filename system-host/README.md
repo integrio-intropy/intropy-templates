@@ -32,16 +32,13 @@ Contract types are not generated: the host references the workspace's shared
 contracts project (the `shared-library` scaffold, typically `Contracts/`),
 whose path arrives in the payload as `sharedContracts.include`.
 
-A component whose message carries no contract anywhere in the payload — a
-registry-resolved (external) publication, which the CLI's block record and
-payload exclude from the message view — fails the render loudly: the host
-cannot type a `MessageRef<T>` from nothing. That failure is a CLI-payload
-deficit to fix upstream (declare the message by hand in `Messages.cs` to
-unblock a manual edit).
+A component whose message carries no contract anywhere in the payload fails
+the render loudly: the host cannot type a `MessageRef<T>` from nothing. That
+failure is a CLI-payload deficit to fix upstream.
 
 There is no backwards-compatibility surface: a payload that carries topics
-but no `messages`, or components without `message` keys, fails the render
-with a re-scaffold instruction. Old workspaces migrate by re-scaffolding.
+but no `messages`, or components without scalar `publishes` / `subscribes`
+keys, fails the render. Old workspaces migrate by re-scaffolding.
 
 A port's name is its whole identity — the deployed binding's type and
 connection values are environment-owned deployment configuration the topology
@@ -68,16 +65,16 @@ renders this release with only `name` fails validation loudly instead of
 producing an empty system.
 
 The payload is **facts-only**: each component carries the raw message/port
-names it touches, and the skeleton derives the `Topics`/`Ports` field
+names it touches, and the skeleton derives the `Messages`/`Ports` field
 identifiers and the joins from components to them.
 
 | key | shape | notes |
 |---|---|---|
 | `name` | string | DNS-1123 system name; becomes `SystemName`. |
-| `topics` | list of `{pubsub, name, contract}` | The transport list the message's channel resolves from — the pubsub for the message named after the topic. Kept for the join, never for message declarations. Sorted by (pubsub, name). |
-| `messages` | list of `{name, type, contract?, dataschema?, publisher?}` — optional | The message-first view, primary input for `Messages.cs`: one entry per internal message (`type` repeats the name). Registry-resolved (external) publications are excluded — the registry serves their definition. A payload carrying topics but no messages is an older CLI's shape: the render fails with a re-scaffold instruction. |
+| `topics` | list of `{pubsub, name, contract}` | Derived transport list retained for deploy consumers. Sorted by (pubsub, name). |
+| `messages` | list of `{name, type, contract, publisher}` — optional | The message-first view, primary input for `Messages.cs`: one entry per produced message (`type` repeats the name). |
 | `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
-| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. The wiring fields follow the component's shape: a message-wiring block carries `message` (the name), the resolved `topic: {pubsub, name}`, `dataschema` when external, plus `port` when it has a port; a transactional integration — port-to-port, no message — carries `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
+| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. Extractors carry scalar `publishes`, loaders carry scalar `subscribes`, and transactional integrations carry `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
 | `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Messages.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A message-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
 
 Derived `projectName`/`systemClass` (`order-flow` → `OrderFlow` /

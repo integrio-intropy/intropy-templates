@@ -5,13 +5,13 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "{{ if and (hasKey . "subscribe") .subscribe.pubsub }}{{ .subscribe.pubsub }}{{ else }}pubsub{{ end }}";
+    public const string PubSubName = "pubsub";
     public const string TopicName = "{{ .channel }}";
 
     // The subscribed message's logical name — the one declaration this
     // scaffold is wired from, and the CloudEvents type of what the sidecar
     // delivers (the envelope's `type` field).
-    public const string MessageName = "{{ .message }}";
+    public const string MessageName = "{{ .subscribes }}";
 
     // The destination port: the named interface this component writes the
     // outside world through. The name is the port's whole identity —

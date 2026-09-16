@@ -8,8 +8,7 @@ into a CloudEvent, runs it through the Intropy loader pipeline
 `{orderId}.json` through a local destination folder binding. In production
 the loader runs as a Deployment (unlike the run-to-completion `extractor`).
 The loader subscribes to the system's message: scaffold the publishing
-extractor with the same `message` value (or wire both against the same registry
-message, letting the flags record the resolved channel).
+extractor with the same message value (`subscribes` here, `publishes` there).
 
 The rendered project is an ASP.NET service with a Taskfile (`task build`,
 `task test`, `task coverage` — the component-level loop), a `/healthz`
@@ -60,8 +59,7 @@ pipeline code, unless `empty=true`) to match.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderLoader`).                |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `contract`     | no       | Override — pins the payload type name instead of deriving it (PascalCase of the message). Worth setting when the message is a dotted registry id, where the derived name reads badly. The generated record in the shared-contracts sibling is named after it. Never derived from a topic. |
-| `message`      | yes      | The one declaration everything derives from: the channel it arrives on is named after it, the payload type is its PascalCase projection, and it doubles as the CloudEvents `type` of what arrives. Seeded by `--subscribe` from the resolved registry message, or set by hand; the publishing extractor declares the identical name. |
+| `subscribes`  | yes      | The message this loader subscribes to. The topic, CloudEvents `type`, and payload type derive from this value. |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; no idempotency lambdas).     |

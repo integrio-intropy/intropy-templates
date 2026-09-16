@@ -47,10 +47,9 @@ spec:
           type: object
           additionalProperties: true
       # The message-first section, the primary input for the declaration:
-      # one entry per internal message (registry-resolved, external ones are
-      # served by the registry and excluded by the CLI's assembly). Entries
-      # carry {name, type, contract?, dataschema?, publisher?}; the channel
-      # is looked up from `topics` by name.
+      # one entry per internal message declared by local producers. Entries
+      # carry {name, type, contract, publisher}; the channel is derived from
+      # the message name.
       messages:
         type: array
         items:
