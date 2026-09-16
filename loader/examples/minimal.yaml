@@ -2,7 +2,7 @@
 #   intropy int create loader -o /tmp/loader-out -f loader/examples/minimal.yaml --version main --no-input
 name: OrderLoader
 organization: Fluxia
-message: orders
-# The channel and payload type derive from the message: topic 'orders',
-# type 'Orders'. `contract` overrides the derived type name when it reads badly.
+subscribes: orders
+# The channel and payload type are projections of the subscribes value:
+# topic 'orders', payload type 'Orders'.
 empty: false

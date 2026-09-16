@@ -13,7 +13,7 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: extractor
     intropy.io/data-flow: "in"
-    intropy.io/message-params: message
+    intropy.io/message-params: publishes
 
 spec:
   parameters:
@@ -21,7 +21,7 @@ spec:
     required:
       - name
       - organization
-      - message
+      - publishes
     properties:
       name:
         type: string
@@ -33,15 +33,10 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
-      contract:
+      publishes:
         type: string
-        title: Payload type
-        description: Override — pin the generated payload type name instead of deriving it from the message (PascalCase of the message; "orders" derives "Orders"). The generated .NET record in the shared-contracts sibling types the message, and `intropy sys create` consumes it from the scaffold record. Older records set it explicitly; the derivation is the default. Never derived from a topic name.
-        default: ""
-      message:
-        type: string
-        title: Message
-        description: Logical name of the published message — the one declaration everything else derives from (the endpoint channel defaults to it, the payload type is its PascalCase projection — e.g. 'order-created' derives 'OrderCreated'), and it doubles as the CloudEvents type. Lowercase DNS-1123 subdomain, same rules as the topic names it defaults — an uppercase name fails the scaffold here rather than failing the host's topology validation at run time. Seeded by --publishes from the resolved registry message; on the hand-typed path the consuming loader declares the identical name.
+        title: Publishes
+        description: Logical name of the message this extractor publishes. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
@@ -75,16 +70,10 @@ spec:
     contracts: 'Contracts'
     # The payload type the message projects to: PascalCase of the message
     # identity, and the generated record in the shared-contracts sibling is
-    # named after it. The message is the declaration; the topic and this
-    # type are its projections. The explicit `contract` parameter is the
-    # override that wins when set (older records, hand-pinned names).
-    # Recorded in .intropy/scaffold.json; `intropy sys create` reads it and
-    # the CLI assembly derives the same value for records that predate it.
-    payloadType: '{{ if .contract }}{{ .contract }}{{ else }}{{ if .message }}{{ .message | regexReplaceAll "[^0-9A-Za-z]+" " " | title | replace " " "" }}{{ else }}{{ fail "message is required: the payload type derives from it (or set the contract override)" }}{{ end }}{{ end }}'
-    # The pub/sub component name the skeleton publishes through
-    # (Constants.cs). Recorded in .intropy/scaffold.json for
-    # `intropy sys create`, together with the payload type above.
-    pubsub: 'pubsub'
+    # named after it. The message is the declaration; the channel and this
+    # type are its projections. The CLI assembly derives the same value from
+    # the scalar message wiring.
+    payloadType: '{{ .publishes | regexReplaceAll "[^0-9A-Za-z]+" " " | title | replace " " "" }}'
     # The extractor's source port — the named interface it reads the outside
     # world through. Derived like appId so it stays unique per component.
     # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to
@@ -96,10 +85,9 @@ spec:
     # exist: a topic name is never guessed into an event type, and a
     # second way to name the event is a second identity.
     eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
-    # The channel the message is published on: the registry-resolved
-    # snapshot when the CLI wrote a publishes block, otherwise the message
-    # name. One derivation, so every file that names the channel agrees.
-    channel: '{{ if and (hasKey . "publishes") .publishes.topic }}{{ .publishes.topic }}{{ else }}{{ .message }}{{ end }}'
+    # The channel the message is published on: the message name. One
+    # derivation, so every file that names the channel agrees.
+    channel: '{{ .publishes }}'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'

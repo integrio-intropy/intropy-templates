@@ -13,7 +13,7 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: loader
     intropy.io/data-flow: "out"
-    intropy.io/message-params: message
+    intropy.io/message-params: subscribes
 
 spec:
   parameters:
@@ -21,7 +21,7 @@ spec:
     required:
       - name
       - organization
-      - message
+      - subscribes
     properties:
       name:
         type: string
@@ -33,15 +33,10 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
-      contract:
+      subscribes:
         type: string
-        title: Payload type
-        description: Override — pin the generated payload type name instead of deriving it from the message (PascalCase of the message; "orders" derives "Orders"). The generated .NET record in the shared-contracts sibling types the message, and `intropy sys create` consumes it from the scaffold record. Older records set it explicitly; the derivation is the default. Never derived from a topic name.
-        default: ""
-      message:
-        type: string
-        title: Message
-        description: Logical name of the subscribed message — the one declaration everything else derives from (the endpoint channel defaults to it, the payload type is its PascalCase projection — e.g. 'order-created' derives 'OrderCreated'), and it doubles as the CloudEvents type of what arrives. Lowercase DNS-1123 subdomain, same rules as the topic names it defaults — an uppercase name fails the scaffold here rather than failing the host's topology validation at run time. Seeded by --subscribe from the resolved registry message; on the hand-typed path the publishing extractor declares the identical name.
+        title: Subscribes
+        description: Logical name of the message this loader subscribes to. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
@@ -70,20 +65,13 @@ spec:
     contracts: 'Contracts'
     # The payload type the message projects to: PascalCase of the message
     # identity, and the generated record in the shared-contracts sibling is
-    # named after it. The message is the declaration; the topic and this
-    # type are its projections. The explicit `contract` parameter is the
-    # override that wins when set (older records, hand-pinned names).
-    # Recorded in .intropy/scaffold.json; `intropy sys create` reads it and
-    # the CLI assembly derives the same value for records that predate it.
-    payloadType: '{{ if .contract }}{{ .contract }}{{ else }}{{ if .message }}{{ .message | regexReplaceAll "[^0-9A-Za-z]+" " " | title | replace " " "" }}{{ else }}{{ fail "message is required: the payload type derives from it (or set the contract override)" }}{{ end }}{{ end }}'
-    # The channel the message arrives on: the registry-resolved producing
-    # snapshot when the CLI wrote a subscribe block, otherwise the message
-    # name. One derivation, so every file that names the channel agrees.
-    channel: '{{ if and (hasKey . "subscribe") .subscribe.topic }}{{ .subscribe.topic }}{{ else }}{{ .message }}{{ end }}'
-    # The pub/sub component name the skeleton subscribes through
-    # (Constants.cs). Recorded in .intropy/scaffold.json for
-    # `intropy sys create`, together with the payload type above.
-    pubsub: 'pubsub'
+    # named after it. The message is the declaration; the channel and this
+    # type are its projections. The CLI assembly derives the same value from
+    # the scalar message wiring.
+    payloadType: '{{ .subscribes | regexReplaceAll "[^0-9A-Za-z]+" " " | title | replace " " "" }}'
+    # The channel the message arrives on: the message name. One derivation,
+    # so every file that names the channel agrees.
+    channel: '{{ .subscribes }}'
     # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`

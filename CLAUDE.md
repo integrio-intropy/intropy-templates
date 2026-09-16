@@ -98,50 +98,40 @@ Notes:
   is free-form.
 - **The message-params label is load-bearing too.**
   `intropy.io/message-params` lists the comma-separated names of the
-  manifest parameters the CLI seeds from a resolved registry message when
-  `int create --subscribe`/`--publishes` runs. A template without the label
-  declares no message parameters: both flags are usage errors against it,
-  and its parameters get no message suggestions. One create wires one
-  message — under the flags the label may name at most one parameter
-  (`message`).
+  manifest parameters the CLI seeds from scalar `int create --subscribe` /
+  `--publishes` flags. A template without the label declares no message
+  parameters: both flags are usage errors against it, and its parameters get
+  no message suggestions. One create wires one message — under the flags the
+  label may name at most one parameter (`publishes` or `subscribes`).
 - **Message wiring (message-first).** A block component's wiring is a
-  message: one declaration carries identity (message name, which doubles as
-  the CloudEvents type), channel (pubsub + topic), and contract (the shared
-  .NET type). The CLI is the only writer of the scaffold record's
-  `subscribe`/`publishes` blocks (`int create --subscribe`/`--publishes`
-  resolve a registry message and snapshot its channel); a template must
-  **never** derive `subscribe`/`publishes` keys in `spec.values` or any
-  skeleton. The hand-typed path (topic/contract parameters, no registry)
-  is a first-class authoring surface, not a compatibility mode: it records
-  flat values the assembly reads as a message named after the topic. What
-  is explicitly gone is any tolerance for pre-message-first payloads: a
-  topics-only payload, or a component without a message, fails the host
-  render with a re-scaffold instruction — old workspaces migrate by
-  re-scaffolding, and no template may guess a message view from topic
-  names.
+  message: one scalar declaration carries identity (message name, which
+  doubles as the CloudEvents type). The channel is derived as pubsub/topic
+  `pubsub/<message>`, and the payload type is the PascalCase projection.
+  Extractors declare `publishes`; loaders declare `subscribes`. Templates
+  must not reintroduce `topic`, `contract`, nested subscribe/publishes
+  blocks, registry snapshots, or compatibility fallbacks for topic-first
+  scaffold records.
 - **Never derive CloudEvent identity from a channel name.** No template may
   ship an `eventTypeValue`-style derivation (e.g. `<org>.<first>.<last>` of
   the topic) — the deleted extractor/loader `eventTypeValue` values were the
-  topic-first guess this rule outlaws. The event type is the seeded message
-  name; the `eventType` parameter is a flat-path migration override, never
-  a fallback derivation. The single-message declaration also means:
-  `topic`/`contract` are **optional overrides** — the endpoint channel
-  defaults to the message name (the topology's two-argument
-  `MessageRef.Define` convention) and the payload type derives from the
-  message identity (PascalCase; the template-level `payloadType` value and
-  the CLI's `internal/template.PascalCase` apply the same rule). Overrides
-  win when recorded; older records carrying both keys keep the strict
-  regime, so no migration cliff. A contract name is never derived from a
-  topic name.
+  topic-first guess this rule outlaws. The event type **is** the message
+  name, with no override: `eventType` is gone, because a second way to name
+  the event is a second identity.
+- **The message is the only channel declaration.** The component templates
+  declare no `topic` parameter. The channel is the derived `channel` value,
+  equal to the scalar message. Every file that names the channel reads
+  `{{ .channel }}`, so the announced route, the subscription, and the
+  scaffold record cannot disagree. A future host that must route a message
+  over an unrelated broker topic needs an explicit topology feature; the
+  scaffold does not offer a second way to say it.
 - **Registry (xregistry) vocabulary is scoped to cross-system messages.**
   Whether intropy implements an xregistry is undecided, and if it does it is
-  for **cross-system** events only: internal messages are system-declared on
-  the hand-typed path — a single `message` property, with the endpoint
-  channel and payload type derived from it and optional `topic`/`contract`
-  overrides — and no template or gate may make registry machinery a
-  prerequisite for scaffolding them. Schema-derived type naming from a
-  block's `dataschema` remains a possible future direction for the
-  cross-system path; it is not this library's behavior.
+  for **cross-system** events only: internal messages are system-declared as
+  scalar `publishes` / `subscribes` values, with the channel and payload type
+  derived from the message — and no template or gate may make registry
+  machinery a prerequisite for
+  scaffolding them. Schema-derived type naming remains a possible future
+  direction for the cross-system path; it is not this library's behavior.
 - **`spec.dependencies` composes whole templates at the output level.** Each
   entry names a sibling template in this repo, an `output` (a Go template
   that must render to a single path segment — the dependency is created as a

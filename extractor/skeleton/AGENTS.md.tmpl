@@ -27,17 +27,16 @@ production); locally the system host runs the block once at startup.
   binding (e.g. SFTP) from the deploy overlay's GitOps values — rebinding
   the port is a deployment change, never a code change
 - Pub/sub component: `pubsub`
-- Message: `{{ .message }}` — what the extractor publishes; the message name doubles
+- Message: `{{ .publishes }}` — what the extractor publishes; the message name doubles
   as the CloudEvents type. Set by `--publishes` from the resolved registry
-  message; carried in the scaffold record's publishes block.
-- Channel: `{{ .channel }}` — the topic the message flows over (pubsub `pubsub`). It is the message name; only a registry-resolved `publishes` block routes the message elsewhere. The
-  consuming loader subscribes to the same channel
-- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ if .message }}{{ .message }}{{ else }}{{ .eventType }}{{ end }}` (the message name IS the type; a scaffold without one fails the render)
+  message; carried in the scaffold record's scalar `publishes` value.
+- Channel: `{{ .channel }}` — the topic the message flows over (pubsub `pubsub`). It is the message name; the consuming loader subscribes to the same channel
+- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ .publishes }}` (the message name IS the type)
 - Idempotency Service: reached via Dapr service invocation, app id
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
   `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the published payload type (`{{ .payloadType }}`) — derived from the message name, pinnable with the `contract` parameter — lives in the
+- Shared contracts: the published payload type (`{{ .payloadType }}`) — derived from the message name — lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
   dependency declaration; when it already exists (another component created
