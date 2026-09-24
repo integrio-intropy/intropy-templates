@@ -17,8 +17,6 @@ public class Deserializer : DeserializeStep<Source{{ .payloadType }}, Context>
         var order = JsonSerializer.Deserialize<Source{{ .payloadType }}>(input,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
-        context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
-
         return Task.FromResult<(BusinessStepResult<Source{{ .payloadType }}>, Context)>(
             (new BusinessStepResult<Source{{ .payloadType }}>.Success(order), context));
 {{- end }}

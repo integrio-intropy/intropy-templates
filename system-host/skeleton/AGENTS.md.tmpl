@@ -38,7 +38,15 @@ declaration — an Aspire run backend and a generation backend.
   port to a folder under this project (conventionally `test/<port>/`), so
   the system runs end-to-end with zero external configuration.
 - `Services.cs` — the platform services as refs (`ServiceRef`), declared as static
-  fields; blocks attach them in `Define()` via `.Uses(...)`.
+  fields with their platform role (idempotency, business incidents); blocks
+  attach them in `Define()` via `.Uses(...)`. The role tells the framework
+  runner which app id is which, so components never configure them.
+- Organization `{{ .organizationName }}` — declared in `{{ .systemClass }}.cs`
+  (`builder.Organization(...)`): the telemetry service namespace and the
+  default CloudEvent source authority (`urn:{{ .organizationName }}:<component>`).
+  With the component names, messages, ports, and service roles it makes up
+  each component's runtime identity, which the host hands every component as
+  a generated `*.intropy.json` through `INTROPY__CONFIG`.
 - `mocks/` — the OpenAPI 3.0.x documents backing the platform-service mocks,
   served by Microcks during `task run`.
 {{- if hasKey . "sharedContracts" }}

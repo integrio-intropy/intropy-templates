@@ -65,6 +65,15 @@ spec:
         items:
           type: object
           additionalProperties: true
+      # The organization that owns the system: the telemetry service namespace
+      # and the default CloudEvent source authority (urn:<organization>:<component>).
+      # Optional so a payload without it still renders a runnable host.
+      organization:
+        type: string
+        title: Organization
+        description: DNS-1123 name of the organization that owns the system (e.g. integrio). Empty uses the system name.
+        pattern: "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)?$"
+        default: ""
       # Optional: present only when the workspace has a shared-library
       # scaffold. A message-free system (e.g. only transactional
       # integrations) renders with no contracts reference; a message-bearing
@@ -100,3 +109,5 @@ spec:
     projectName: '{{ .name | replace "-" " " | title | replace " " "" }}'
     systemClass: '{{ .name | replace "-" " " | title | replace " " "" }}System'
     pubsub: 'pubsub'
+    # The declared organization, or the system name when none is given.
+    organizationName: '{{ default .name .organization }}'

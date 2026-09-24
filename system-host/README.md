@@ -24,7 +24,7 @@ unit.
 | `Messages.cs` | `messages` — one `MessageRef<T>` field per internal message, channel resolved from `topics` by name (the topic name defaults to the message name) |
 | `Ports.cs` | `ports` — one `PortRef` per port (the name is the whole identity; the deployed binding type is environment-owned deployment configuration) |
 | `<Project>Development.cs` | `ports` — one `development.Files(...).RootPath("./test/<name>")` resolution per port, plus OpenAPI-backed mocks for both platform services (the skeleton's `Services.cs` + `mocks/` exist regardless of payload) |
-| `<Project>System.cs` | `components` — one `builder.Add<Kind>(...)` chain per component, wired `.Publishes(...)`/`.Subscribes(...)` through `Messages.*` |
+| `<Project>System.cs` | `organization` (default: the system name) — `builder.Organization(...)`, the runtime organization the framework runner reads; `components` — one `builder.Add<Kind>(...)` chain per component, wired `.Publishes(...)`/`.Subscribes(...)` through `Messages.*` |
 | `<Project>.SystemHost.csproj` | `sharedContracts.include` — the `ProjectReference` to the workspace's shared contracts project |
 | `Program.cs`, `Taskfile.yml`, `Properties/launchSettings.json`, `Services.cs`, `mocks/`, `sample-data/`, `AGENTS.md`, `README.md`, `.gitignore` | static shell |
 
@@ -96,10 +96,14 @@ intropy int create system-host -o /tmp/system-host-out \
 requires the `Intropy.Topology.Aspire` / `Intropy.Topology.Generation`
 packages to be resolvable from the configured NuGet feeds.
 
-The Intropy.Topology / .Aspire / .Generation pins sit at **1.1.0-rc.1** — the
-message-first topology prerelease (`MessageRef<T>` replaces `TopicRef`; one
-declaration carries identity + channel + contract). Do not lower any pin:
-the declaration shape and the run semantics require it (message-first refs,
-transactional `From`/`To` ports, run-to-completion terminal state). A
-template release and its pin are one atomic unit; Wave 2 of the rollout plan
-raises these pins to the stable topology release.
+The Intropy.Topology / .Aspire / .Generation pins sit at the pilot package set
+(`0.0.1-pilot.*`): message-first (`MessageRef<T>`) plus the topology-owned
+runtime identity the framework runner reads — `builder.Organization(...)`,
+the platform-service roles in `Services.cs`, and the per-component
+`*.intropy.json` the host hands each component through `INTROPY__CONFIG`.
+The pilot set is not published; the workspace needs a `nuget.config` pointing
+at the pilot feed (`pilot-system/pack-feed.sh`). A template release and its
+pin are one atomic unit.
+
+`intropy sys create` does not pass `organization` yet, so its renders use the
+system name as the organization until it does.

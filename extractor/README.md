@@ -1,66 +1,52 @@
 # extractor
 
-Scaffolds a run-to-completion .NET extractor integration: one run sweeps a
-local inbound folder binding once, runs each swept file through the Intropy
-extractor pipeline (`Intropy.Framework.Blocks.Extractor`), publishes the
-result as a CloudEvent to a pub/sub topic, deletes the source file, and
-exits. Scheduling lives outside the block — activation cadence is deployment
-configuration (a Kubernetes CronJob in production); locally the system host
-runs the block once at startup. The extractor publishes the system's message:
-scaffold the consuming loader with the same message value (`publishes` here,
-`subscribes` there).
+Scaffolds a run-to-completion .NET extractor integration that holds only
+business code: the component's rules (`src/<Component>.cs`) and its pipeline
+steps (`src/Process/`). One run sweeps the inbound port once, runs each file
+through the Intropy extractor pipeline, publishes the result as a CloudEvent,
+deletes the source file, and exits. Scheduling is deployment configuration (a
+Kubernetes CronJob in production); locally the system host runs the block once
+at startup. The extractor publishes the system's message: scaffold the
+consuming loader with the same message value (`publishes` here, `subscribes`
+there).
 
-The rendered project is a one-shot console job (same shape as `transactional`)
-with a Taskfile (`task build`, `task test`, `task coverage` — the
-component-level loop), two test projects, a Dockerfile on the chiseled
-runtime, and an `AGENTS.md` describing the component to coding agents. The
-component is hosted by the framework's `RunToCompletionRunner` (in
-`Intropy.Framework.Hosting`) — sidecar lifecycle, tracing, and the 0/1/2
-exit-code contract — via a thin `ExtractJob` adapter over the sidecar-free
-`Sweep` (list inbound, pipeline per file, delete on success), split so the
-integration suite can construct the sweep directly. The sender is a
-DI-registered `SendStep<Context>` (a `DaprTopicPublisher` in production),
-swapped in tests like any other external.
+Everything that is not business code is supplied:
 
-Tests split into `<name>.Test.Unit` (pipeline step contracts, pure xUnit) and
-`<name>.Test.Integration` (sweep, publish-wiring, composition) built on the
-`Intropy.Framework.Testing` fakes: `InMemoryFileAdapter` at the keyed
-source-adapter seam, `FakeTopic` swapped in via `RemoveAll<SendStep<Context>>()`
-+ `AddSingleton<SendStep<Context>>(topic)` exactly like the other externals,
-the two platform-service clients swapped the same way, and
-`PublishedMessageCapture` for the single NSubstitute `DaprClient` seam (the
-test re-registers the production `DaprTopicPublisher` against the substituted
-client). The pipeline is always built exactly as production composition does —
-`Composition.Composition.BuildPipeline(provider)` — with every edge resolved
-from DI. No sidecar, no Testcontainers.
+- **`Intropy.Framework.ExtractorHost`** — the project's one package reference —
+  generates the entry point for the component class; the framework runner
+  discovers the steps in the assembly and owns the sweep, Dapr, platform-service
+  clients, telemetry, and the 0/1/2 exit codes.
+- **The system topology** hands the component its runtime identity through
+  `INTROPY__CONFIG`: component name, organization, CloudEvent source,
+  published message, source binding, and platform-service app ids. The system
+  host declares them once (`builder.Organization(...)`, the service roles in
+  `Services.cs`); the component never repeats them. A migration that must keep
+  an existing CloudEvent source overrides it in the topology with
+  `.EventSource(...)` on the extractor.
 
-Components do not run standalone: the extractor runs via its system host,
-which runs it once at startup and provides every Dapr component (source
-binding, pub/sub, platform services — including the Intropy Idempotency
-Service and Business Incident Service the pipeline wires in).
+The rendered project has a Taskfile (`task build`, `task test`), one unit-test
+project for the steps, a Dockerfile on the chiseled runtime, and an
+`AGENTS.md` describing the component to coding agents.
 
 The template declares a `spec.dependencies` entry on `shared-contracts`: the
 render also scaffolds a sibling `Contracts` class library holding the published
-payload type derived from the message name (plus `OrderLine`)
-— unless that sibling already exists (scaffolded by an earlier component), in
-which case it is left untouched. The extractor's csproj references it as
-`../../Contracts/Contracts.csproj`; only the inbound file shape
-(`Source<Contract>`) stays local to the component. The name is plain
-`Contracts` because the project is scoped by the system directory it lives in.
-The derived payload type is threaded through to `shared-contracts`, which
-renames its canonical record to match.
+payload type derived from the message name (plus `OrderLine`) — unless that
+sibling already exists, in which case it is left untouched. The extractor's
+csproj references it as `../../Contracts/Contracts.csproj`; only the inbound
+file shape (`Source<Contract>`) stays local to the component.
+
+The framework and topology packages are pinned to the pilot package set
+(`0.0.1-pilot.*`), which is not published: the workspace needs a
+`nuget.config` pointing at the pilot feed (`pilot-system/pack-feed.sh`).
 
 ## Parameters
 
 | Name           | Required | Description                                                                                          |
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderExtractor`).            |
-| `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
+| `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderExtractor`). The last segment names the component class. |
+| `organization` | yes      | PascalCase organization name, recorded for workspace tooling; the runtime organization is declared by the system host. |
 | `publishes`   | yes      | The message this extractor publishes. The topic, CloudEvents `type`, and payload type derive from this value. |
-| `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
-| `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
-| `eventSource`  | no       | CloudEvent `source` for published events. Unset, derives as `urn:<organization>:<app-id>`; set it to preserve an existing event identity during a migration. |
-| `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; extractor lambdas throw).    |
+| `empty`        | no       | Strip sample step bodies and rules for a migration agent to fill in (every step and rule throws).     |
 
 ## Render
 
@@ -69,6 +55,4 @@ intropy int create extractor -o /tmp/extractor-out \
   -f extractor/examples/minimal.yaml --version main --no-input
 ```
 
-See `examples/empty.yaml` for the empty-bodies fixture and
-`examples/migration.yaml` for preserving an existing CloudEvent identity and
-platform-service app-ids.
+See `examples/empty.yaml` for the empty-bodies fixture.

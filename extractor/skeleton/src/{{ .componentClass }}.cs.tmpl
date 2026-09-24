@@ -1,0 +1,38 @@
+using {{ .contracts }};
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Hosting.Extractor;
+
+namespace {{ .name }};
+
+/// <summary>
+/// The {{ .appId }} extractor's business rules. Its identity, source port, published message,
+/// and platform services come from the system topology; its steps are in Process/.
+/// </summary>
+public sealed class {{ .componentClass }} : ExtractorComponent<Source{{ .payloadType }}, {{ .payloadType }}>
+{
+    // A stable business identity and source version: per-delivery values (a fresh GUID,
+    // the wall-clock time) would let every duplicate through.
+    protected override IdempotencyRule<Source{{ .payloadType }}> Idempotency => new(
+{{- if .empty }}
+        Key: (_, _) => throw new NotImplementedException(),
+        At: (_, _) => throw new NotImplementedException());
+{{- else }}
+        Key: (order, _) => order.OrderId,
+        At: (order, _) => order.OrderDate);
+{{- end }}
+
+    protected override OutputEventRule<{{ .payloadType }}> OutputEvent => new(
+{{- if .empty }}
+        Subject: _ => throw new NotImplementedException(),
+        At: _ => throw new NotImplementedException());
+{{- else }}
+        Subject: order => order.OrderId,
+        At: order => order.OrderDate);
+{{- end }}
+
+    // The source file name identifies an incident even when the payload cannot be deserialized.
+    protected override IncidentRule<Context> Incidents => new(
+        Identity: context => context.Metadata[SourceContextKeys.FileName],
+        Subject: context => $"file:{context.Metadata[SourceContextKeys.FileName]}");
+}

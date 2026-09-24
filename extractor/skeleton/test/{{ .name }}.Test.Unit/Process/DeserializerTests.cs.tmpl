@@ -9,14 +9,12 @@ public class DeserializerTests
 {
 {{- if .empty }}
     // Fails from the start: the Deserializer body throws NotImplementedException.
-    // The assertions pin the step's framework contract — parse the input and
-    // stamp the business id into the context for the idempotency/incident
-    // wiring downstream — and flip green once the step is implemented. Add
-    // branch tests (malformed input, missing fields) with the real shape.
-    // The input is test-owned (see SweepTests); replace it with a real source
-    // sample when the contract shape is defined.
+    // The assertion pins the step's framework contract — parse the input into the
+    // source model — and flips green once the step is implemented. Add branch
+    // tests (malformed input, missing fields) with the real shape. The input is
+    // test-owned; replace it with a real source sample when the shape is defined.
     [Fact]
-    public async Task ExecuteAsync_WithValidInput_ReturnsSuccessAndStampsBusinessIdInContext()
+    public async Task ExecuteAsync_WithValidInput_ReturnsSuccess()
     {
         // Arrange
         var deserializer = new Deserializer();
@@ -24,11 +22,10 @@ public class DeserializerTests
         var json = """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
         // Act
-        var (result, resultContext) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
+        var (result, _) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
 
         // Assert
         Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
-        Assert.False(string.IsNullOrWhiteSpace(resultContext.Metadata[Constants.ContextKeyOrderId]));
     }
 {{- else }}
     [Fact]
@@ -46,21 +43,6 @@ public class DeserializerTests
         var success = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Single(success.Value.Lines);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WithValidJson_StoresOrderIdInContext()
-    {
-        // Arrange
-        var deserializer = new Deserializer();
-        var context = new Context(new Dictionary<string, string>());
-        var json = """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
-
-        // Act
-        var (_, resultContext) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
-
-        // Assert
-        Assert.Equal("ORD-1001", resultContext.Metadata[Constants.ContextKeyOrderId]);
     }
 {{- end }}
 }

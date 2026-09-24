@@ -22,6 +22,9 @@ public sealed class {{ .systemClass }} : ISystemDefinition
 
     public void Define(SystemBuilder builder)
     {
+        // The telemetry service namespace and the default CloudEvent source
+        // authority: each extractor publishes as urn:{{ .organizationName }}:<component>.
+        builder.Organization("{{ .organizationName }}");
 {{- range .components }}
 {{- if eq .kind "extractor" }}
 {{- if not (hasKey . "publishes") }}{{- fail (printf "component %q declares no publishes message" .appId) }}{{- end }}

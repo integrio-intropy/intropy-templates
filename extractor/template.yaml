@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: extractor
   title: Extractor Integration
-  description: Run-to-completion .NET extractor that sweeps a local source folder once per run, runs each file through the Intropy extractor pipeline, and publishes the result as a CloudEvent to a Dapr pub/sub topic.
+  description: Run-to-completion .NET extractor holding only business rules and pipeline steps; the framework runner supplies its entry point and wiring, and the system topology its identity.
   tags:
     - example
     - dotnet
@@ -31,32 +31,17 @@ spec:
       organization:
         type: string
         title: Organization
-        description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
+        description: PascalCase name of the organization the integration runs for. Recorded for workspace tooling; the system host declares the runtime organization.
         pattern: "^[A-Z][A-Za-z0-9]*$"
       publishes:
         type: string
         title: Publishes
         description: Logical name of the message this extractor publishes. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
-      idempotencyAppId:
-        type: string
-        title: Idempotency service app-id
-        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment.
-        default: "idempotency-service.services"
-      businessIncidentsAppId:
-        type: string
-        title: Business incident service app-id
-        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment.
-        default: "business-incident-service.services"
-      eventSource:
-        type: string
-        title: CloudEvent source
-        description: Envelope `source` (URI) for published events. The default derives as urn:<organization>:<app-id>; set it to preserve an existing event identity during a migration.
-        default: ""
       empty:
         type: boolean
         title: Empty bodies
-        description: When true, strip sample business logic from pipeline step bodies. The resulting project compiles and starts under Dapr, but every step throws NotImplementedException so a migration agent can fill them in. The idempotency and business-incident wiring stays (the extractor pipeline requires it) with throwing extractor lambdas to replace.
+        description: When true, strip sample business logic from step bodies and rules. The project compiles, but every step and rule throws NotImplementedException for a migration agent to fill in.
         default: true
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
@@ -80,11 +65,9 @@ spec:
     # a local file transport by default (external system and transport are
     # never asked for at scaffold time).
     port: '{{ .name | kebabcase | replace "." "-" }}-source'
-    # CloudEvent identity: the type is the message itself (D1 — message
-    # identity is the CloudEvents type). No derivation and no override
-    # exist: a topic name is never guessed into an event type, and a
-    # second way to name the event is a second identity.
-    eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
+    # The component class the framework hosts: the last segment of the
+    # project name, e.g. OrderExtractor for Int1055.OrderExtractor.
+    componentClass: '{{ .name | splitList "." | last }}'
     # The channel the message is published on: the message name. One
     # derivation, so every file that names the channel agrees.
     channel: '{{ .publishes }}'
