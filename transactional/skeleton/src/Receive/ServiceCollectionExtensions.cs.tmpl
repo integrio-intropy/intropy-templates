@@ -3,7 +3,6 @@ using {{ .name }}.Configuration;
 {{- if not .empty }}
 using Intropy.Contracts.BusinessIncidentService;
 {{- end }}
-using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Blocks.TransactionalIntegration;
 using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
@@ -27,7 +26,6 @@ public static class ServiceCollectionExtensions
     {
         services.AddReceivePipeline<Context>("{{ .name }}.Receive", (builder, provider) =>
         {
-            var sourceAdapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourceFileAdapterKey);
             var daprClient = provider.GetRequiredService<DaprClient>();
             var tiOptions = provider.GetRequiredService<TransactionalIntegrationOptions>();
             var frameworkOptions = provider.GetRequiredService<FrameworkOptions>();
@@ -37,9 +35,7 @@ public static class ServiceCollectionExtensions
             var incidentClient = provider.GetRequiredService<IBusinessIncidentServiceClient>();
 
             return builder
-                .WithReceiver(new Receiver(sourceAdapter))
                 .WithEnqueuer(enqueuer)
-                .WithCompleter(new Completer(sourceAdapter))
                 .WithBusinessIncidents(
                     incidentClient,
                     messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown"),
@@ -47,9 +43,7 @@ public static class ServiceCollectionExtensions
 {{- else }}
 
             return builder
-                .WithReceiver(new Receiver(sourceAdapter))
-                .WithEnqueuer(enqueuer)
-                .WithCompleter(new Completer(sourceAdapter));
+                .WithEnqueuer(enqueuer);
 {{- end }}
         });
         return services;

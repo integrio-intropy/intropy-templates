@@ -139,10 +139,10 @@ come from the deployment environment.
 
 ## Pipeline
 
-Per swept file (`src/Sweep.cs` drives this once per run, hosted by the
-framework's `RunToCompletionRunner`, which owns the sidecar lifecycle, tracing,
-and the 0/1/2 exit-code mapping — success / job failure / infrastructure
-failure — via `src/ExtractJob.cs`):
+Per swept file (the framework's extractor job drives this once per run, hosted
+by the framework's `RunToCompletionRunner`, which owns the sidecar lifecycle,
+tracing, and the 0/1/2 exit-code mapping — success / job failure /
+infrastructure failure):
 
 ```text
 // Extractor pipeline transitions:

@@ -1,3 +1,5 @@
+using Intropy.Framework.Blocks.Shared;
+
 namespace {{ .name }};
 
 public static class Constants
@@ -32,6 +34,7 @@ public static class Constants
     public const string EventType = "{{ .eventTypeValue }}";
 {{- end }}
 
-    public const string ContextKeyFileName = "file_name";
+    // Set by the framework on every source file's context before the pipeline runs.
+    public const string ContextKeyFileName = SourceContextKeys.FileName;
     public const string ContextKeyOrderId = "order_id";
 }

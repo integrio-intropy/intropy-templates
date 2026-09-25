@@ -26,7 +26,7 @@ data used to seed a run. `task test` covers the component-level loop across two
 projects (`task test:unit` / `task test:integration` run them separately):
 
 - `test/{{ .name }}.Test.Unit` — pipeline-step unit tests. Pure xUnit; the only
-  fakes are NSubstitute at the Receiver/Sender `IFileAdapter` seams. No Dapr.
+  fakes are NSubstitute at the Sender's `IFileAdapter` seam. No Dapr.
 - `test/{{ .name }}.Test.Integration` — the receive and send pipelines built
   exactly as production composition does, with only the externals faked via
   `Intropy.Framework.Testing` (`InMemoryFileAdapter` at both keyed adapter seams,
@@ -47,9 +47,10 @@ app — the Dapr sidecar and components come from the deployment environment.
 
 **Receive** (per source file):
 
-1. `Receiver` reads bytes from the inbound binding.
+1. The framework lists the inbound binding and reads each file.
 2. `Enqueuer` publishes the payload to the internal hop (`internal-{{ .appId }}` / `hop`).
-3. `Completer` deletes the source file.
+3. The framework deletes the source file. A file that cannot be read or
+   published stays for the next run.
 
 **Send** (per pub/sub delivery):
 {{- if .empty }}

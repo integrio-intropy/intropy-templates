@@ -1,6 +1,6 @@
 using {{ .name }}.Configuration;
 using Intropy.Framework.Adapters.File;
-using Intropy.Framework.Hosting.TransactionalIntegration.Job;
+using Intropy.Framework.Hosting.RunToCompletion;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace {{ .name }}.Test.Integration;
@@ -13,11 +13,11 @@ namespace {{ .name }}.Test.Integration;
 public class CompositionTests
 {
     [Fact]
-    public void Composition_ResolvesTransactionalIntegrationRunner()
+    public void Composition_ResolvesRunToCompletionRunner()
     {
         var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
 
-        var runner = provider.GetRequiredService<TransactionalIntegrationRunner>();
+        var runner = provider.GetRequiredService<RunToCompletionRunner>();
 
         Assert.NotNull(runner);
     }

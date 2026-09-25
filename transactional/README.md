@@ -5,8 +5,9 @@ Scaffolds a .NET transactional integration job: a console runner
 folder binding, publishes each file onto a Dapr pub/sub topic, processes every
 delivery through a VETER send pipeline (`Intropy.Framework.Blocks.TransactionalIntegration`),
 and writes the transformed result to a destination folder binding. Two
-framework pipelines cooperate: the **receive** pipeline (`Receiver` → `Enqueuer`
-→ `Completer`) reads, publishes, and deletes each source file; the **send**
+framework pipelines cooperate: the framework sweeps the source folder and runs
+each file through the **receive** pipeline (`Enqueuer`), which publishes it,
+deleting the file once it is on the queue; the **send**
 pipeline (deserialize → idempotency → extract → validate → transform →
 serialize → send) turns each delivered message into the outbound file.
 
@@ -17,7 +18,7 @@ service is registered in `Configuration/Composition.cs`, shared by the
 entrypoint and the composition smoke test.
 
 Tests split into `<name>.Test.Unit` (pipeline-step contracts, pure xUnit;
-NSubstitute only at the Receiver/Sender `IFileAdapter` seams) and
+NSubstitute only at the Sender's `IFileAdapter` seam) and
 `<name>.Test.Integration` (receive/send pipelines, composition, Dapr publish
 wiring) built on the `Intropy.Framework.Testing` fakes: `InMemoryFileAdapter`
 at both keyed adapter seams, `FakeEnqueueStep` swapped in at the receive
@@ -31,7 +32,7 @@ override seam on `Composition.ConfigureServices` /
 re-wires the builder chain. No sidecar, no Testcontainers.
 
 Note on versions: every `Intropy.Framework.*` package — including
-`Intropy.Framework.Testing` — pins at `1.0.0-beta.2`, so the integration fakes
+`Intropy.Framework.Testing` — pins at `1.0.0-file-sweep-local.1`, so the integration fakes
 and the framework types they build on always come from the same build.
 
 Components do not run standalone: the job runs via its system host, which

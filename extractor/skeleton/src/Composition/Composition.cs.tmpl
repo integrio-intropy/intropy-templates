@@ -8,7 +8,7 @@ using Intropy.Framework.Blocks.Extractor;
 using Intropy.Framework.Blocks.Extractor.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Configuration;
-using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.Framework.Hosting.Extractor;
 using Intropy.IdempotencyService.Client;
 using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.Configuration;
@@ -109,7 +109,7 @@ public static class Composition
 
         // The publisher is a service like the other externals (source adapter,
         // platform clients): tests swap it for a FakeTopic via RemoveAll/AddSingleton,
-        // exactly as they swap the others — no special seam in BuildPipeline.
+        // exactly as they swap the others — no special seam in ConfigurePipeline.
         services.AddSingleton<SendStep<Context>>(sp => new DaprTopicPublisher<Context>(
             sp.GetRequiredService<DaprClient>(),
             Constants.PubSubName,
@@ -117,36 +117,30 @@ public static class Composition
             new Uri(Constants.EventSource),
             Constants.EventType));
 
-        // Register the pipeline and runner last, after every adapter, publisher,
-        // and platform client it resolves from DI has been added to the service collection.
-        AddExtractPipeline(services);
-        services.AddSingleton<Sweep>();
-
-        // The framework's run-to-completion host owns the Dapr sidecar lifecycle,
-        // tracing, and exit-code mapping; ExtractJob adapts the sweep to it. JobName
-        // names the trace activity so this job is distinguishable in telemetry.
-        // AddRunToCompletionJob self-registers TJob (TryAddSingleton), so a component
-        // registration here would only be needed to override the lifetime/construction.
-        services.AddRunToCompletionJob<ExtractJob>(options => options.JobName = Constants.ComponentName);
+        // Register the extractor last, after every adapter, publisher, and platform
+        // client its pipeline resolves from DI has been added to the service collection.
+        // The framework sweeps the source port once per run: each file gets a fresh
+        // context (holding its file name) and its own pipeline, and is deleted once it
+        // has been published or cancelled as a duplicate. A file that cannot be read or
+        // processed stays for the next run. The run-to-completion host owns the Dapr
+        // sidecar lifecycle, tracing, and exit codes; the job is named after the component.
+        services.AddExtractorRunToCompletion<Source{{ .contract }}, {{ .contract }}, Context>(
+            ConfigurePipeline,
+            (metadata, isRetry) => new Context(metadata, isRetry),
+            options => options.SourceAdapterKey = Constants.SourceFileAdapterKey);
 
         return services;
     }
 
-    /// <summary>The single composition entrypoint for the pipeline: registers
-    /// <see cref="BuildPipeline"/> as the pipeline factory. The explicit lambda
-    /// matters — a method group (<c>AddSingleton(BuildPipeline)</c>) compiles but
-    /// registers a signature DI cannot resolve for <c>Extractor&lt;,,&gt;</c>.</summary>
-    private static void AddExtractPipeline(IServiceCollection services) =>
-        services.AddSingleton(provider => BuildPipeline(provider));
-
     /// <summary>
-    /// Builds the extract pipeline against the DI graph. Every external dependency —
-    /// source adapter, sender, idempotency, business incidents — resolves from
-    /// the provider, so a test swaps any of them by swapping its registration.
+    /// Configures the extract pipeline against the DI graph. Every external dependency —
+    /// sender, idempotency, business incidents — resolves from the provider, so a test
+    /// swaps any of them by swapping its registration.
     /// </summary>
-    public static Extractor<Source{{ .contract }}, {{ .contract }}, Context> BuildPipeline(IServiceProvider provider)
+    public static ExtractorBuilder<Source{{ .contract }}, {{ .contract }}, Context> ConfigurePipeline(
+        ExtractorBuilder<Source{{ .contract }}, {{ .contract }}, Context> builder, IServiceProvider provider)
     {
-        return ExtractorBuilder<Source{{ .contract }}, {{ .contract }}, Context>.Create("{{ .name }}.Process", provider)
+        return builder
             .WithDeserializer(new Deserializer())
             .WithValidator(new Validator())
             // Point the idempotency check at a stable business identifier and
@@ -182,7 +176,6 @@ public static class Composition
                 messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
                     ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")),
                 subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
-                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")))
-            .Build();
+                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")));
     }
 }

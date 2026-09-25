@@ -17,7 +17,7 @@ namespace {{ .name }}.Test.Integration;
 /// <summary>
 /// The four externals every integration test fakes, plus the DI wiring that
 /// swaps them into the real <see cref="Composition.Composition.ConfigureServices"/> graph.
-/// Centralised so <see cref="SweepTests"/> and the runner tests cannot drift
+/// Centralised so <see cref="SweepTests"/> and the publish tests cannot drift
 /// apart when the set of externals changes.
 /// </summary>
 public sealed class FakeEdges
@@ -51,10 +51,10 @@ public sealed class FakeEdges
     }
 
     /// <summary>
-    /// Builds the pipeline exactly as production composition does —
-    /// <see cref="Topic"/> is already in the DI graph via <see cref="CreateServices"/>,
-    /// so there is nothing left to override.
+    /// Resolves the pipeline exactly as the framework does for each source file: in a
+    /// fresh scope. <see cref="Topic"/> is already in the DI graph via
+    /// <see cref="CreateServices"/>, so there is nothing left to override.
     /// </summary>
-    public Extractor<Source{{ .contract }}, {{ .contract }}, Context> BuildPipeline(IServiceProvider provider) =>
-        Composition.Composition.BuildPipeline(provider);
+    public static Extractor<Source{{ .contract }}, {{ .contract }}, Context> ResolvePipeline(IServiceProvider provider) =>
+        provider.CreateScope().ServiceProvider.GetRequiredService<Extractor<Source{{ .contract }}, {{ .contract }}, Context>>();
 }

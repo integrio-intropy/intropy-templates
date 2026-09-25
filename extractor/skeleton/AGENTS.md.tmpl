@@ -16,9 +16,9 @@ production); locally the system host runs the block once at startup.
   no-op / cancelled, `1` job failure (a file failed and was left in place), `2`
   infrastructure failure (sidecar unavailable).
 - Runner: the framework's `RunToCompletionRunner` (in `Intropy.Framework.Hosting`),
-  driven by `{{ .name }}.ExtractJob` — an `IRunToCompletionJob` that adapts
-  `{{ .name }}.Sweep` (the sidecar-free one-shot sweep) and reports a
-  `JobRunSummary`.
+  running the framework's extractor job (`AddExtractorRunToCompletion`): one
+  sweep of the source port per run, each file through the pipeline, reported
+  as a `JobRunSummary`.
 - App id: `{{ .appId }}`
 - Source port: `{{ .port }}` — the named interface the extractor reads
   the outside world through; the system host declares it in `Ports.cs`
@@ -55,18 +55,14 @@ production); locally the system host runs the block once at startup.
 - `src/Composition/Composition.cs` - every service registration (including
   the pipeline and the publish edge: the sender is a DI-registered
   `SendStep<Context>` — a `DaprTopicPublisher` in production — resolved by
-  `BuildPipeline(provider)` like any other external). The idempotency key
-  extractors (`OrderId`/`OrderDate`) are inlined in `BuildPipeline`. Note the
-  namespace/type collision: `{{ .name }}.Composition` is both namespace and
-  class, so call sites inside nested namespaces use the fully qualified
-  `Composition.Composition.BuildPipeline(...)`.
-- `src/ExtractJob.cs` - adapts `Sweep` to the framework's `IRunToCompletionJob`;
-  a thin pass-through returning the sweep's `JobRunSummary`
-  (Processed/Failed/Cancelled). `Failed > 0` drives the job-failure exit code;
-  a delete-failure-after-publish counts as `Failed` (the file stays).
-- `src/Sweep.cs` - the one-shot sweep: list inbound, run the pipeline per
-  file, delete on success. Sidecar-free on purpose: the integration suite
-  constructs it directly against the framework's testing fakes.
+  `ConfigurePipeline(builder, provider)` like any other external). The
+  framework builds the pipeline in each source file's own scope, and deletes
+  the file once it is published or cancelled as a duplicate; a file that cannot
+  be read or processed stays and counts as `Failed`, which drives the
+  job-failure exit code. The idempotency key extractors (`OrderId`/`OrderDate`)
+  are inlined in `ConfigurePipeline`. Note the namespace/type collision:
+  `{{ .name }}.Composition` is both namespace and class, so call sites inside
+  nested namespaces use the fully qualified `Composition.Composition`.
 - `src/Constants.cs` - component/topic names, keyed-adapter key, CloudEvent
   envelope values (root namespace — consumed by both `src` and the tests).
 - `src/Process/` - the extractor pipeline steps only (`Deserializer`,
@@ -118,7 +114,7 @@ coverage (Cobertura report under the integration project's `TestResults/`).
   scheduled run; the idempotency check makes the retry safe. Duplicates cancel
   as a traceable no-op and the file is removed.
 - Additional enrichment steps go into the builder chain in
-  `src/Composition/Composition.cs` (`BuildPipeline`) via `.WithExtractor(...)` —
+  `src/Composition/Composition.cs` (`ConfigurePipeline`) via `.WithExtractor(...)` —
   the extractor pipeline supports any number of them, executed in order.
 {{- if .empty }}
 - The step bodies are scaffolded empty (`NotImplementedException`). The
@@ -148,7 +144,7 @@ coverage (Cobertura report under the integration project's `TestResults/`).
   Service, keyed on the order id (falling back to the source file name).
 - The framework's `CloudEventSerializeStep` builds the CloudEvent envelope and
   validates `Subject`/`Time` at serialize time (the publisher keeps its checks
-  as defense-in-depth). The component supplies both as lambdas in `BuildPipeline`.
+  as defense-in-depth). The component supplies both as lambdas in `ConfigurePipeline`.
 {{- end }}
 
 ## Framework guidance

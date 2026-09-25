@@ -7,7 +7,6 @@ using Intropy.BusinessIncidentService.Client;
 {{- end }}
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
-using Intropy.Framework.Blocks.TransactionalIntegration.Receive;
 using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
 using Intropy.Framework.Core.Configuration;
 using Intropy.Framework.Hosting.TransactionalIntegration.Job;
@@ -94,10 +93,14 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
+        // The framework sweeps the source port: it lists and reads each file, runs it
+        // through the receive pipeline, and deletes it once it is on the queue. A file
+        // that cannot be read or published stays for the next run.
         services.AddTransactionalIntegration(options =>
         {
             options.DaprPubSubName = Constants.PubSubName;
             options.DaprTopicName = Constants.TopicName;
+            options.SourceAdapterKey = Constants.SourceFileAdapterKey;
         });
 
         // Bind each adapter implementation to the component's stable port names.
@@ -128,8 +131,6 @@ public static class Composition
             new LocalFileAdapter(
                 sp.GetRequiredService<DaprClient>(),
                 new FileAdapterOptions(Constants.OutboundBindingName)));
-
-        services.AddSingleton<ISourceLister, SourceLister>();
 
         // Register the pipelines last, after every adapter and platform service
         // they resolve from DI has been added to the service collection.
