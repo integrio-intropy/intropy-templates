@@ -23,10 +23,10 @@ namespace {{ .name }}.Test.Integration;
 /// </summary>
 public sealed class FakeEdges
 {
-    /// <summary>The keyed source adapter (<see cref="Constants.SourceFileAdapterKey"/>).</summary>
+    /// <summary>The keyed source adapter (<see cref="Constants.SourcePort"/>).</summary>
     public InMemoryFileAdapter SourceFiles { get; } = new();
 
-    /// <summary>The keyed destination adapter (<see cref="Constants.DestinationFileAdapterKey"/>).</summary>
+    /// <summary>The keyed destination adapter (<see cref="Constants.DestinationPort"/>).</summary>
     public InMemoryFileAdapter DestinationFiles { get; } = new();
 {{- if not .empty }}
 
@@ -57,10 +57,10 @@ public sealed class FakeEdges
         services.RemoveAll<EnqueueStep<Context>>();
         services.AddSingleton<EnqueueStep<Context>>(Enqueue);
 
-        services.RemoveAllKeyed<IFileAdapter>(Constants.SourceFileAdapterKey);
-        services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (_, _) => SourceFiles);
-        services.RemoveAllKeyed<IFileAdapter>(Constants.DestinationFileAdapterKey);
-        services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationFileAdapterKey, (_, _) => DestinationFiles);
+        services.RemoveAllKeyed<IFileAdapter>(Constants.SourcePort);
+        services.AddKeyedSingleton<IFileAdapter>(Constants.SourcePort, (_, _) => SourceFiles);
+        services.RemoveAllKeyed<IFileAdapter>(Constants.DestinationPort);
+        services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationPort, (_, _) => DestinationFiles);
 {{- if not .empty }}
         services.RemoveAll<IIdempotencyServiceClient>();
         services.AddSingleton<IIdempotencyServiceClient>(Idempotency);

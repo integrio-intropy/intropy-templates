@@ -18,19 +18,12 @@ public static class Constants
 
     // The From/To ports: the named interfaces this component reads and
     // writes the outside world through. The name is each port's whole
-    // identity — declared in the system host's Ports.cs, resolved per
-    // environment by the deployment.
+    // identity — declared in the system host's Ports.cs, it is also the Dapr
+    // binding component's name and the key of the file adapter registered for
+    // it. The names never change between environments; the environment swaps
+    // each binding's type (local folder, SFTP, …) behind its name.
     public const string SourcePort = "{{ .fromPort }}";
     public const string DestinationPort = "{{ .toPort }}";
-
-    // The Dapr binding component names are the port names. The names never
-    // change between environments — the environment swaps each binding's type
-    // (local folder, SFTP, …) behind its name.
-    public const string InboundBindingName = SourcePort;
-    public const string OutboundBindingName = DestinationPort;
-
-    public const string SourceFileAdapterKey = "source";
-    public const string DestinationFileAdapterKey = "destination";
 
     // Set by the framework on every source file's context before the receive
     // pipeline runs, and propagated with the message to the send side.

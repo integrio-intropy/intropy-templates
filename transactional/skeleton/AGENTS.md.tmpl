@@ -43,9 +43,9 @@ writes the transformed result to a second file binding.
 - `src/Configuration/Composition.cs` - every service registration, shared by
   the entrypoint and the composition smoke test. `AddTransactionalIntegration`
   registers the whole receive side: the framework sweeps the source port
-  (`SourceAdapterKey`), publishes each file to the internal hop, and deletes it
+  (`SourcePort`), publishes each file to the internal hop, and deletes it
   once it is on the queue. There is no receive-side component code.
-- `src/Configuration/Constants.cs` - component names, keyed-adapter keys, context metadata keys.
+- `src/Configuration/Constants.cs` - component names, the source and destination ports, context metadata keys.
 - `src/Send/` - the VETER send pipeline steps.
 - `test/{{ .name }}.Test.Unit/` - pipeline-step unit tests (pure xUnit; the only
   fakes are NSubstitute at the Sender's `IFileAdapter` constructor seam;
@@ -88,8 +88,8 @@ with branch coverage (Cobertura report under the integration project's
 
 ## Development notes
 
-- Source and destination `IFileAdapter` instances are registered as keyed singletons
-  (`Constants.SourceFileAdapterKey`, `Constants.DestinationFileAdapterKey`). Inject them
+- Source and destination `IFileAdapter` instances are registered as keyed singletons under their port names
+  (`Constants.SourcePort`, `Constants.DestinationPort`). Inject them
   via `[FromKeyedServices(...)]` or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
 - The send pipeline's `SendStep` is a `BusinessStep`, so a fault at the
   destination adapter surfaces as a business failure with an incident routed —

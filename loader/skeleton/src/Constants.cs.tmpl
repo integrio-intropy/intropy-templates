@@ -10,16 +10,11 @@ public static class Constants
 
     // The destination port: the named interface this component writes the
     // outside world through. The name is the port's whole identity —
-    // declared in the system host's Ports.cs, resolved per environment by
-    // the deployment.
+    // declared in the system host's Ports.cs, it is also the Dapr binding
+    // component's name and the key of the file adapter registered for it.
+    // The name never changes between environments; the environment swaps the
+    // binding's type (local folder, SFTP, …) behind it.
     public const string DestinationPort = "{{ .port }}";
-
-    // The Dapr binding component name is the port name. The name never changes
-    // between environments — the environment swaps the binding's type (local
-    // folder, SFTP, …) behind it.
-    public const string DestinationBindingName = DestinationPort;
-
-    public const string DestinationFileAdapterKey = "destination";
 
     // The route the sidecar delivers to; announced via GET /dapr/subscribe.
     public const string SubscriptionRoute = "/events/{{ .topic }}";

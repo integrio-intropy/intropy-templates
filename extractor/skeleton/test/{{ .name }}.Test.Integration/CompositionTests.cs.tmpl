@@ -26,7 +26,7 @@ public class CompositionTests
     {
         var provider = Composition.Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
 
-        var adapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourceFileAdapterKey);
+        var adapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourcePort);
 
         Assert.NotNull(adapter);
     }

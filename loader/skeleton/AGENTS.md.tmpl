@@ -61,8 +61,8 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
   fully qualified `Composition.Composition.BuildPipeline(...)`.
 - `src/Endpoints/LoaderEndpoints.cs` - the subscription endpoint: the envelope
   → CloudEvent rebuild and the pipeline-result → ack mapping.
-- `src/Constants.cs` - component/topic/binding names, the subscription route,
-  keyed-adapter key, and the CloudEvent context keys the idempotency step
+- `src/Constants.cs` - component/topic names, the destination port, the
+  subscription route, and the CloudEvent context keys the idempotency step
   reads (root namespace — consumed by both `src` and the tests).
 - `src/Process/` - the loader pipeline steps only (`Deserializer`,
   `Validator`, `Transformer`, `Sender`). All DI and `LoaderBuilder` wiring
@@ -107,8 +107,8 @@ suite with branch coverage (Cobertura report under the integration project's
 
 ## Development notes
 
-- The destination `IFileAdapter` is registered as a keyed singleton
-  (`Constants.DestinationFileAdapterKey`). Inject it via
+- The destination `IFileAdapter` is registered as a keyed singleton under its port name
+  (`Constants.DestinationPort`). Inject it via
   `[FromKeyedServices(...)]` or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
 - Loader idempotency keys off CloudEvent `Subject` (id) and `Time` (date),
   read from the context keys `cloudevent.subject` / `cloudevent.time`

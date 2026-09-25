@@ -63,7 +63,7 @@ production); locally the system host runs the block once at startup.
   are inlined in `ConfigurePipeline`. Note the namespace/type collision:
   `{{ .name }}.Composition` is both namespace and class, so call sites inside
   nested namespaces use the fully qualified `Composition.Composition`.
-- `src/Constants.cs` - component/topic names, keyed-adapter key, CloudEvent
+- `src/Constants.cs` - component/topic names, the source port, CloudEvent
   envelope values (root namespace — consumed by both `src` and the tests).
 - `src/Process/` - the extractor pipeline steps only (`Deserializer`,
   `Validator`, `Transformer`); serialization is the framework's
@@ -107,8 +107,8 @@ coverage (Cobertura report under the integration project's `TestResults/`).
 
 ## Development notes
 
-- The source `IFileAdapter` is registered as a keyed singleton
-  (`Constants.SourceFileAdapterKey`). Inject it via `[FromKeyedServices(...)]`
+- The source `IFileAdapter` is registered as a keyed singleton under its port name
+  (`Constants.SourcePort`). Inject it via `[FromKeyedServices(...)]`
   or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
 - A failed file stays in the inbound folder and is retried on the next
   scheduled run; the idempotency check makes the retry safe. Duplicates cancel

@@ -81,10 +81,10 @@ public static class Composition
         // Bind the source adapter implementation to the component's stable inbound
         // port. Deployment swaps the Dapr binding behind the port name; this keyed
         // registration is where code chooses the adapter class that can speak it.
-        services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
+        services.AddKeyedSingleton<IFileAdapter>(Constants.SourcePort, (sp, _) =>
             new LocalFileAdapter(
                 sp.GetRequiredService<DaprClient>(),
-                new FileAdapterOptions(Constants.InboundBindingName)));
+                new FileAdapterOptions(Constants.SourcePort)));
 
         // The port name never changes between environments — deployment
         // swaps the binding's type behind that same name, so rebinding the
@@ -94,14 +94,14 @@ public static class Composition
         // same-name class switch, e.g. when the production environment
         // resolves this port to an SFTP binding:
         //
-        // services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
+        // services.AddKeyedSingleton<IFileAdapter>(Constants.SourcePort, (sp, _) =>
         //     environment == "Development"
         //         ? (IFileAdapter)new LocalFileAdapter(
         //             sp.GetRequiredService<DaprClient>(),
-        //             new FileAdapterOptions(Constants.InboundBindingName))
+        //             new FileAdapterOptions(Constants.SourcePort))
         //         : new SftpAdapter(
         //             sp.GetRequiredService<DaprClient>(),
-        //             new FileAdapterOptions(Constants.InboundBindingName)));
+        //             new FileAdapterOptions(Constants.SourcePort)));
         //
         // The SFTP binding's address and credentials live in the
         // environment's Dapr component (GitOps values), resolved out of the
@@ -127,7 +127,7 @@ public static class Composition
         services.AddExtractorRunToCompletion<Source{{ .contract }}, {{ .contract }}, Context>(
             ConfigurePipeline,
             (metadata, isRetry) => new Context(metadata, isRetry),
-            options => options.SourceAdapterKey = Constants.SourceFileAdapterKey);
+            options => options.SourcePort = Constants.SourcePort);
 
         return services;
     }

@@ -197,7 +197,7 @@ public class DeliveryIntegrationTests
             .WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
             {
                 services.AddKeyedSingleton<Intropy.Framework.Adapters.File.IFileAdapter>(
-                    Constants.DestinationFileAdapterKey, (_, _) => files);
+                    Constants.DestinationPort, (_, _) => files);
                 services.AddSingleton<IIdempotencyServiceClient>(idempotency);
                 services.AddSingleton<Intropy.Contracts.BusinessIncidentService.IBusinessIncidentServiceClient>(incidents);
             }));

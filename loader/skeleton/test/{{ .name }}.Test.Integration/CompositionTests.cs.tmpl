@@ -29,7 +29,7 @@ public class CompositionTests
     {
         var provider = Composition.Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
 
-        var adapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationFileAdapterKey);
+        var adapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);
 
         Assert.NotNull(adapter);
     }
