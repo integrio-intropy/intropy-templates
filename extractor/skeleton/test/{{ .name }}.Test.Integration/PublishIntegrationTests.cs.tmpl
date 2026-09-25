@@ -40,7 +40,7 @@ public class PublishIntegrationTests
                 ci.ArgAt<string>(0), ci.ArgAt<string>(1), ci.ArgAt<ReadOnlyMemory<byte>>(2),
                 ci.ArgAt<string>(3)));
 
-        var services = Composition.Composition.ConfigureServices(new ServiceCollection());
+        var services = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development");
         // Last registration wins: the real platform-service clients would try
         // to reach their sidecar endpoints and fail.
         services.AddSingleton(daprClient);
@@ -104,7 +104,7 @@ public class PublishIntegrationTests
                 ci.ArgAt<string>(0), ci.ArgAt<string>(1), ci.ArgAt<ReadOnlyMemory<byte>>(2),
                 ci.ArgAt<string>(3)));
 
-        var services = Composition.Composition.ConfigureServices(new ServiceCollection());
+        var services = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development");
         // Last registration wins: the real platform-service clients would try
         // to reach their sidecar endpoints and fail.
         services.AddSingleton(daprClient);

@@ -15,7 +15,7 @@ public class CompositionTests
     [Fact]
     public void Composition_ResolvesRunToCompletionRunner()
     {
-        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+        var provider = Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
 
         var runner = provider.GetRequiredService<RunToCompletionRunner>();
 
@@ -25,7 +25,7 @@ public class CompositionTests
     [Fact]
     public void Composition_ResolvesBothFileAdaptersUnderTheirKeys()
     {
-        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+        var provider = Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
 
         var source = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourcePort);
         var destination = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);

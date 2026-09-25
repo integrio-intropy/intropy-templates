@@ -6,7 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Every service registration lives in Composition so the composition smoke
 // test builds the exact graph the host runs.
-Composition.ConfigureServices(builder.Services);
+Composition.ConfigureServices(builder.Services, builder.Environment.EnvironmentName);
 
 builder.Services.AddHealthChecks();
 

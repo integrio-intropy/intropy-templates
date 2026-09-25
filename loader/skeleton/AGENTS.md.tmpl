@@ -82,6 +82,13 @@ Settings live in `src/appsettings.json` (copied to the build output), overridden
 platform-service app ids from `PlatformServices:*`. Deployment overlays the file
 via ConfigMap. Components that need typed options bind them themselves.
 
+The file adapter behind each port is chosen by `Ports:{{ .port }}`: `Kind` selects the Dapr
+binding the port is deployed with (`File` or `Sftp`). `src/appsettings.Development.json`
+selects `File`, the local folder the system host resolves each port to (the host runs
+every component as Development). `appsettings.json` sets no `Kind`: a deployment sets
+`Ports__<port>__Kind` to match the binding it renders, and without it the component
+fails at startup naming the port.
+
 ## Build and test
 
 Components do not run standalone — this loader runs via its system host,
@@ -107,7 +114,7 @@ suite with branch coverage (Cobertura report under the integration project's
 
 ## Development notes
 
-- The destination `IFileAdapter` is registered as a keyed singleton under its port name
+- The destination `IFileAdapter` is registered (from configuration, see above) as a keyed singleton under its port name
   (`Constants.DestinationPort`). Inject it via
   `[FromKeyedServices(...)]` or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
 - Loader idempotency keys off CloudEvent `Subject` (id) and `Time` (date),

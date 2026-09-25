@@ -38,7 +38,7 @@ public sealed class FakeEdges
     /// </summary>
     public IServiceCollection CreateServices()
     {
-        var services = Composition.Composition.ConfigureServices(new ServiceCollection());
+        var services = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development");
         services.RemoveAllKeyed<IFileAdapter>(Constants.SourcePort);
         services.AddKeyedSingleton<IFileAdapter>(Constants.SourcePort, (_, _) => Files);
         services.RemoveAll<IIdempotencyServiceClient>();

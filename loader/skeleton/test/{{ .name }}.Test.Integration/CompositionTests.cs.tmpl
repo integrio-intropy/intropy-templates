@@ -17,7 +17,7 @@ public class CompositionTests
     [Fact]
     public void Composition_ResolvesLoadPipeline()
     {
-        var provider = Composition.Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+        var provider = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
 
         var pipeline = provider.GetRequiredService<Loader<{{ .contract }}, Out, Context>>();
 
@@ -27,7 +27,7 @@ public class CompositionTests
     [Fact]
     public void Composition_ResolvesDestinationFileAdapterUnderItsKey()
     {
-        var provider = Composition.Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+        var provider = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
 
         var adapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);
 

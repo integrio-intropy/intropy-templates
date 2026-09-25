@@ -12,11 +12,11 @@
     <PackageReference Include="Dapr.Messaging" Version="1.18.5" />
     <PackageReference Include="Intropy.BusinessIncidentService.Client" Version="0.1.1" />
     <PackageReference Include="Intropy.Contracts" Version="0.1.0" />
-    <PackageReference Include="Intropy.Framework.Adapters" Version="1.0.0-file-sweep-local.3" />
+    <PackageReference Include="Intropy.Framework.Adapters" Version="1.0.0-file-sweep-local.5" />
     <PackageReference Include="Intropy.IdempotencyService.Client" Version="0.1.1" />
-    <PackageReference Include="Intropy.Framework.Blocks" Version="1.0.0-file-sweep-local.3" />
-    <PackageReference Include="Intropy.Framework.Core" Version="1.0.0-file-sweep-local.3" />
-    <PackageReference Include="Intropy.Framework.Hosting" Version="1.0.0-file-sweep-local.3" />
+    <PackageReference Include="Intropy.Framework.Blocks" Version="1.0.0-file-sweep-local.5" />
+    <PackageReference Include="Intropy.Framework.Core" Version="1.0.0-file-sweep-local.5" />
+    <PackageReference Include="Intropy.Framework.Hosting" Version="1.0.0-file-sweep-local.5" />
     <PackageReference Include="Intropy.Telemetry.ConsoleApp" Version="0.1.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.10" />
@@ -27,6 +27,9 @@
 
   <ItemGroup>
     <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="appsettings.Development.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

@@ -62,6 +62,13 @@ Settings live in `src/appsettings.json` (copied to the build output), overridden
 platform-service app ids from `PlatformServices:*`{{- end }}. Deployment overlays the file
 via ConfigMap. Components that need typed options bind them themselves.
 
+The file adapter behind each port is chosen by `Ports:{{ .fromPort }}` and `Ports:{{ .toPort }}`: `Kind` selects the Dapr
+binding the port is deployed with (`File` or `Sftp`). `src/appsettings.Development.json`
+selects `File`, the local folder the system host resolves each port to (the host runs
+every component as Development). `appsettings.json` sets no `Kind`: a deployment sets
+`Ports__<port>__Kind` to match the binding it renders, and without it the component
+fails at startup naming the port.
+
 ## Build and test
 
 Components do not run standalone — this job runs via its system host, which
@@ -88,7 +95,7 @@ with branch coverage (Cobertura report under the integration project's
 
 ## Development notes
 
-- Source and destination `IFileAdapter` instances are registered as keyed singletons under their port names
+- Source and destination `IFileAdapter` instances are registered (from configuration, see above) as keyed singletons under their port names
   (`Constants.SourcePort`, `Constants.DestinationPort`). Inject them
   via `[FromKeyedServices(...)]` or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
 - The send pipeline's `SendStep` is a `BusinessStep`, so a fault at the
