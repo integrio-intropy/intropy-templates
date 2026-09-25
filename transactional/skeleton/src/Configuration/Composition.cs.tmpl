@@ -1,13 +1,11 @@
 using Dapr.Client;
 using Dapr.Messaging.PublishSubscribe.Extensions;
-using {{ .name }}.Receive;
 using {{ .name }}.Send;
 {{- if not .empty }}
 using Intropy.BusinessIncidentService.Client;
 {{- end }}
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
-using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
 using Intropy.Framework.Core.Configuration;
 using Intropy.Framework.Hosting.TransactionalIntegration.Job;
 {{- if not .empty }}
@@ -30,16 +28,7 @@ namespace {{ .name }}.Configuration;
 public static class Composition
 {
     /// <summary>Registers every service the integration job needs.</summary>
-    /// <param name="receiveEnqueuerOverride">
-    /// Optional factory for the receive pipeline's enqueue step. Production
-    /// leaves this null; the integration suite substitutes
-    /// <c>FakeEnqueueStep&lt;Context&gt;</c> so the pipeline is still built by the
-    /// exact production builder chain with only the broker interaction faked.
-    /// Forwarded to <c>Receive.ServiceCollectionExtensions.AddReceivePipeline</c>.
-    /// </param>
-    public static IServiceCollection ConfigureServices(
-        IServiceCollection services,
-        Func<IServiceProvider, EnqueueStep<Context>>? receiveEnqueuerOverride = null)
+    public static IServiceCollection ConfigureServices(IServiceCollection services)
     {
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 
@@ -93,9 +82,10 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
-        // The framework sweeps the source port: it lists and reads each file, runs it
-        // through the receive pipeline, and deletes it once it is on the queue. A file
-        // that cannot be read or published stays for the next run.
+        // The framework owns the receive side: it sweeps the source port, publishes each
+        // file to the internal hop (carrying its context metadata and trace), and deletes
+        // it once it is on the queue. A file that cannot be read or published stays for
+        // the next run. The component supplies only the send pipeline.
         services.AddTransactionalIntegration(options =>
         {
             options.DaprPubSubName = Constants.PubSubName;
@@ -132,9 +122,8 @@ public static class Composition
                 sp.GetRequiredService<DaprClient>(),
                 new FileAdapterOptions(Constants.OutboundBindingName)));
 
-        // Register the pipelines last, after every adapter and platform service
-        // they resolve from DI has been added to the service collection.
-        services.AddReceivePipeline(receiveEnqueuerOverride);
+        // Register the send pipeline last, after every adapter and platform service
+        // it resolves from DI has been added to the service collection.
         services.AddSendPipeline();
 
         return services;

@@ -27,12 +27,12 @@ projects (`task test:unit` / `task test:integration` run them separately):
 
 - `test/{{ .name }}.Test.Unit` — pipeline-step unit tests. Pure xUnit; the only
   fakes are NSubstitute at the Sender's `IFileAdapter` seam. No Dapr.
-- `test/{{ .name }}.Test.Integration` — the receive and send pipelines built
-  exactly as production composition does, with only the externals faked via
-  `Intropy.Framework.Testing` (`InMemoryFileAdapter` at both keyed adapter seams,
-  `FakeEnqueueStep` at the broker edge, service-client fakes). No Dapr sidecar.
-  Includes a composition smoke test proving the DI graph builds without a
-  sidecar, and `EnqueuePublishTests` pinning the Dapr publish wiring.
+- `test/{{ .name }}.Test.Integration` — the receive side (one run of the job)
+  and the send pipeline, built exactly as production composition does, with
+  only the externals faked via `Intropy.Framework.Testing` (`InMemoryFileAdapter`
+  at both keyed adapter seams, `FakeEnqueueStep` at the broker edge,
+  service-client fakes). No Dapr sidecar. Includes a composition smoke test
+  proving the DI graph builds without a sidecar.
 
 ## Container image
 
@@ -47,10 +47,13 @@ app — the Dapr sidecar and components come from the deployment environment.
 
 **Receive** (per source file):
 
-1. The framework lists the inbound binding and reads each file.
-2. `Enqueuer` publishes the payload to the internal hop (`internal-{{ .appId }}` / `hop`).
-3. The framework deletes the source file. A file that cannot be read or
-   published stays for the next run.
+The framework owns the receive side; there is no component code for it.
+
+1. It lists the inbound binding and reads each file.
+2. It publishes the file to the internal hop (`internal-{{ .appId }}` / `hop`),
+   carrying the context metadata and trace to the send side.
+3. It deletes the source file. A file that cannot be read or published stays
+   for the next run.
 
 **Send** (per pub/sub delivery):
 {{- if .empty }}

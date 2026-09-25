@@ -1,0 +1,72 @@
+using {{ .name }}.Configuration;
+using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.Framework.Hosting.TransactionalIntegration.Job;
+using Intropy.Framework.Hosting.TransactionalIntegration.Job.Lifecycle;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using NSubstitute;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The receive side, run the way the host runs it: one execution of the
+/// component's run-to-completion job over the real DI graph, with the source
+/// adapter and the broker edge faked (see <see cref="FakeEdges"/>) and the
+/// topic subscription stubbed so the send side receives nothing. The framework
+/// sweeps the configured source port: every file is published, then deleted;
+/// a file that could not be published stays for the next run.
+/// </summary>
+public class ReceiveSideIntegrationTests
+{
+    [Fact]
+    public async Task Run_PublishesEverySourceFileAndDeletesIt()
+    {
+        // Arrange
+        var edges = new FakeEdges();
+        var job = CreateJob(edges);
+        edges.SourceFiles.AddFile("order-1.json", "{}").AddFile("order-2.json", "{}");
+
+        // Act
+        var summary = await job.ExecuteAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Equal(2, summary.Processed);
+        Assert.Equal(["order-1.json", "order-2.json"], edges.Enqueue.Captured.Select(c => c.Item.Id).Order());
+        Assert.Empty(edges.SourceFiles.Files);
+    }
+
+    [Fact]
+    public async Task Run_WhenBrokerIsDown_KeepsTheFileForTheNextRun()
+    {
+        // Arrange: a dead broker surfaces as a technical failure of the publish.
+        var edges = new FakeEdges();
+        var job = CreateJob(edges);
+        edges.SourceFiles.AddFile("order-1.json", "{}");
+        edges.Enqueue.SendException = new InvalidOperationException("Broker unreachable");
+
+        // Act
+        var summary = await job.ExecuteAsync(CancellationToken.None);
+
+        // Assert: counted as failed (the run exits 1) and left in the source.
+        Assert.Equal(1, summary.Failed);
+        Assert.True(edges.SourceFiles.Files.ContainsKey("order-1.json"));
+    }
+
+    private static IRunToCompletionJob CreateJob(FakeEdges edges)
+    {
+        var services = edges.CreateServices();
+        var subscriber = Substitute.For<ITopicSubscriber>();
+        subscriber.SubscribeAsync(default!, default!, default, default!, default)
+            .ReturnsForAnyArgs(Substitute.For<IAsyncDisposable>());
+        services.RemoveAll<ITopicSubscriber>();
+        services.AddSingleton(subscriber);
+        var provider = services.BuildServiceProvider();
+
+        // Nothing arrives on the stubbed subscription: end the run once the sweep is done.
+        var options = provider.GetRequiredService<TransactionalIntegrationOptions>();
+        options.IdleTimeoutSeconds = 0;
+        options.PostIdleGracePeriodSeconds = 0;
+
+        return provider.GetRequiredService<IRunToCompletionJob>();
+    }
+}
