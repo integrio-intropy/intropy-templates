@@ -1,7 +1,7 @@
 using {{ .name }}.Configuration;
 using Intropy.Framework.Hosting.RunToCompletion;
-using Intropy.Framework.Hosting.TransactionalIntegration.Job;
-using Intropy.Framework.Hosting.TransactionalIntegration.Job.Lifecycle;
+using Intropy.Framework.Hosting.TransactionalIntegration;
+using Intropy.Framework.Hosting.TransactionalIntegration.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NSubstitute;
@@ -64,8 +64,8 @@ public class ReceiveSideIntegrationTests
 
         // Nothing arrives on the stubbed subscription: end the run once the sweep is done.
         var options = provider.GetRequiredService<TransactionalIntegrationOptions>();
-        options.IdleTimeoutSeconds = 0;
-        options.PostIdleGracePeriodSeconds = 0;
+        options.IdleTimeout = TimeSpan.Zero;
+        options.PostIdleGracePeriod = TimeSpan.Zero;
 
         return provider.GetRequiredService<IRunToCompletionJob>();
     }

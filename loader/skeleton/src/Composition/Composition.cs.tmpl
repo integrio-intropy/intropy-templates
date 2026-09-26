@@ -82,13 +82,15 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
-        // Each port's file adapter is chosen by configuration: Ports:<port>:Kind selects the
-        // Dapr binding the port is deployed with (File or Sftp). appsettings.Development.json
-        // selects File, the local folder the system host resolves each port to; a deployment
-        // sets Ports__<port>__Kind to match the binding it renders. With no Kind, startup fails
-        // naming the port. A binding's address and credentials live in the environment's Dapr
-        // component (GitOps values), resolved out of the cluster's secret store.
-        services.AddFileAdapter(Constants.DestinationPort, configuration.GetSection($"Ports:{Constants.DestinationPort}"));
+        // The destination port is the one the Sender writes through. Its file adapter is
+        // chosen by configuration: Ports:<port>:Kind selects the Dapr binding the port is
+        // deployed with (File or Sftp).
+        // appsettings.Development.json selects File, the local folder the system host
+        // resolves each port to; a deployment sets Ports__<port>__Kind to match the binding it
+        // renders. With no Kind, startup fails naming the port. A binding's address and
+        // credentials live in the environment's Dapr component (GitOps values), resolved out of
+        // the cluster's secret store.
+        services.AddDestinationPort(Constants.DestinationPort, configuration);
 
         // The destination sender is a service like the other externals
         // (destination adapter, platform clients): tests swap it for their own

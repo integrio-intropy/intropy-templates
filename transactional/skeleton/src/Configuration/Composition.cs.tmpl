@@ -6,8 +6,10 @@ using Intropy.BusinessIncidentService.Client;
 {{- end }}
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Common;
 using Intropy.Framework.Core.Configuration;
-using Intropy.Framework.Hosting.TransactionalIntegration.Job;
+using Intropy.Framework.Hosting.Sweep;
+using Intropy.Framework.Hosting.TransactionalIntegration;
 {{- if not .empty }}
 using Intropy.IdempotencyService.Client;
 {{- end }}
@@ -52,11 +54,15 @@ public static class Composition
         // ordering-sensitive DaprClient registrations obvious.
         services.AddLogging(builder => builder.AddConsole());
 
+        // The service name is the component name, so traces identify the component through
+        // the resource's service.name. Intropy.Telemetry already listens to the framework's
+        // Intropy.* trace sources, but subscribes to no meters: add the framework's.
         services.AddOpenTelemetry(conf =>
         {
             conf.ServiceNamespace = Constants.Organization;
             conf.ServiceName = Constants.ComponentName;
             conf.Environment = environment;
+            conf.ConfigureMetrics = metrics => metrics.AddMeter(IntropyTelemetry.Meters);
         });
 
         services.AddSingleton(_ => new DaprClientBuilder().Build());
@@ -93,17 +99,18 @@ public static class Composition
         {
             options.DaprPubSubName = Constants.PubSubName;
             options.DaprTopicName = Constants.TopicName;
-            options.SourcePort = Constants.SourcePort;
         });
 
-        // Each port's file adapter is chosen by configuration: Ports:<port>:Kind selects the
-        // Dapr binding the port is deployed with (File or Sftp). appsettings.Development.json
-        // selects File, the local folder the system host resolves each port to; a deployment
-        // sets Ports__<port>__Kind to match the binding it renders. With no Kind, startup fails
-        // naming the port. A binding's address and credentials live in the environment's Dapr
-        // component (GitOps values), resolved out of the cluster's secret store.
-        services.AddFileAdapter(Constants.SourcePort, configuration.GetSection($"Ports:{Constants.SourcePort}"));
-        services.AddFileAdapter(Constants.DestinationPort, configuration.GetSection($"Ports:{Constants.DestinationPort}"));
+        // Each port is registered by its role: the source the framework sweeps, the
+        // destination the Sender writes through. Each file adapter is chosen by configuration:
+        // Ports:<port>:Kind selects the Dapr binding the port is deployed with (Local, Sftp or AzureBlob).
+        // appsettings.Development.json selects Local, the local folder the system host
+        // resolves each port to; a deployment sets Ports__<port>__Kind to match the binding it
+        // renders. With no Kind, startup fails naming the port. A binding's address and
+        // credentials live in the environment's Dapr component (GitOps values), resolved out of
+        // the cluster's secret store.
+        services.AddSourcePort(Constants.SourcePort, configuration);
+        services.AddDestinationPort(Constants.DestinationPort, configuration);
 
         // Register the send pipeline last, after every adapter and platform service
         // it resolves from DI has been added to the service collection.

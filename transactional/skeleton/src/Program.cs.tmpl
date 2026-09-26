@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using {{ .name }}.Configuration;
 using Intropy.Framework.Hosting.RunToCompletion;
 using Intropy.Telemetry.ConsoleApp;
@@ -5,5 +6,22 @@ using Microsoft.Extensions.DependencyInjection;
 
 var serviceProvider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
 using var telemetryScope = new OpenTelemetryScope(serviceProvider);
+
+// Ctrl+C locally and SIGTERM from the scheduler (Kubernetes stops a job with SIGTERM) both
+// cancel the run, which the runner treats as a clean stop (exit code 0): in-flight work is
+// left for the next run. Returning normally, instead of being killed, lets the telemetry
+// scope flush the run's traces and metrics before the process exits.
+using var cts = new CancellationTokenSource();
+using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+{
+    context.Cancel = true;
+    cts.Cancel();
+});
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    cts.Cancel();
+};
+
 var runner = serviceProvider.GetRequiredService<RunToCompletionRunner>();
-return await runner.RunAsync();
+return await runner.RunAsync(cts.Token);

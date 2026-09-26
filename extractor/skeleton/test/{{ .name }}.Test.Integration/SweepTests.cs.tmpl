@@ -60,7 +60,7 @@ public class SweepTests
         // Assert
         Assert.Equal(0, summary.Failed);
         Assert.Equal(1, summary.Processed);
-        Assert.Equal(0, summary.Cancelled);
+        Assert.Equal(0, summary.Skipped);
         Assert.Single(topic.Events);
         Assert.Empty(files.Files);
         Assert.Single(idempotency.Committed);
@@ -101,7 +101,7 @@ public class SweepTests
         Assert.False(files.Files.ContainsKey("record-1.json"),
             "one bad file never blocks the batch");
         // The corrupt file is still listed — it stays in the inbound folder.
-        Assert.Contains("corrupt.json", (await files.ListAsync()).Select(f => f.FileName));
+        Assert.Contains("corrupt.json", (await files.ListAsync()).Select(f => f.Name));
     }
 {{- else }}
     private const string ValidOrderJson =
@@ -120,7 +120,7 @@ public class SweepTests
         // Assert
         Assert.Equal(0, summary.Failed);
         Assert.Equal(1, summary.Processed);
-        Assert.Equal(0, summary.Cancelled);
+        Assert.Equal(0, summary.Skipped);
         var published = Assert.Single(topic.Events);
         Assert.Equal("ORD-1001", published.Subject);
         Assert.Empty(files.Files);
@@ -142,7 +142,7 @@ public class SweepTests
         // published, no new commit.
         Assert.Equal(0, summary.Failed);
         Assert.Equal(0, summary.Processed);
-        Assert.Equal(1, summary.Cancelled);
+        Assert.Equal(1, summary.Skipped);
         Assert.Equal(0, topic.Count);
         Assert.Empty(files.Files);
         Assert.Empty(idempotency.Committed);
@@ -165,7 +165,7 @@ public class SweepTests
         // Assert: incident-routed files are consumed, so they count as processed.
         Assert.Equal(0, summary.Failed);
         Assert.Equal(1, summary.Processed);
-        Assert.Equal(0, summary.Cancelled);
+        Assert.Equal(0, summary.Skipped);
         Assert.Equal(0, topic.Count);
         Assert.Empty(files.Files);
         Assert.Empty(idempotency.Committed);
@@ -236,7 +236,7 @@ public class SweepTests
         Assert.False(files.Files.ContainsKey("order-1.json"),
             "one bad file never blocks the batch");
         // The corrupt file is still listed — it stays in the inbound folder.
-        Assert.Contains("corrupt.json", (await files.ListAsync()).Select(f => f.FileName));
+        Assert.Contains("corrupt.json", (await files.ListAsync()).Select(f => f.Name));
     }
 {{- end }}
 

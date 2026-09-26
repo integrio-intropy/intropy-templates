@@ -16,7 +16,7 @@ production); locally the system host runs the block once at startup.
   no-op / cancelled, `1` job failure (a file failed and was left in place), `2`
   infrastructure failure (sidecar unavailable).
 - Runner: the framework's `RunToCompletionRunner` (in `Intropy.Framework.Hosting`),
-  running the framework's extractor job (`AddExtractorRunToCompletion`): one
+  running the framework's extractor job (`AddExtractor`): one
   sweep of the source port per run, each file through the pipeline, reported
   as a `JobRunSummary`.
 - App id: `{{ .appId }}`
@@ -84,8 +84,8 @@ platform-service app ids from `PlatformServices:*`. Deployment overlays the file
 via ConfigMap. Components that need typed options bind them themselves.
 
 The file adapter behind each port is chosen by `Ports:{{ .port }}`: `Kind` selects the Dapr
-binding the port is deployed with (`File` or `Sftp`). `src/appsettings.Development.json`
-selects `File`, the local folder the system host resolves each port to (the host runs
+binding the port is deployed with (`Local`, `Sftp` or `AzureBlob`). `src/appsettings.Development.json`
+selects `Local`, the local folder the system host resolves each port to (the host runs
 every component as Development). `appsettings.json` sets no `Kind`: a deployment sets
 `Ports__<port>__Kind` to match the binding it renders, and without it the component
 fails at startup naming the port.

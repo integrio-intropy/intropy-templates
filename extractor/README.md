@@ -16,7 +16,7 @@ runtime, and an `AGENTS.md` describing the component to coding agents. The
 component is hosted by the framework's `RunToCompletionRunner` (in
 `Intropy.Framework.Hosting`) — sidecar lifecycle, tracing, and the 0/1/2
 exit-code contract — running the framework's extractor job
-(`AddExtractorRunToCompletion`: list inbound, pipeline per file, delete on
+(`AddExtractor`: list inbound, pipeline per file, delete on
 success), which the integration suite resolves from the real DI graph. The sender is a
 DI-registered `SendStep<Context>` (a `DaprTopicPublisher` in production),
 swapped in tests like any other external.

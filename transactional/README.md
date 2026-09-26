@@ -29,7 +29,7 @@ exactly as production composition does — with only the edges faked. No
 sidecar, no Testcontainers.
 
 Note on versions: every `Intropy.Framework.*` package — including
-`Intropy.Framework.Testing` — pins at `1.0.0-file-sweep-local.5`, so the integration fakes
+`Intropy.Framework.Testing` — pins at `1.0.0-file-sweep-local.7`, so the integration fakes
 and the framework types they build on always come from the same build.
 
 Components do not run standalone: the job runs via its system host, which
