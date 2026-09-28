@@ -30,3 +30,36 @@ resources:
 {{- if hasKey $fixtures "blob" }}
   - fixtures/blob.yaml
 {{- end }}
+
+# Each file port's adapter kind, which the component reads as Ports:<port>:Kind
+# and without which it refuses to start outside Development. It follows the
+# port's binding for this environment, so it lives in the overlay, not the base:
+# file → Local, sftp → Sftp. An http port is not a file port and gets none. No
+# framework file adapter speaks the blob binding (bindings.aws.s3) yet, so a
+# blob port fails the render rather than the first run.
+{{- $recorded := dig "local" "bindings" dict . -}}
+{{- $appId := dig "component" "appId" "" . -}}
+{{- $kinds := dict -}}
+{{- range .topology.ports }}
+{{- if has $appId (dig "appIds" (list) .) }}
+{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}
+{{- if eq $binding "blob" }}{{ fail (printf "port %s is bound to blob, which no framework file adapter supports yet" .name) }}{{ end }}
+{{- $kind := get (dict "file" "Local" "sftp" "Sftp") $binding -}}
+{{- if $kind }}{{- $_ := set $kinds .name $kind -}}{{- end }}
+{{- end }}
+{{- end }}
+{{- if $kinds }}
+{{- $env := ternary "/spec/jobTemplate/spec/template/spec/containers/0/env/-" "/spec/template/spec/containers/0/env/-" (eq .workload "cronjob") }}
+patches:
+  - target:
+      kind: {{ ternary "CronJob" "Deployment" (eq .workload "cronjob") }}
+      name: {{ .name }}
+    patch: |-
+{{- range $port := keys $kinds | sortAlpha }}
+      - op: add
+        path: {{ $env }}
+        value:
+          name: Ports__{{ $port }}__Kind
+          value: {{ get $kinds $port }}
+{{- end }}
+{{- end }}

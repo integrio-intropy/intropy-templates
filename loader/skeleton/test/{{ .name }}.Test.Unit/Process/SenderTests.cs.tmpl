@@ -29,8 +29,9 @@ public class SenderTests
             output, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
+        // The text write is an extension over the adapter's binary WriteAsync.
         await fileAdapter.Received(1).WriteAsync(
-            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Encoding>());
+            Arg.Any<string>(), Arg.Any<byte[]>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
         Assert.IsType<TechnicalStepResult<Out>.Success>(result);
     }
 {{- else }}
@@ -51,10 +52,12 @@ public class SenderTests
             output, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
+        // The text write is an extension over the adapter's binary WriteAsync: assert on the bytes.
         await fileAdapter.Received(1).WriteAsync(
             "ORD-1001.json",
-            Arg.Is<string>(json => json.Contains("\"OrderId\":\"ORD-1001\"") && json.Contains("\"Status\":\"Loaded\"")),
-            Encoding.UTF8);
+            Arg.Is<byte[]>(bytes => Encoding.UTF8.GetString(bytes).Contains("\"OrderId\":\"ORD-1001\"")
+                                    && Encoding.UTF8.GetString(bytes).Contains("\"Status\":\"Loaded\"")),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>());
         var success = Assert.IsType<TechnicalStepResult<Out>.Success>(result);
         Assert.Same(output, success.Value);
     }

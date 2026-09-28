@@ -41,7 +41,7 @@ spec:
       workload:
         type: string
         title: Workload
-        description: An extractor is scheduled and exits; everything else stays resident.
+        description: An extractor or transactional integration is scheduled and exits; everything else stays resident.
         enum: [cronjob, deployment]
         default: deployment
       registry:

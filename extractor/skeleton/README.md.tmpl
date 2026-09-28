@@ -140,7 +140,7 @@ come from the deployment environment.
 ## Pipeline
 
 Per swept file (the framework's extractor job drives this once per run, hosted
-by the framework's `RunToCompletionRunner`, which owns the sidecar lifecycle,
+by the framework's `JobRunner`, which owns the sidecar lifecycle,
 tracing, and the 0/1/2 exit-code mapping — success / job failure /
 infrastructure failure):
 

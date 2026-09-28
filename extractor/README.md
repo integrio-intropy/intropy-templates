@@ -13,7 +13,7 @@ The rendered project is a one-shot console job (same shape as `transactional`)
 with a Taskfile (`task build`, `task test`, `task coverage` — the
 component-level loop), two test projects, a Dockerfile on the chiseled
 runtime, and an `AGENTS.md` describing the component to coding agents. The
-component is hosted by the framework's `RunToCompletionRunner` (in
+component is hosted by the framework's `JobRunner` (in
 `Intropy.Framework.Hosting`) — sidecar lifecycle, tracing, and the 0/1/2
 exit-code contract — running the framework's extractor job
 (`AddExtractor`: list inbound, pipeline per file, delete on

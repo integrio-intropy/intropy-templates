@@ -11,14 +11,14 @@ production); locally the system host runs the block once at startup.
 
 - Framework: .NET 10
 - App type: Run-to-completion console job (no web endpoints; one sweep per run,
-  then exit). Hosted by the framework's `RunToCompletionRunner`, which owns the
+  then exit). Hosted by the framework's `JobRunner`, which owns the
   Dapr sidecar lifecycle, tracing, and the exit-code contract: `0` success /
   no-op / cancelled, `1` job failure (a file failed and was left in place), `2`
   infrastructure failure (sidecar unavailable).
-- Runner: the framework's `RunToCompletionRunner` (in `Intropy.Framework.Hosting`),
+- Runner: the framework's `JobRunner` (in `Intropy.Framework.Hosting`),
   running the framework's extractor job (`AddExtractor`): one
   sweep of the source port per run, each file through the pipeline, reported
-  as a `JobRunSummary`.
+  as a `RunSummary`.
 - App id: `{{ .appId }}`
 - Source port: `{{ .port }}` — the named interface the extractor reads
   the outside world through; the system host declares it in `Ports.cs`
@@ -51,7 +51,7 @@ production); locally the system host runs the block once at startup.
   only the app — the Dapr sidecar and components come from the deployment
   environment.
 - `src/Program.cs` - entrypoint: builds the service provider via `Composition`
-  and runs the framework `RunToCompletionRunner`.
+  and runs the framework `JobRunner`.
 - `src/Composition/Composition.cs` - every service registration (including
   the pipeline and the publish edge: the sender is a DI-registered
   `SendStep<Context>` — a `DaprTopicPublisher` in production — resolved by

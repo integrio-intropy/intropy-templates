@@ -29,7 +29,10 @@ public class SenderTests
         var (result, _) = await sender.ExecuteAsync(payload, context, CancellationToken.None);
 
         // Assert
-        await fileAdapter.Received(1).WriteAsync("ORD-1001.json", payload, Encoding.UTF8);
+        // The text write is an extension over the adapter's binary WriteAsync: assert on the bytes.
+        await fileAdapter.Received(1).WriteAsync("ORD-1001.json",
+            Arg.Is<byte[]>(bytes => Encoding.UTF8.GetString(bytes) == payload),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>());
         var success = Assert.IsType<BusinessStepResult<string>.Success>(result);
         Assert.Equal("ORD-1001.json", success.Value);
     }

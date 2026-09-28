@@ -1,7 +1,6 @@
 using {{ .name }}.Configuration;
-using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.Framework.Hosting.Jobs;
 using Intropy.Framework.Hosting.TransactionalIntegration;
-using Intropy.Framework.Hosting.TransactionalIntegration.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NSubstitute;
@@ -52,7 +51,7 @@ public class ReceiveSideIntegrationTests
         Assert.True(edges.SourceFiles.Files.ContainsKey("order-1.json"));
     }
 
-    private static IRunToCompletionJob CreateJob(FakeEdges edges)
+    private static IJob CreateJob(FakeEdges edges)
     {
         var services = edges.CreateServices();
         var subscriber = Substitute.For<ITopicSubscriber>();
@@ -67,6 +66,6 @@ public class ReceiveSideIntegrationTests
         options.IdleTimeout = TimeSpan.Zero;
         options.PostIdleGracePeriod = TimeSpan.Zero;
 
-        return provider.GetRequiredService<IRunToCompletionJob>();
+        return provider.GetRequiredService<IJob>();
     }
 }

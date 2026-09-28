@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using {{ .name }};
 using {{ .name }}.Composition;
-using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.Framework.Hosting.Jobs;
 using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,5 +24,5 @@ Console.CancelKeyPress += (_, e) =>
     cts.Cancel();
 };
 
-var runner = serviceProvider.GetRequiredService<RunToCompletionRunner>();
+var runner = serviceProvider.GetRequiredService<JobRunner>();
 return await runner.RunAsync(cts.Token);

@@ -8,14 +8,16 @@ Rendered once per topology component into
 
 ## Workload follows the block kind
 
-An extractor wakes on a schedule, pulls from its source and exits, so it renders
-a `CronJob`. Every other block reacts to messages or requests and must stay
-resident, so it renders a `Deployment`. `spec.files` picks one and never writes
-the other.
+An extractor and a transactional integration run to completion: each wakes on a
+schedule, sweeps its source port, drains what it produced and exits, so it
+renders a `CronJob`. Every other block reacts to messages or requests and must
+stay resident, so it renders a `Deployment`. `spec.files` picks one and never
+writes the other.
 
 This is not an invention: the hand-written manifests in two customer
-repositories already run their extractors as CronJobs. The topology's block kind
-is what lets the CLI derive it.
+repositories already run their extractors as CronJobs, and the Aspire host
+derives the same split from the same kinds. The topology's block kind is what
+lets the CLI derive it.
 
 The CronJob's schedule defaults to `* * * * *` — a once-a-minute dev cadence
 — and is its one and only home. Activation cadence is deployment
@@ -30,6 +32,18 @@ pin` writes the digest when a deployment must be frozen.
 
 The local render replaces the reference with a different convention — see "The
 local overlay" below.
+
+## Each file port's adapter kind follows its binding
+
+A component chooses the file adapter behind each port from `Ports:<port>:Kind`
+and refuses to start without it outside Development. Every overlay, local
+included, patches one `Ports__<port>__Kind` variable onto the workload for each
+port whose scopes list the component's app-id: `file` renders `Local`, `sftp`
+renders `Sftp`, and an `http` port is not a file port, so it gets none. It lives
+in the overlays, not the base, because a port's binding may differ per
+environment. No framework file adapter speaks the `blob` binding
+(`bindings.aws.s3`) yet, so a blob port fails the render instead of the
+component's first run.
 
 ## imageNamespace must match CI
 

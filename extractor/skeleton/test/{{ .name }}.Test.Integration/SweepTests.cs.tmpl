@@ -5,7 +5,7 @@ using Intropy.Framework.Testing.Topics;
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
 using Microsoft.Extensions.DependencyInjection;
-using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.Framework.Hosting.Jobs;
 using Intropy.Contracts.IdempotencyService;
 using Action = Intropy.Contracts.IdempotencyService.Action;
 
@@ -247,13 +247,13 @@ public class SweepTests
     /// and the publish edge (a <see cref="FakeTopic{TCtx}"/> registered in DI in place
     /// of the production <c>SendStep&lt;Context&gt;</c>). One run of the job is one sweep.
     /// </summary>
-    private static (IRunToCompletionJob Job, InMemoryFileAdapter Files, FakeTopic<Context> Topic,
+    private static (IJob Job, InMemoryFileAdapter Files, FakeTopic<Context> Topic,
         FakeIdempotencyServiceClient Idempotency, FakeBusinessIncidentServiceClient Incidents)
         CreateSut()
     {
         var edges = new FakeEdges();
         var provider = edges.CreateServices().BuildServiceProvider();
-        var job = provider.GetRequiredService<IRunToCompletionJob>();
+        var job = provider.GetRequiredService<IJob>();
 
         return (job, edges.Files, edges.Topic, edges.Idempotency, edges.Incidents);
     }
