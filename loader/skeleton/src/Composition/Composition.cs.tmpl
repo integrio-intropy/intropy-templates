@@ -9,6 +9,7 @@ using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Configuration;
 using Intropy.IdempotencyService.Client;
+using Intropy.Telemetry;
 using Intropy.Telemetry.AspNetCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,11 +53,15 @@ public static class Composition
         // ordering-sensitive DaprClient registrations obvious.
         services.AddLogging(builder => builder.AddConsole());
 
+        // Strict mode exports only the framework's Intropy.* spans and the component's own:
+        // the ASP.NET Core, Dapr gRPC and HttpClient spans around them are dropped, while
+        // trace context still propagates. Tracing:Mode in configuration overrides it.
         services.AddOpenTelemetry(conf =>
         {
             conf.ServiceNamespace = Constants.Organization;
             conf.ServiceName = Constants.ComponentName;
             conf.Environment = environment;
+            conf.Mode = TracingMode.Strict;
         });
 
         services.AddSingleton(_ => new DaprClientBuilder().Build());
