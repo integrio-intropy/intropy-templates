@@ -9,6 +9,30 @@ placeholder default; PORT_DIR is required there. */ -}}
 {{- $seedPort = .port -}}
 {{- end -}}
 {{- end -}}
+{{- /* The publish defaults follow the system's first topic and the first
+component on it that stays resident — a loader, whose sidecar is still up
+while the host runs; a run-to-completion extractor's sidecar may already be
+gone. Without a loader, any component on the topic will do. A topic-free
+system gets placeholders; TOPIC and PUBLISH_APP_ID are required there. */ -}}
+{{- $publishTopic := "<topic>" -}}
+{{- if gt (len .topics) 0 -}}
+{{- $publishTopic = (index .topics 0).name -}}
+{{- end -}}
+{{- $publishAppId := "<app-id>" -}}
+{{- range .components -}}
+{{- if and (eq $publishAppId "<app-id>") (eq .kind "loader") (hasKey . "topic") -}}
+{{- if eq .topic.name $publishTopic -}}
+{{- $publishAppId = .appId -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- range .components -}}
+{{- if and (eq $publishAppId "<app-id>") (hasKey . "topic") -}}
+{{- if eq .topic.name $publishTopic -}}
+{{- $publishAppId = .appId -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 version: "3"
 
 # Local-dev tasks for the {{ .name }} SystemHost — the Aspire host that holds the
@@ -53,9 +77,9 @@ tasks:
     vars:
       # The app-id of any running component whose sidecar should publish —
       # the dapr CLI resolves the sidecar from the app-id.
-      PUBLISH_APP_ID: '{{ "{{" }}.PUBLISH_APP_ID | default "order-extractor"}}'
+      PUBLISH_APP_ID: '{{ "{{" }}.PUBLISH_APP_ID | default "{{ $publishAppId }}"}}'
       PUBSUB: '{{ "{{" }}.PUBSUB | default "{{ .pubsub }}"}}'
-      TOPIC: '{{ "{{" }}.TOPIC | default "orders"}}'
+      TOPIC: '{{ "{{" }}.TOPIC | default "{{ $publishTopic }}"}}'
     cmds:
       - >-
         dapr publish
