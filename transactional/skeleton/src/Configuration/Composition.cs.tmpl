@@ -13,6 +13,7 @@ using Intropy.Framework.Hosting.TransactionalIntegration;
 {{- if not .empty }}
 using Intropy.IdempotencyService.Client;
 {{- end }}
+using Intropy.Telemetry;
 using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,13 +56,16 @@ public static class Composition
         services.AddLogging(builder => builder.AddConsole());
 
         // The service name is the component name, so traces identify the component through
-        // the resource's service.name. Intropy.Telemetry already listens to the framework's
-        // Intropy.* trace sources, but subscribes to no meters: add the framework's.
+        // the resource's service.name. Strict mode exports only the framework's Intropy.* spans
+        // and the component's own: the Dapr gRPC and HttpClient spans around them are dropped,
+        // while trace context still propagates. Tracing:Mode in configuration overrides it.
+        // Intropy.Telemetry subscribes to no meters: add the framework's.
         services.AddOpenTelemetry(conf =>
         {
             conf.ServiceNamespace = Constants.Organization;
             conf.ServiceName = Constants.ComponentName;
             conf.Environment = environment;
+            conf.Mode = TracingMode.Strict;
             conf.ConfigureMetrics = metrics => metrics.AddMeter(IntropyTelemetry.Meters);
         });
 
