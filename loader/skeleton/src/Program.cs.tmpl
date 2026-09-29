@@ -1,24 +1,9 @@
 using {{ .name }}.Composition;
-using {{ .name }}.Endpoints;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
-var builder = WebApplication.CreateBuilder(args);
-
-// Every service registration lives in Composition so the composition smoke
-// test builds the exact graph the host runs.
-Composition.ConfigureServices(builder.Services, builder.Environment.EnvironmentName);
-
-builder.Services.AddHealthChecks();
-
-var app = builder.Build();
-
-// The subscription endpoint, plus the GET /dapr/subscribe route the sidecar
-// calls at startup to discover it (from the endpoint's .WithTopic metadata).
-app.MapLoaderEndpoints();
-app.MapSubscribeHandler();
-app.MapHealthChecks("/healthz");
-
-app.Run();
-
-// Makes the top-level Program visible to the test project (WebApplicationFactory<Program>).
-public partial class Program;
+// A generic-host worker: the loader consumes its topic through a Dapr streaming
+// subscription until the host stops (SIGTERM from the scheduler, Ctrl+C locally).
+// It serves no HTTP, so the sidecar needs no app port. Every service registration
+// lives in Composition, so the tests build the exact graph this host runs.
+using var host = Composition.CreateHostBuilder(args).Build();
+await host.RunAsync();

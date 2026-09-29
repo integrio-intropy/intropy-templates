@@ -1,0 +1,57 @@
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Contracts.IdempotencyService;
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Hosting.Messaging.Streaming;
+using Intropy.Framework.Testing.Adapters;
+using Intropy.Framework.Testing.Delivery;
+using Intropy.Framework.Testing.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The real host — production composition, hosted consumer, ack mapping — with only the
+/// edges faked: the sidecar's streaming subscription (<see cref="FakeStreamingSubscriber"/>),
+/// the keyed destination adapter, and both platform-service clients. The fakes are registered
+/// after the component's own registrations, so plain last-wins registrations replace them.
+/// </summary>
+public sealed class LoaderSut : IAsyncDisposable
+{
+    public IHost Host { get; private set; } = null!;
+    public FakeStreamingSubscriber Subscriber { get; } = new();
+    public InMemoryFileAdapter Files { get; } = new();
+    public FakeIdempotencyServiceClient Idempotency { get; } = new();
+    public FakeBusinessIncidentServiceClient Incidents { get; } = new();
+
+    /// <summary>Starts the host and waits until the loader has subscribed to its topic.</summary>
+    public static async Task<LoaderSut> StartAsync()
+    {
+        var sut = new LoaderSut();
+        var builder = Composition.Composition.CreateHostBuilder([], "Development");
+        builder.Services.AddSingleton<IStreamingSubscriber>(sut.Subscriber);
+        builder.Services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationPort, sut.Files);
+        builder.Services.AddSingleton<IIdempotencyServiceClient>(sut.Idempotency);
+        builder.Services.AddSingleton<IBusinessIncidentServiceClient>(sut.Incidents);
+
+        sut.Host = builder.Build();
+        await sut.Host.StartAsync();
+        await sut.Subscriber.WaitForSubscriptionAsync();
+        return sut;
+    }
+
+    public void Deconstruct(out FakeStreamingSubscriber subscriber, out InMemoryFileAdapter files,
+        out FakeIdempotencyServiceClient idempotency, out FakeBusinessIncidentServiceClient incidents)
+    {
+        subscriber = Subscriber;
+        files = Files;
+        idempotency = Idempotency;
+        incidents = Incidents;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Host.StopAsync();
+        Host.Dispose();
+    }
+}

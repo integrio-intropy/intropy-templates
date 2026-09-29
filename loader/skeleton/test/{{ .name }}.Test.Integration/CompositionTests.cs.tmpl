@@ -1,35 +1,29 @@
-using {{ .contracts }};
-using {{ .name }}.Model;
 using Intropy.Framework.Adapters.File;
-using Intropy.Framework.Blocks.Loader;
-using Intropy.Framework.Blocks.Shared;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace {{ .name }}.Test.Integration;
 
 /// <summary>
-/// Composition smoke test: the DI graph the system host will run must build
-/// without a Dapr sidecar. Registrations are lazy — a missing registration
-/// (framework upgrade, renamed builder) fails here, not at system-host time.
+/// Composition smoke test: the DI graph the host will run must build without a Dapr sidecar.
+/// The Development host validates the graph when it is built, so a registration the
+/// composition misses fails here, not at system-host time.
 /// </summary>
 public class CompositionTests
 {
     [Fact]
-    public void Composition_ResolvesLoadPipeline()
+    public void Composition_BuildsTheHost()
     {
-        var provider = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
+        using var host = Composition.Composition.CreateHostBuilder([], "Development").Build();
 
-        var pipeline = provider.GetRequiredService<Loader<{{ .contract }}, Out, Context>>();
-
-        Assert.NotNull(pipeline);
+        Assert.NotNull(host);
     }
 
     [Fact]
     public void Composition_ResolvesDestinationFileAdapterUnderItsKey()
     {
-        var provider = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
+        using var host = Composition.Composition.CreateHostBuilder([], "Development").Build();
 
-        var adapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);
+        var adapter = host.Services.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);
 
         Assert.NotNull(adapter);
     }

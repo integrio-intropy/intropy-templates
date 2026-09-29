@@ -1,35 +1,36 @@
 # loader
 
-Scaffolds a long-running ASP.NET loader integration: the service declares a
-Dapr subscription on a pub/sub topic, the sidecar POSTs each delivered
-message to the subscription endpoint, and the handler rebuilds the envelope
-into a CloudEvent, runs it through the Intropy loader pipeline
-(`Intropy.Framework.Blocks.Loader`), and writes the result as
-`{orderId}.json` through a local destination folder binding. In production
+Scaffolds a long-running loader integration: a generic-host worker that
+consumes a Dapr pub/sub topic through a streaming subscription (the app
+connects to its sidecar; it serves no HTTP and needs no app port), runs each
+message through the Intropy loader pipeline (`AddLoader` from
+`Intropy.Framework.Hosting`), and writes the result as `{orderId}.json`
+through a local destination folder binding. In production
 the loader runs as a Deployment (unlike the run-to-completion `extractor`).
 The loader is the consuming half of a system contract — scaffold the
 publishing extractor with the same `topic` value.
 
-The rendered project is an ASP.NET service with a Taskfile (`task build`,
-`task test`, `task coverage` — the component-level loop), a `/healthz`
-endpoint, two test projects, a Dockerfile on the chiseled ASP.NET runtime,
-and an `AGENTS.md` describing the component to coding agents. The
-subscription lives in `src/Endpoints/LoaderEndpoints.cs` (`Dapr.AspNetCore`'s
-`.WithTopic` + `MapSubscribeHandler`). All service registration — including
-the load edge, a DI-registered `SendStep<Out, Context>` — lives in
-`src/Composition/Composition.cs`, so the pipeline is always built exactly as
-production composition does and tests swap any edge by swapping its
-registration.
+The rendered project is a generic-host worker with a Taskfile (`task build`,
+`task test`, `task coverage` — the component-level loop), two test projects, a
+Dockerfile on the chiseled ASP.NET Core runtime (the framework's hosting
+package runs on the ASP.NET Core shared framework), and an `AGENTS.md`
+describing the component to coding agents. The framework owns the
+subscription, the CloudEvent rebuild, the ack mapping, the consumer span and
+graceful shutdown; the component owns only `src/Composition/Composition.cs` —
+the host builder and every service registration, ending in `AddLoader`, so the
+pipeline is always built exactly as production composition does and tests swap
+any edge by swapping its registration. A broken subscription stream is
+reopened; a pipeline that cannot be composed stops the host with exit code 1.
 
 Tests split into `<name>.Test.Unit` (pipeline step contracts, pure xUnit —
 the Sender's `IFileAdapter` seam via NSubstitute) and
 `<name>.Test.Integration` (delivery, boot smoke, composition) built on the
 `Intropy.Framework.Testing` fakes: `InMemoryFileAdapter` at the keyed
-destination-adapter seam (its `WriteException` pins the RETRY path), the two
-platform-service clients swapped the same way, and `DaprDelivery.DeliverAsync`
-POSTing structured-mode CloudEvents to the subscription route exactly as a
-sidecar would, asserting on fake state and the delivery ack. No sidecar, no
-Testcontainers.
+destination-adapter seam (its `WriteException` pins the Retry path), the two
+platform-service clients swapped the same way, and `FakeStreamingSubscriber`
+standing in for the sidecar's subscription — it delivers CloudEvents to the
+running host exactly as the sidecar would — asserting on fake state and the
+delivery ack. No sidecar, no Testcontainers.
 
 Components do not run standalone: the loader runs via its system host, which
 provides every Dapr component (pub/sub, destination binding, platform

@@ -16,9 +16,6 @@ public static class Constants
     // binding's type (local folder, SFTP, …) behind it.
     public const string DestinationPort = "{{ .port }}";
 
-    // The route the sidecar delivers to; announced via GET /dapr/subscribe.
-    public const string SubscriptionRoute = "/events/{{ .topic }}";
-
     // Context keys the loader pipeline's idempotency step reads CloudEvent
     // Subject (id) and Time (date) from. The values mirror the framework's
     // internal CloudEventContextKeys (Intropy.Framework.Blocks) — they must
