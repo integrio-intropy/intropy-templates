@@ -23,7 +23,7 @@ unit.
 |---|---|
 | `Topics.cs` | `topics` — one `TopicRef<T>` field per topic |
 | `Ports.cs` | `ports` — one `PortRef` per port (the name is the whole identity; the deployed binding type is environment-owned deployment configuration) |
-| `<Project>Development.cs` | `ports` — one `development.Files(...).RootPath("./test/<name>")` resolution per port, plus OpenAPI-backed mocks for both platform services (the skeleton's `Services.cs` + `mocks/` exist regardless of payload) |
+| `<Project>Development.cs` | `ports` — one `development.Files(...).RootPath("./test/<name>")` resolution per port, plus OpenAPI-backed mocks for both platform services and one `development.Rerun(...).Every(...)` rerun per run-to-completion component — extractors and transactional integrations (the skeleton's `Services.cs` + `mocks/` exist regardless of payload) |
 | `<Project>System.cs` | `components` — one `builder.Add<Kind>(...)` chain per component |
 | `<Project>.SystemHost.csproj` | `sharedContracts.include` — the `ProjectReference` to the workspace's shared contracts project |
 | `Program.cs`, `Taskfile.yml`, `Properties/launchSettings.json`, `Services.cs`, `mocks/`, `sample-data/`, `AGENTS.md`, `README.md`, `.gitignore` | static shell |
