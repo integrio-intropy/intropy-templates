@@ -12,6 +12,13 @@ using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+{{- /* One alias pair per route: its pipeline's namespace and its payload type.
+A route's namespace and its contract share their last segment, so the aliases
+keep the composition below unambiguous whatever the project is named. */}}
+{{- range .routes }}
+using {{ pascal .message }}Route = {{ $.name }}.Routes.{{ pascal .message }};
+using {{ pascal .message }}Payload = {{ $.contracts }}.{{ pascal .message }};
+{{- end }}
 
 namespace {{ .name }}.Composition;
 
@@ -97,7 +104,7 @@ public static class Composition
         // (destination adapter, platform clients): tests swap it for their own
         // SendStep<Out, Context> registration.
 {{- range .routes }}
-{{- $route := printf "global::%s.Routes.%s" $.name (pascal .message) }}
+{{- $route := printf "%sRoute" (pascal .message) }}
         services.AddSingleton<SendStep<{{ $route }}.Out, Context>>(sp =>
             new {{ $route }}.Sender(sp.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort)));
 {{- end }}
@@ -124,8 +131,8 @@ public static class Composition
             },
             routes => routes
 {{- range .routes }}
-{{- $route := printf "global::%s.Routes.%s" $.name (pascal .message) }}
-                .On<global::{{ $.contracts }}.{{ pascal .message }}, {{ $route }}.Out, Context>({{ $route }}.Route.Message,
+{{- $route := printf "%sRoute" (pascal .message) }}
+                .On<{{ pascal .message }}Payload, {{ $route }}.Out, Context>({{ $route }}.Route.Message,
                     (builder, _) => builder
                         .WithDeserializer(new {{ $route }}.Deserializer())
                         .WithValidator(new {{ $route }}.Validator())
