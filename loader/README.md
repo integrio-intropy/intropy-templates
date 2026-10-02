@@ -7,8 +7,8 @@ message through the Intropy loader pipeline (`AddLoader` from
 `Intropy.Framework.Hosting`), and writes the result as `{orderId}.json`
 through a local destination folder binding. In production
 the loader runs as a Deployment (unlike the run-to-completion `extractor`).
-The loader is the consuming half of a system contract — scaffold the
-publishing extractor with the same `topic` value.
+The loader subscribes to the system's message: scaffold the publishing
+extractor with the same message value (`subscribes` here, `publishes` there).
 
 The rendered project is a generic-host worker with a Taskfile (`task build`,
 `task test`, `task coverage` — the component-level loop), two test projects, a
@@ -60,8 +60,7 @@ pipeline code, unless `empty=true`) to match.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderLoader`).                |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `topic`        | yes      | Pub/sub topic the loader subscribes to (kebab-case); the publishing extractor uses the same.          |
-| `contract`     | yes      | PascalCase shared-contracts record the topic carries; the sample uses `Order` (see above).            |
+| `subscribes`  | yes      | The message this loader subscribes to. The topic, CloudEvents `type`, and payload type derive from this value. |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; no idempotency lambdas).     |

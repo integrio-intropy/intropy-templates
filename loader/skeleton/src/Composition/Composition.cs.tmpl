@@ -104,7 +104,7 @@ public static class Composition
         // subscribes to the topic and acks every message by its pipeline result. The pipeline
         // is composed once at startup, before subscribing, so a missing registration stops the
         // host (exit code 1) instead of failing every message.
-        services.AddLoader<{{ .contract }}, Out, Context>(
+        services.AddLoader<{{ .payloadType }}, Out, Context>(
             (builder, _) => builder
                 .WithDeserializer(new Deserializer())
                 .WithValidator(new Validator())

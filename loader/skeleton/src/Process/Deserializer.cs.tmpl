@@ -8,9 +8,9 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Deserializer : DeserializeStep<{{ .contract }}, Context>
+public class Deserializer : DeserializeStep<{{ .payloadType }}, Context>
 {
-    protected override Task<(BusinessStepResult<{{ .contract }}> Result, Context Context)> DeserializeAsync(
+    protected override Task<(BusinessStepResult<{{ .payloadType }}> Result, Context Context)> DeserializeAsync(
         CloudEvent cloudEvent, Context context)
     {
 {{- if .empty }}
@@ -24,11 +24,11 @@ public class Deserializer : DeserializeStep<{{ .contract }}, Context>
                 Description = "CloudEvent data is null or empty",
                 Context = new Dictionary<string, string>()
             };
-            return Task.FromResult<(BusinessStepResult<{{ .contract }}>, Context)>(
-                (new BusinessStepResult<{{ .contract }}>.Failure(incident), context));
+            return Task.FromResult<(BusinessStepResult<{{ .payloadType }}>, Context)>(
+                (new BusinessStepResult<{{ .payloadType }}>.Failure(incident), context));
         }
 
-        var order = JsonSerializer.Deserialize<{{ .contract }}>(json,
+        var order = JsonSerializer.Deserialize<{{ .payloadType }}>(json,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
         context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
@@ -42,8 +42,8 @@ public class Deserializer : DeserializeStep<{{ .contract }}, Context>
         context.Metadata[Constants.ContextKeyCloudEventSubject] = order.OrderId;
         context.Metadata[Constants.ContextKeyCloudEventTime] = order.OrderDate.ToString("O");
 
-        return Task.FromResult<(BusinessStepResult<{{ .contract }}>, Context)>(
-            (new BusinessStepResult<{{ .contract }}>.Success(order), context));
+        return Task.FromResult<(BusinessStepResult<{{ .payloadType }}>, Context)>(
+            (new BusinessStepResult<{{ .payloadType }}>.Success(order), context));
 {{- end }}
     }
 }

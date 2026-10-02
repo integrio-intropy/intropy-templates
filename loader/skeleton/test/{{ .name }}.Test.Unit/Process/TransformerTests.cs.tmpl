@@ -19,7 +19,7 @@ public class TransformerTests
     {
         // Arrange
         var transformer = new Transformer();
-        var input = new {{ .contract }}();
+        var input = new {{ .payloadType }}();
 
         // Act
         var (result, _) = await transformer.ExecuteAsync(input, new Context(new Dictionary<string, string>()), CancellationToken.None);
@@ -33,7 +33,7 @@ public class TransformerTests
     {
         // Arrange
         var transformer = new Transformer();
-        var order = new {{ .contract }}(
+        var order = new {{ .payloadType }}(
             OrderId: "ORD-1001",
             CustomerId: "CUST-42",
             OrderDate: new DateTimeOffset(2026, 1, 15, 9, 30, 0, TimeSpan.Zero),

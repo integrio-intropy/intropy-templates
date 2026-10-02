@@ -1,0 +1,6 @@
+# Render fixture: scalar message-first extractor.
+#   intropy int create extractor -o /tmp/extractor-msg -f extractor/examples/publishes.yaml --version main --no-input
+name: ProductExporter
+organization: Maxbo
+publishes: product-exported
+empty: false

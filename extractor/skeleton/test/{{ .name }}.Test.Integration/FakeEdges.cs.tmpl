@@ -55,6 +55,6 @@ public sealed class FakeEdges
     /// fresh scope. <see cref="Topic"/> is already in the DI graph via
     /// <see cref="CreateServices"/>, so there is nothing left to override.
     /// </summary>
-    public static Extractor<Source{{ .contract }}, {{ .contract }}, Context> ResolvePipeline(IServiceProvider provider) =>
-        provider.CreateScope().ServiceProvider.GetRequiredService<Extractor<Source{{ .contract }}, {{ .contract }}, Context>>();
+    public static Extractor<Source{{ .payloadType }}, {{ .payloadType }}, Context> ResolvePipeline(IServiceProvider provider) =>
+        provider.CreateScope().ServiceProvider.GetRequiredService<Extractor<Source{{ .payloadType }}, {{ .payloadType }}, Context>>();
 }

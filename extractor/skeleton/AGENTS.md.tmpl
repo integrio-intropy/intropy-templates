@@ -27,18 +27,20 @@ production); locally the system host runs the block once at startup.
   binding (e.g. SFTP) from the deploy overlay's GitOps values — rebinding
   the port is a deployment change, never a code change
 - Pub/sub component: `pubsub`
-- Topic: `{{ .topic }}` — the extractor's half of the system contract; the
-  consuming loader subscribes to the same topic
-- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ if .eventType }}{{ .eventType }}{{ else }}{{ .eventTypeValue }}{{ end }}`
+- Message: `{{ .publishes }}` — what the extractor publishes; the message name doubles
+  as the CloudEvents type. Set by `--publishes` from the resolved registry
+  message; carried in the scaffold record's scalar `publishes` value.
+- Channel: `{{ .channel }}` — the topic the message flows over (pubsub `pubsub`). It is the message name; the consuming loader subscribes to the same channel
+- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ .publishes }}` (the message name IS the type)
 - Idempotency Service: reached via Dapr service invocation, app id
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
   `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the published contract (`{{ .contract }}`, `OrderLine`) lives in the
+- Shared contracts: the published payload type (`{{ .payloadType }}`) — derived from the message name — lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
   dependency declaration; when it already exists (another component created
-  it) the scaffold leaves it untouched. `Source{{ .contract }}` (the source file shape) stays
+  it) the scaffold leaves it untouched. `Source{{ .payloadType }}` (the source file shape) stays
   local in `src/Model/`.
 
 ## Important files

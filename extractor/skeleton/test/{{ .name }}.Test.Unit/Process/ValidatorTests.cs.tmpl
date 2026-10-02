@@ -19,13 +19,13 @@ public class ValidatorTests
     {
         // Arrange
         var validator = new Validator();
-        var input = new Source{{ .contract }}();
+        var input = new Source{{ .payloadType }}();
 
         // Act
         var (result, _) = await validator.ExecuteAsync(input, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        Assert.IsAssignableFrom<BusinessStepResult<Source{{ .contract }}>>(result);
+        Assert.IsAssignableFrom<BusinessStepResult<Source{{ .payloadType }}>>(result);
     }
 {{- else }}
     [Fact]
@@ -39,7 +39,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Success>(result);
+        Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var failure = Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Failure>(result);
+        var failure = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Failure>(result);
         Assert.Equal("OrderId is required", failure.Value.Description);
     }
 
@@ -68,7 +68,7 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Failure>(result);
+        Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Failure>(result);
     }
 
     [Fact]
@@ -82,11 +82,11 @@ public class ValidatorTests
         var (result, _) = await validator.ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var failure = Assert.IsType<BusinessStepResult<Source{{ .contract }}>.Failure>(result);
+        var failure = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Failure>(result);
         Assert.Equal("Order must contain at least one line", failure.Value.Description);
     }
 
-    private static Source{{ .contract }} CreateValidOrder() => new(
+    private static Source{{ .payloadType }} CreateValidOrder() => new(
         OrderId: "ORD-1001",
         CustomerId: "CUST-42",
         OrderDate: DateTimeOffset.UtcNow.AddDays(-1),

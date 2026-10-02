@@ -1,6 +1,6 @@
 # {{ .name }}
 
-.NET loader integration. A generic-host worker consumes the `{{ .topic }}`
+.NET loader integration. A generic-host worker consumes the `{{ .channel }}`
 topic of the Dapr pub/sub through a streaming subscription, runs each message
 through the Intropy loader pipeline, and writes the result as `{orderId}.json`
 through the destination binding. It serves no HTTP, so the sidecar needs no
@@ -9,7 +9,7 @@ app port. The loader is a long-running worker (a Deployment in production).
 ## How a message flows
 
 ```
-sidecar streams a CloudEvent from '{{ .topic }}'
+sidecar streams a CloudEvent from '{{ .channel }}'
    │
    ▼
 deserialize ──▶ validate ──▶ transform
@@ -101,7 +101,7 @@ ever suspected of diverging.
 
 ## Shared contracts
 
-The canonical contract types (`{{ .contract }}`, `OrderLine`) live in the sibling
+The canonical payload types (`{{ .payloadType }}`) live in the sibling
 `../{{ .contracts }}` project, referenced from `src/{{ .name }}.csproj`. It was
 scaffolded together with this project (or already existed — components in the
 same parent directory share it); the publishing extractor serializes exactly
@@ -132,7 +132,7 @@ a CloudEvent and drives this):
 //         ┌─────────────────────────────┐
 //         │ 1. Deserializer             │
 //         └──────────────┬──────────────┘
-//                        │ CloudEvent.Data → shared {{ .contract }}; stamps context
+//                        │ CloudEvent.Data → shared {{ .payloadType }}; stamps context
 //                        ▼
 //         ┌─────────────────────────────┐
 //         │ 2. Validator                ├──── failure ───► Business Incident Service
@@ -147,7 +147,7 @@ a CloudEvent and drives this):
 //         ┌─────────────────────────────┐
 //         │ 4. Transformer              │
 //         └──────────────┬──────────────┘
-//                        │ shared {{ .contract }} → Out
+//                        │ shared {{ .payloadType }} → Out
 //                        ▼
 //         ┌─────────────────────────────┐
 //         │ 5. Sender                   │
@@ -159,10 +159,10 @@ a CloudEvent and drives this):
 ```
 {{- if .empty }}
 
-1. `Deserializer` parses `CloudEvent.Data` into the shared `{{ .contract }}` contract.
+1. `Deserializer` parses `CloudEvent.Data` into the shared `{{ .payloadType }}` contract.
 2. `Validator` enforces business rules.
 3. Idempotency check — cancels duplicates.
-4. `Transformer` maps `{{ .contract }}` → `Out`.
+4. `Transformer` maps `{{ .payloadType }}` → `Out`.
 5. `Sender` writes `Out` through the destination binding.
 
 Every step body throws `NotImplementedException` — this project was scaffolded
@@ -172,7 +172,7 @@ CloudEvent Subject/Time from the context, so backfill those from stable
 business fields in your `Deserializer` (see `AGENTS.md`).
 {{- else }}
 
-1. `Deserializer` parses `CloudEvent.Data` into the shared `{{ .contract }}` contract
+1. `Deserializer` parses `CloudEvent.Data` into the shared `{{ .payloadType }}` contract
    (from `../{{ .contracts }}` — the same record the extractor publishes), stamps
    `order_id` into the pipeline context, and stamps the `subject`/`time`
    context keys from the order's `OrderId`/`OrderDate` — for

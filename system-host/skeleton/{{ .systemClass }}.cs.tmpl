@@ -1,10 +1,14 @@
-{{- /* Join each component's wiring names to the fields Topics.cs and
+{{- /* Join each component's wiring names to the fields Messages.cs and
 Ports.cs declare, keyed by the raw names so the derivation matches the
-declaration templates exactly. */ -}}
-{{- $topicField := dict -}}
-{{- range $t := .topics -}}
-{{- $_ := set $topicField (printf "%s/%s" $t.pubsub $t.name) (regexReplaceAll "[-._]" $t.name " " | title | replace " " "") -}}
-{{- end -}}
+declaration templates exactly. The message field is keyed by message name;
+the `messages` payload section is the only source. Each kind owns its own
+wiring checks, so an unknown kind reports the kind, not a message deficit. */ -}}
+{{- $msgField := dict -}}
+{{- if hasKey . "messages" }}
+{{- range $m := .messages }}
+{{- $_ := set $msgField $m.name (regexReplaceAll "[-._]" $m.name " " | title | replace " " "") }}
+{{- end }}
+{{- end }}
 {{- $portField := dict -}}
 {{- range $c := .ports -}}
 {{- $_ := set $portField $c.name (regexReplaceAll "[-._]" $c.name " " | title | replace " " "") -}}
@@ -20,11 +24,23 @@ public sealed class {{ .systemClass }} : ISystemDefinition
     {
 {{- range .components }}
 {{- if eq .kind "extractor" }}
+{{- if not (hasKey . "publishes") }}{{- fail (printf "component %q declares no publishes message" .appId) }}{{- end }}
+{{- if not (hasKey $msgField .publishes) }}{{- fail (printf "component %q wires message %q, but the system payload carries no contract for it" .appId .publishes) }}{{- end }}
         builder.AddExtractor("{{ .appId }}")
 {{- if hasKey . "port" }}
             .From(Ports.{{ index $portField .port }})
 {{- end }}
-            .Publishes(Topics.{{ index $topicField (printf "%s/%s" .topic.pubsub .topic.name) }})
+            .Publishes(Messages.{{ index $msgField .publishes }})
+            .Uses(Services.Idempotency)
+            .Uses(Services.BusinessIncidents);
+{{- else if eq .kind "loader" }}
+{{- if not (hasKey . "subscribes") }}{{- fail (printf "component %q declares no subscribes message" .appId) }}{{- end }}
+{{- if not (hasKey $msgField .subscribes) }}{{- fail (printf "component %q wires message %q, but the system payload carries no contract for it" .appId .subscribes) }}{{- end }}
+        builder.AddLoader("{{ .appId }}")
+            .Subscribes(Messages.{{ index $msgField .subscribes }})
+{{- if hasKey . "port" }}
+            .To(Ports.{{ index $portField .port }})
+{{- end }}
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
 {{- else if eq .kind "transactional-integration" }}
@@ -34,13 +50,7 @@ public sealed class {{ .systemClass }} : ISystemDefinition
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
 {{- else }}
-        builder.AddLoader("{{ .appId }}")
-            .Subscribes(Topics.{{ index $topicField (printf "%s/%s" .topic.pubsub .topic.name) }})
-{{- if hasKey . "port" }}
-            .To(Ports.{{ index $portField .port }})
-{{- end }}
-            .Uses(Services.Idempotency)
-            .Uses(Services.BusinessIncidents);
+{{- fail (printf "component %q has kind %q — the host declares extractor, loader, and transactional-integration components; add a branch for new kinds when their blocks exist" .appId .kind) }}
 {{- end }}
 {{- end }}
     }

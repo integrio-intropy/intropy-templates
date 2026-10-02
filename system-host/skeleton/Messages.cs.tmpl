@@ -1,0 +1,27 @@
+{{- /* The system's messages, one MessageRef<T> each, rendered from the
+payload's `messages` section. The message identity is the declaration; the
+runtime channel is derived by topology as pubsub/topic = pubsub/message. */ -}}
+using Intropy.Topology;
+{{- if hasKey . "sharedContracts" }}
+using {{ .sharedContracts.name }};
+{{- end }}
+
+/// <summary>The system's messages, each defined once and shared by every component that touches it.</summary>
+public static class Messages
+{
+{{- $seen := dict -}}
+{{- range $i, $m := .messages }}
+{{- $field := regexReplaceAll "[-._]" $m.name " " | title | replace " " "" }}
+{{- if hasKey $seen $field }}
+{{- fail (printf "messages %q and %q both derive the Messages.cs field %s — rename one message in the components' scaffold records" (index $seen $field) $m.name $field) }}
+{{- end }}
+{{- $_ := set $seen $field $m.name }}
+{{- if not (hasKey $m "contract") }}
+{{- fail (printf "message %q carries no contract in the system payload — MessageRef needs the shared .NET type" $m.name) }}
+{{- end }}
+{{- if $i }}
+{{ end }}
+    /// <summary>{{ $m.contract }} messages; the topic name defaults to the message name.</summary>
+    public static readonly MessageRef<{{ $m.contract }}> {{ $field }} = MessageRef<{{ $m.contract }}>.Define("{{ $m.name }}");
+{{- end }}
+}

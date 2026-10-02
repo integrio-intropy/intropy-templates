@@ -6,10 +6,10 @@ using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
 namespace {{ .name }}.Process;
 
-public class Validator : ValidateStep<Source{{ .contract }}, Context>
+public class Validator : ValidateStep<Source{{ .payloadType }}, Context>
 {
-    public override Task<(BusinessStepResult<Source{{ .contract }}> Result, Context Context)> ExecuteAsync(
-        Source{{ .contract }} input, Context context, CancellationToken ct)
+    public override Task<(BusinessStepResult<Source{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
+        Source{{ .payloadType }} input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();
@@ -25,17 +25,17 @@ public class Validator : ValidateStep<Source{{ .contract }}, Context>
                     { "orderId", input.OrderId }
                 }
             };
-            return Task.FromResult<(BusinessStepResult<Source{{ .contract }}>, Context)>(
-                (new BusinessStepResult<Source{{ .contract }}>.Failure(incident), context));
+            return Task.FromResult<(BusinessStepResult<Source{{ .payloadType }}>, Context)>(
+                (new BusinessStepResult<Source{{ .payloadType }}>.Failure(incident), context));
         }
 
-        return Task.FromResult<(BusinessStepResult<Source{{ .contract }}>, Context)>(
-            (new BusinessStepResult<Source{{ .contract }}>.Success(input), context));
+        return Task.FromResult<(BusinessStepResult<Source{{ .payloadType }}>, Context)>(
+            (new BusinessStepResult<Source{{ .payloadType }}>.Success(input), context));
 {{- end }}
     }
 {{- if not .empty }}
 
-    private static string? Validate(Source{{ .contract }} order)
+    private static string? Validate(Source{{ .payloadType }} order)
     {
         if (string.IsNullOrWhiteSpace(order.OrderId))
             return "OrderId is required";

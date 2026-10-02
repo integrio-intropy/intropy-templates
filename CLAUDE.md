@@ -96,6 +96,42 @@ Notes:
   `intropy sys create` later assembles into the system declaration. Templates
   that are a system block must declare both. Everything else under `labels`
   is free-form.
+- **The message-params label is load-bearing too.**
+  `intropy.io/message-params` lists the comma-separated names of the
+  manifest parameters the CLI seeds from scalar `int create --subscribe` /
+  `--publishes` flags. A template without the label declares no message
+  parameters: both flags are usage errors against it, and its parameters get
+  no message suggestions. One create wires one message — under the flags the
+  label may name at most one parameter (`publishes` or `subscribes`).
+- **Message wiring (message-first).** A block component's wiring is a
+  message: one scalar declaration carries identity (message name, which
+  doubles as the CloudEvents type). The channel is derived as pubsub/topic
+  `pubsub/<message>`, and the payload type is the PascalCase projection.
+  Extractors declare `publishes`; loaders declare `subscribes`. Templates
+  must not reintroduce `topic`, `contract`, nested subscribe/publishes
+  blocks, registry snapshots, or compatibility fallbacks for topic-first
+  scaffold records.
+- **Never derive CloudEvent identity from a channel name.** No template may
+  ship an `eventTypeValue`-style derivation (e.g. `<org>.<first>.<last>` of
+  the topic) — the deleted extractor/loader `eventTypeValue` values were the
+  topic-first guess this rule outlaws. The event type **is** the message
+  name, with no override: `eventType` is gone, because a second way to name
+  the event is a second identity.
+- **The message is the only channel declaration.** The component templates
+  declare no `topic` parameter. The channel is the derived `channel` value,
+  equal to the scalar message. Every file that names the channel reads
+  `{{ .channel }}`, so the announced route, the subscription, and the
+  scaffold record cannot disagree. A future host that must route a message
+  over an unrelated broker topic needs an explicit topology feature; the
+  scaffold does not offer a second way to say it.
+- **Registry (xregistry) vocabulary is scoped to cross-system messages.**
+  Whether intropy implements an xregistry is undecided, and if it does it is
+  for **cross-system** events only: internal messages are system-declared as
+  scalar `publishes` / `subscribes` values, with the channel and payload type
+  derived from the message — and no template or gate may make registry
+  machinery a prerequisite for
+  scaffolding them. Schema-derived type naming remains a possible future
+  direction for the cross-system path; it is not this library's behavior.
 - **`spec.dependencies` composes whole templates at the output level.** Each
   entry names a sibling template in this repo, an `output` (a Go template
   that must render to a single path segment — the dependency is created as a

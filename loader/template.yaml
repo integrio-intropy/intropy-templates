@@ -13,6 +13,7 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: loader
     intropy.io/data-flow: "out"
+    intropy.io/message-params: subscribes
 
 spec:
   parameters:
@@ -20,8 +21,7 @@ spec:
     required:
       - name
       - organization
-      - topic
-      - contract
+      - subscribes
     properties:
       name:
         type: string
@@ -33,16 +33,11 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
-      topic:
+      subscribes:
         type: string
-        title: Topic
-        description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value.
-        pattern: "^[a-z][a-z0-9-]*$"
-      contract:
-        type: string
-        title: Contract type
-        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
-        pattern: "^[A-Z][A-Za-z0-9]*$"
+        title: Subscribes
+        description: Logical name of the message this loader subscribes to. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
+        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -68,10 +63,15 @@ spec:
     # "Contracts" on purpose: the project is scoped to the system directory it
     # lives in, not to the organization.
     contracts: 'Contracts'
-    # The pub/sub component name the skeleton subscribes through
-    # (Constants.cs). Recorded in .intropy/scaffold.json for
-    # `intropy sys create`, together with the contract parameter above.
-    pubsub: 'pubsub'
+    # The payload type the message projects to: PascalCase of the message
+    # identity, and the generated record in the shared-contracts sibling is
+    # named after it. The message is the declaration; the channel and this
+    # type are its projections. The CLI assembly derives the same value from
+    # the scalar message wiring.
+    payloadType: '{{ .subscribes | regexReplaceAll "[^0-9A-Za-z]+" " " | title | replace " " "" }}'
+    # The channel the message arrives on: the message name. One derivation,
+    # so every file that names the channel agrees.
+    channel: '{{ .subscribes }}'
     # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`
@@ -83,5 +83,5 @@ spec:
       output: '{{ .contracts }}'
       values:
         name: '{{ .contracts }}'
-        contract: '{{ .contract }}'
+        contract: '{{ .payloadType }}'
         empty: '{{ .empty }}'

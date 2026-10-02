@@ -6,8 +6,9 @@ extractor pipeline (`Intropy.Framework.Blocks.Extractor`), publishes the
 result as a CloudEvent to a pub/sub topic, deletes the source file, and
 exits. Scheduling lives outside the block — activation cadence is deployment
 configuration (a Kubernetes CronJob in production); locally the system host
-runs the block once at startup. The extractor is the publishing half of a
-system contract — scaffold the consuming loader with the same `topic` value.
+runs the block once at startup. The extractor publishes the system's message:
+scaffold the consuming loader with the same message value (`publishes` here,
+`subscribes` there).
 
 The rendered project is a one-shot console job (same shape as `transactional`)
 with a Taskfile (`task build`, `task test`, `task coverage` — the
@@ -40,13 +41,13 @@ Service and Business Incident Service the pipeline wires in).
 
 The template declares a `spec.dependencies` entry on `shared-contracts`: the
 render also scaffolds a sibling `Contracts` class library holding the published
-contract (the `contract` parameter — `Order` by convention — plus `OrderLine`)
+payload type derived from the message name (plus `OrderLine`)
 — unless that sibling already exists (scaffolded by an earlier component), in
 which case it is left untouched. The extractor's csproj references it as
 `../../Contracts/Contracts.csproj`; only the inbound file shape
 (`Source<Contract>`) stays local to the component. The name is plain
 `Contracts` because the project is scoped by the system directory it lives in.
-The `contract` parameter is threaded through to `shared-contracts`, which
+The derived payload type is threaded through to `shared-contracts`, which
 renames its canonical record to match.
 
 ## Parameters
@@ -55,12 +56,10 @@ renames its canonical record to match.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderExtractor`).            |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `topic`        | yes      | Pub/sub topic the extractor publishes to (kebab-case); the consuming loader subscribes to the same.   |
-| `contract`     | yes      | PascalCase shared-contracts record the topic carries; the sample uses `Order`. Threaded to the `shared-contracts` dependency, which names its canonical record after it. |
+| `publishes`   | yes      | The message this extractor publishes. The topic, CloudEvents `type`, and payload type derive from this value. |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `eventSource`  | no       | CloudEvent `source` for published events. Unset, derives as `urn:<organization>:<app-id>`; set it to preserve an existing event identity during a migration. |
-| `eventType`    | no       | CloudEvent `type` for published events. Unset, derives as `<organization-lower>.<first-topic-segment>.<last-topic-segment>` (e.g. topic `product-export` → `maxbo.product.export`); set it to preserve an existing event identity during a migration. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; extractor lambdas throw).    |
 
 ## Render
