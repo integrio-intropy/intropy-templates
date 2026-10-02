@@ -1,15 +1,15 @@
 using {{ .contracts }};
-using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Payload = {{ .contracts }}.{{ pascal .route.message }};
 
-namespace {{ .name }}.Process;
+namespace {{ .name }}.Routes.{{ pascal .route.message }};
 
-public class Transformer : TransformStep<{{ .payloadType }}, Out, Context>
+public class Transformer : TransformStep<Payload, Out, Context>
 {
     public override Task<(TechnicalStepResult<Out> Result, Context Context)> ExecuteAsync(
-        {{ .payloadType }} input, Context context, CancellationToken ct)
+        Payload input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();

@@ -1,6 +1,8 @@
 {{- /* The system's messages, one MessageRef<T> each, rendered from the
 payload's `messages` section. The message identity is the declaration; the
-runtime channel is derived by topology as pubsub/topic = pubsub/message. */ -}}
+runtime channel is pubsub/topic = pubsub/message unless the producer publishes
+it on a topic of its own (the entry's pubsub/topic), which is how several
+messages share the one topic a loader routes. */ -}}
 using Intropy.Topology;
 {{- if hasKey . "sharedContracts" }}
 using {{ .sharedContracts.name }};
@@ -21,7 +23,13 @@ public static class Messages
 {{- end }}
 {{- if $i }}
 {{ end }}
+{{- if and (hasKey $m "topic") (ne $m.topic $m.name) }}
+    /// <summary>{{ $m.contract }} messages, published on the {{ $m.topic }} topic.</summary>
+    public static readonly MessageRef<{{ $m.contract }}> {{ $field }} =
+        MessageRef<{{ $m.contract }}>.Define("{{ $m.name }}", "{{ $m.pubsub }}", "{{ $m.topic }}");
+{{- else }}
     /// <summary>{{ $m.contract }} messages; the topic name defaults to the message name.</summary>
     public static readonly MessageRef<{{ $m.contract }}> {{ $field }} = MessageRef<{{ $m.contract }}>.Define("{{ $m.name }}");
+{{- end }}
 {{- end }}
 }

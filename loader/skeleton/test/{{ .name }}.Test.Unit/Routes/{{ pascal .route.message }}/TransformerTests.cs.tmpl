@@ -1,10 +1,10 @@
 using {{ .contracts }};
-using {{ .name }}.Process;
-using {{ .name }}.Model;
+using {{ .name }}.Routes.{{ pascal .route.message }};
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Payload = {{ .contracts }}.{{ pascal .route.message }};
 
-namespace {{ .name }}.Test.Unit.Process;
+namespace {{ .name }}.Test.Unit.Routes.{{ pascal .route.message }};
 
 public class TransformerTests
 {
@@ -19,7 +19,7 @@ public class TransformerTests
     {
         // Arrange
         var transformer = new Transformer();
-        var input = new {{ .payloadType }}();
+        var input = new Payload();
 
         // Act
         var (result, _) = await transformer.ExecuteAsync(input, new Context(new Dictionary<string, string>()), CancellationToken.None);
@@ -33,7 +33,7 @@ public class TransformerTests
     {
         // Arrange
         var transformer = new Transformer();
-        var order = new {{ .payloadType }}(
+        var order = new Payload(
             OrderId: "ORD-1001",
             CustomerId: "CUST-42",
             OrderDate: new DateTimeOffset(2026, 1, 15, 9, 30, 0, TimeSpan.Zero),

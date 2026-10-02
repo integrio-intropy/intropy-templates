@@ -1,9 +1,10 @@
 using {{ .name }}.Composition;
 using Microsoft.Extensions.Hosting;
 
-// A generic-host worker: the loader consumes its topic through a Dapr streaming
-// subscription until the host stops (SIGTERM from the scheduler, Ctrl+C locally).
-// It serves no HTTP, so the sidecar needs no app port. Every service registration
-// lives in Composition, so the tests build the exact graph this host runs.
+// A generic-host worker: the Dapr sidecar pushes the topic's messages to the gRPC
+// app callback the loader serves on APP_PORT, until the host stops (SIGTERM from the
+// scheduler, Ctrl+C locally). The subscription is the declarative Dapr Subscription
+// the system renders from its topology. Every service registration lives in
+// Composition, so the tests build the exact graph this host runs.
 using var host = Composition.CreateHostBuilder(args).Build();
 await host.RunAsync();

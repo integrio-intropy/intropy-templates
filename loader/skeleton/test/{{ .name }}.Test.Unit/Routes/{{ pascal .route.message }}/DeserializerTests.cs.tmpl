@@ -1,10 +1,11 @@
 using CloudNative.CloudEvents;
 using {{ .contracts }};
-using {{ .name }}.Process;
+using {{ .name }}.Routes.{{ pascal .route.message }};
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Payload = {{ .contracts }}.{{ pascal .route.message }};
 
-namespace {{ .name }}.Test.Unit.Process;
+namespace {{ .name }}.Test.Unit.Routes.{{ pascal .route.message }};
 
 public class DeserializerTests
 {
@@ -29,7 +30,7 @@ public class DeserializerTests
         var (result, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
 
         // Assert
-        Assert.IsType<BusinessStepResult<{{ .payloadType }}>.Success>(result);
+        Assert.IsType<BusinessStepResult<Payload>.Success>(result);
         Assert.False(string.IsNullOrWhiteSpace(resultContext.Metadata[Constants.ContextKeyOrderId]));
     }
 {{- else }}
@@ -48,7 +49,7 @@ public class DeserializerTests
         var (result, _) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
 
         // Assert
-        var success = Assert.IsType<BusinessStepResult<{{ .payloadType }}>.Success>(result);
+        var success = Assert.IsType<BusinessStepResult<Payload>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Single(success.Value.Lines);
     }

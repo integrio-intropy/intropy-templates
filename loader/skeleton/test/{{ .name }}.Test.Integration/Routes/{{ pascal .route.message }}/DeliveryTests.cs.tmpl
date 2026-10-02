@@ -2,19 +2,21 @@ using CloudNative.CloudEvents;
 using Intropy.Contracts.IdempotencyService;
 using Intropy.Framework.Testing.Delivery;
 using Action = Intropy.Contracts.IdempotencyService.Action;
+using {{ .name }}.Routes.{{ pascal .route.message }};
 
-namespace {{ .name }}.Test.Integration;
+namespace {{ .name }}.Test.Integration.Routes.{{ pascal .route.message }};
 
 /// <summary>
-/// End-to-end delivery tests: <see cref="LoaderSut"/> starts the real host —
-/// production DI graph, hosted consumer, ack mapping — with the externals faked
-/// (destination adapter, both platform-service clients), and
-/// <see cref="FakeStreamingSubscriber"/> delivers CloudEvents over the loader's
-/// streaming subscription exactly as the Dapr sidecar would. These tests pin
-/// the loader's consumption contract: loaded, duplicate, and incident-routed
-/// messages ack Success; technical failures ack Retry and leave no trace.
+/// End-to-end delivery tests for the <c>{{ .route.message }}</c> route:
+/// <see cref="LoaderSut"/> starts the real host — production DI graph, the app
+/// callback, ack mapping — with the externals faked (destination adapter, both
+/// platform-service clients), and <see cref="AppCallbackDelivery"/> pushes
+/// CloudEvents of the route's type to the callback exactly as the Dapr sidecar
+/// would. These tests pin the route's consumption contract: loaded, duplicate,
+/// and incident-routed messages ack Success; technical failures ack Retry and
+/// leave no trace.
 /// </summary>
-public class DeliveryIntegrationTests
+public class DeliveryTests
 {
 {{- if .empty }}
     // Test-owned valid input: the scaffold's contract record is an empty
@@ -47,11 +49,11 @@ public class DeliveryIntegrationTests
     {
         // Arrange
         await using var sut = await LoaderSut.StartAsync();
-        var (subscriber, files, idempotency, _) = sut;
+        var (sidecar, files, idempotency, _) = sut;
         var cloudEvent = NewDelivery(ValidRecordJson);
 
         // Act
-        var ack = await subscriber.DeliverAsync(cloudEvent);
+        var ack = await sidecar.DeliverAsync(cloudEvent);
 
         // Assert
         Assert.Equal(DeliveryAck.Success, ack);
@@ -65,11 +67,11 @@ public class DeliveryIntegrationTests
         // Arrange: WriteException surfaces as a technical failure through the
         // pipeline's normal exception handling, matching a dead destination.
         await using var sut = await LoaderSut.StartAsync();
-        var (subscriber, files, idempotency, incidents) = sut;
+        var (sidecar, files, idempotency, incidents) = sut;
         files.WriteException = new InvalidOperationException("Destination unreachable");
 
         // Act
-        var ack = await subscriber.DeliverAsync(NewDelivery(ValidRecordJson));
+        var ack = await sidecar.DeliverAsync(NewDelivery(ValidRecordJson));
 
         // Assert: the sidecar redelivers on RETRY; nothing was written,
         // committed, or incident-routed.
@@ -87,16 +89,16 @@ public class DeliveryIntegrationTests
     {
         // Arrange
         await using var sut = await LoaderSut.StartAsync();
-        var (subscriber, files, idempotency, _) = sut;
+        var (sidecar, files, idempotency, _) = sut;
         var cloudEvent = NewDelivery(ValidOrderJson);
 
         // Act
-        var ack = await subscriber.DeliverAsync(cloudEvent);
+        var ack = await sidecar.DeliverAsync(cloudEvent);
 
         // Assert: the destination carries the load record under its
         // order-named file, and idempotency recorded the commit.
         Assert.Equal(DeliveryAck.Success, ack);
-        Assert.Contains("\"OrderId\":\"ORD-1001\"", files.GetString("ORD-1001.json"));
+        Assert.Contains("\"OrderId\":\"ORD-1001\"", files.GetString($"ORD-1001.{Route.Message}.json"));
         Assert.Single(idempotency.Committed);
     }
 
@@ -105,11 +107,11 @@ public class DeliveryIntegrationTests
     {
         // Arrange: the idempotency service has already seen this order.
         await using var sut = await LoaderSut.StartAsync();
-        var (subscriber, files, idempotency, _) = sut;
+        var (sidecar, files, idempotency, _) = sut;
         idempotency.NextStatus = new StatusResponse(Action.Ignore, Reason.SameData);
 
         // Act
-        var ack = await subscriber.DeliverAsync(NewDelivery(ValidOrderJson));
+        var ack = await sidecar.DeliverAsync(NewDelivery(ValidOrderJson));
 
         // Assert: acked (the duplicate is consumed) but never written or
         // committed again.
@@ -126,12 +128,12 @@ public class DeliveryIntegrationTests
         // poison message would loop forever) and never commits idempotency
         // (a corrected redelivery must not cancel as seen-before).
         await using var sut = await LoaderSut.StartAsync();
-        var (subscriber, files, idempotency, incidents) = sut;
+        var (sidecar, files, idempotency, incidents) = sut;
         var noLines =
             """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
 
         // Act
-        var ack = await subscriber.DeliverAsync(NewDelivery(noLines));
+        var ack = await sidecar.DeliverAsync(NewDelivery(noLines));
 
         // Assert
         Assert.Equal(DeliveryAck.Success, ack);
@@ -147,11 +149,11 @@ public class DeliveryIntegrationTests
         // Arrange: WriteException surfaces as a technical failure through the
         // pipeline's normal exception handling, matching a dead destination.
         await using var sut = await LoaderSut.StartAsync();
-        var (subscriber, files, idempotency, incidents) = sut;
+        var (sidecar, files, idempotency, incidents) = sut;
         files.WriteException = new InvalidOperationException("Destination unreachable");
 
         // Act
-        var ack = await subscriber.DeliverAsync(NewDelivery(ValidOrderJson));
+        var ack = await sidecar.DeliverAsync(NewDelivery(ValidOrderJson));
 
         // Assert: the sidecar redelivers on RETRY; nothing was written,
         // committed, or incident-routed.
@@ -171,7 +173,7 @@ public class DeliveryIntegrationTests
     {
         Id = Guid.NewGuid().ToString(),
         Source = new Uri("urn:test:delivery"),
-        Type = "test.delivery",
+        Type = Route.Message,
         Time = DateTimeOffset.UtcNow,
         DataContentType = "application/json",
         Data = json

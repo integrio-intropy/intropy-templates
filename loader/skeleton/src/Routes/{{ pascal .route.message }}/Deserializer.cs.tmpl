@@ -5,12 +5,13 @@ using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Payload = {{ .contracts }}.{{ pascal .route.message }};
 
-namespace {{ .name }}.Process;
+namespace {{ .name }}.Routes.{{ pascal .route.message }};
 
-public class Deserializer : DeserializeStep<{{ .payloadType }}, Context>
+public class Deserializer : DeserializeStep<Payload, Context>
 {
-    protected override Task<(BusinessStepResult<{{ .payloadType }}> Result, Context Context)> DeserializeAsync(
+    protected override Task<(BusinessStepResult<Payload> Result, Context Context)> DeserializeAsync(
         CloudEvent cloudEvent, Context context)
     {
 {{- if .empty }}
@@ -24,11 +25,11 @@ public class Deserializer : DeserializeStep<{{ .payloadType }}, Context>
                 Description = "CloudEvent data is null or empty",
                 Context = new Dictionary<string, string>()
             };
-            return Task.FromResult<(BusinessStepResult<{{ .payloadType }}>, Context)>(
-                (new BusinessStepResult<{{ .payloadType }}>.Failure(incident), context));
+            return Task.FromResult<(BusinessStepResult<Payload>, Context)>(
+                (new BusinessStepResult<Payload>.Failure(incident), context));
         }
 
-        var order = JsonSerializer.Deserialize<{{ .payloadType }}>(json,
+        var order = JsonSerializer.Deserialize<Payload>(json,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
         context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
@@ -42,8 +43,8 @@ public class Deserializer : DeserializeStep<{{ .payloadType }}, Context>
         context.Metadata[Constants.ContextKeyCloudEventSubject] = order.OrderId;
         context.Metadata[Constants.ContextKeyCloudEventTime] = order.OrderDate.ToString("O");
 
-        return Task.FromResult<(BusinessStepResult<{{ .payloadType }}>, Context)>(
-            (new BusinessStepResult<{{ .payloadType }}>.Success(order), context));
+        return Task.FromResult<(BusinessStepResult<Payload>, Context)>(
+            (new BusinessStepResult<Payload>.Success(order), context));
 {{- end }}
     }
 }

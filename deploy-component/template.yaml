@@ -62,6 +62,18 @@ spec:
         title: Source directory
         description: The block's directory in the source repository, used for component.yaml sourcePaths. Empty when no scaffold record was found.
         default: ""
+      redeliveryMaxRetries:
+        type: integer
+        title: Loader redelivery retries
+        description: How often the sidecar retries a message the block left for redelivery, before handing it back to the broker to dead-letter. Loaders and transactional integrations only.
+        default: 10
+        minimum: 0
+      redeliveryMaxInterval:
+        type: string
+        title: Loader redelivery max interval
+        description: The longest wait between two of those retries (exponential backoff, capped here), as a Go duration. Loaders and transactional integrations only.
+        default: 15s
+        pattern: "^[0-9]+(ms|s|m)$"
   # The closed fixture catalog for the local development cluster: one Dapr
   # binding skeleton per fixture type in overlays/local/fixtures/, switched on
   # the port's binding for this render. Local manifest rendering fails a
@@ -87,6 +99,13 @@ spec:
       when: '{{ eq .workload "cronjob" }}'
     - path: base/deployment.yaml.tmpl
       when: '{{ eq .workload "deployment" }}'
+    # A loader's or transactional integration's sidecar retries what the block
+    # leaves for redelivery before the broker dead-letters it; no other block
+    # kind answers RETRY to a subscription. The kind is folded the way the CLI
+    # folds it: transactional-integration, transactionalIntegration and
+    # TransactionalIntegration are one kind.
+    - path: base/resiliency.yaml.tmpl
+      when: '{{ or (eq .kind "loader") (eq (lower (replace "-" "" .kind)) "transactionalintegration") }}'
 
     # The local overlay is static rather than named by .env, so its files must
     # only render during the local pass. A fixture file exists only when one

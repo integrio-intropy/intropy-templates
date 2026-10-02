@@ -58,6 +58,27 @@ credentials (`guest:guest`) are the fixture contract — dev values kept inline
 because there is nothing to keep secret locally. Customer environments instead
 reference the platform-owned Secret named by the template.
 
+## Dead letters stay with the broker
+
+A message a subscriber cannot process ends in the broker's own dead-letter
+queue, where `message-resender` replays it from: RabbitMQ's `dlq-<app-id>-<topic>`
+queue (the component's `enableDeadLetter`), or a Service Bus subscription's
+`$deadletterqueue` after `maxDeliveryCount` deliveries (3: each delivery
+already includes the subscriber's in-place retries, see deploy-component).
+`maxDeliveryCount` applies when Dapr creates the subscription; an existing
+one keeps its setting. In-memory pub/sub has no dead-letter queue.
+
+RabbitMQ also sets `deletedWhenUnused: "false"` (the key really has that
+spelling). The component's default deletes a subscriber's queue when its last
+consumer disconnects (a pod restart, a rollout, scaling to zero, a sidecar
+pausing an unhealthy app), and everything published until the subscriber is
+back is lost.
+
+Subscribers must not set a Dapr `deadLetterTopic`. Dapr would publish a failed
+message there and acknowledge the original, so it never reaches the broker's
+dead-letter queue, and `message-resender` never sees it. Framework loaders
+subscribe without one.
+
 ## Binding kinds
 
 `intropy manifests create --binding <port>=<kind>` renders the shared

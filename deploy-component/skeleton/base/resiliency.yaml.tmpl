@@ -1,0 +1,50 @@
+# A loader acknowledges what it loads and leaves everything else for
+# redelivery (RETRY): a failed send, a timeout, a message no route handles.
+# A transactional integration does the same with the files it hops through
+# its internal queue.
+# Without this policy the sidecar does not retry such a message at all — it
+# hands it straight back to the broker, which dead-letters it. With it, the
+# sidecar retries in place first, so a short outage behind the loader (the
+# destination system, a platform service) heals without a dead letter.
+#
+# The window must fit inside the broker's own timeouts: the message is held,
+# not returned, while the sidecar retries. Worst case per delivery is about
+# (maxRetries + 1) x the loader's MaxMessageProcessingTime plus the backoff.
+apiVersion: dapr.io/v1alpha1
+kind: Resiliency
+metadata:
+  name: {{ .name }}-redelivery
+spec:
+  policies:
+    retries:
+      redelivery:
+        policy: exponential
+        maxInterval: {{ .redeliveryMaxInterval }}
+        maxRetries: {{ .redeliveryMaxRetries }}
+{{- $appId := .appId }}
+{{- $pubsubs := dict }}
+{{- if (eq (lower (replace "-" "" .kind)) "transactionalintegration") }}
+{{- /* The internal hop's pub/sub, minted by the topology as internal-<component>
+       (decision 0011); it is not a declared topic, so the topics cannot name it. */}}
+{{- $_ := set $pubsubs (printf "internal-%s" .name) true }}
+{{- else }}
+{{- range .topology.topics }}
+{{- if has $appId (dig "subscribers" (list) .) }}
+{{- $_ := set $pubsubs .pubsub true }}
+{{- end }}
+{{- end }}
+{{- end }}
+  targets:
+{{- if $pubsubs }}
+    components:
+{{- range $name, $_ := $pubsubs }}
+      {{ $name }}:
+        inbound:
+          retry: redelivery
+{{- end }}
+{{- else }}
+    # The topology gives this block no subscription: nothing to retry.
+    components: {}
+{{- end }}
+scopes:
+  - {{ .appId }}

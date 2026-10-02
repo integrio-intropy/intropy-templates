@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: loader
   title: Loader Integration
-  description: Long-running loader worker that consumes a Dapr pub/sub topic through a streaming subscription, runs each message through the Intropy loader pipeline, and writes the result through a local destination folder binding.
+  description: Long-running loader worker that consumes one Dapr pub/sub topic through the Dapr gRPC app callback, routes each message by its CloudEvent type — and, optionally, a content filter — to its own Intropy loader pipeline, and writes the result through a local destination folder binding.
   tags:
     - example
     - dotnet
@@ -13,7 +13,7 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: loader
     intropy.io/data-flow: "out"
-    intropy.io/message-params: subscribes
+    intropy.io/message-params: routes
 
 spec:
   parameters:
@@ -21,7 +21,7 @@ spec:
     required:
       - name
       - organization
-      - subscribes
+      - routes
     properties:
       name:
         type: string
@@ -33,11 +33,39 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
-      subscribes:
+      routes:
+        type: array
+        title: Routes
+        description: The messages this loader handles, in the order the sidecar evaluates them. Each route gets its own typed pipeline; its payload type derives from the message name. A message may appear once.
+        minItems: 1
+        items:
+          type: object
+          required:
+            - message
+          additionalProperties: false
+          properties:
+            message:
+              type: string
+              title: Message
+              description: Logical name of the message — the CloudEvents type the sidecar routes on.
+              pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+            when:
+              type: string
+              title: Filter
+              description: Optional Dapr CEL expression the message's events must also match, over the camelCase payload (e.g. event.data.reason != 'fraud-review'). Events it leaves out are handled as unrouted.
+      topic:
         type: string
-        title: Subscribes
-        description: Logical name of the message this loader subscribes to. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
+        title: Topic
+        description: The topic the loader consumes. Defaults to the first route's message name; set it when the routed messages share a topic their producers publish on.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      default:
+        type: string
+        title: Unrouted messages
+        description: What becomes of a message on the topic no route takes — another type, or one a filter leaves out. dead-letter leaves it for the broker's dead-letter queue; ignore acknowledges and drops it.
+        enum:
+          - dead-letter
+          - ignore
+        default: dead-letter
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -63,25 +91,41 @@ spec:
     # "Contracts" on purpose: the project is scoped to the system directory it
     # lives in, not to the organization.
     contracts: 'Contracts'
-    # The payload type the message projects to: PascalCase of the message
-    # identity, and the generated record in the shared-contracts sibling is
-    # named after it. The message is the declaration; the channel and this
-    # type are its projections. The CLI assembly derives the same value from
-    # the scalar message wiring.
-    payloadType: '{{ .subscribes | regexReplaceAll "[^0-9A-Za-z]+" " " | title | replace " " "" }}'
-    # The channel the message arrives on: the message name. One derivation,
-    # so every file that names the channel agrees.
-    channel: '{{ .subscribes }}'
+    # The payload type the first route's message projects to: PascalCase of
+    # the message identity — the record the shared-contracts sibling is
+    # created around when this loader is the first component to need it.
+    # Every route's payload type is the same projection of its own message
+    # (`pascal` in the skeleton); the CLI assembly derives the same values.
+    payloadType: '{{ pascal (index .routes 0).message }}'
+    # The topic the loader consumes: the topic parameter, else the first
+    # route's message name — the topic a producer publishes a message on when
+    # it sets no topic of its own. One derivation, so every file agrees.
+    channel: '{{ get . "topic" | default (index .routes 0).message }}'
     # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`
     # resolves it to a local file transport by default (external system and
     # transport are never asked for at scaffold time).
     port: '{{ .name | kebabcase | replace "." "-" }}-destination'
+  # One pipeline per route: everything under a Routes/ directory renders once
+  # per element of routes, the element bound as .route.
+  files:
+    - path: "src/Routes/**"
+      each: routes
+      as: route
+    - path: "test/{{ .name }}.Test.Unit/Routes/**"
+      each: routes
+      as: route
+    - path: "test/{{ .name }}.Test.Integration/Routes/**"
+      each: routes
+      as: route
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'
       values:
         name: '{{ .contracts }}'
         contract: '{{ .payloadType }}'
+        # Every route's payload type, so a loader scaffolded before its
+        # producers still finds each route's record in the library.
+        contracts: '{{ $types := list }}{{ range .routes }}{{ $types = append $types (pascal .message) }}{{ end }}{{ toJson $types }}'
         empty: '{{ .empty }}'

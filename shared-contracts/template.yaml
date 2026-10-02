@@ -29,8 +29,21 @@ spec:
         description: PascalCase name of the canonical payload type the system's messages are typed with — the record this library is scaffolded around. Component templates pass their derived payload type down.
         pattern: "^[A-Z][A-Za-z0-9]*$"
         default: Order
+      contracts:
+        type: array
+        title: More contract types
+        description: Further payload-type records to scaffold beside contract — one per message a component routes (a loader with several routes passes all of its payload types). A record already in the library is left as it is.
+        items:
+          type: string
+          pattern: "^[A-Z][A-Za-z0-9]*$"
       empty:
         type: boolean
         title: Empty bodies
         description: When true, strip the sample payload-type fields. The library still compiles (the payload-type record stays as an empty shell for pipeline generics) so a migration agent can fill in the real type.
         default: false
+  files:
+    # One more record per element of contracts, rendered from the same shape
+    # as {{ .contract }}.cs (keep the two in step).
+    - path: "{{ .payload }}.cs.tmpl"
+      each: contracts
+      as: payload

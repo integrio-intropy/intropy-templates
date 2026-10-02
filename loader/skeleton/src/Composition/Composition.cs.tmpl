@@ -1,28 +1,27 @@
-using {{ .contracts }};
 using Dapr.Client;
-using {{ .name }}.Model;
-using {{ .name }}.Process;
 using Intropy.BusinessIncidentService.Client;
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Configuration;
 using Intropy.Framework.Hosting.Loader;
+using Intropy.Framework.Hosting.Messaging;
 using Intropy.IdempotencyService.Client;
 using Intropy.Telemetry;
 using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Sender = {{ .name }}.Process.Sender;
 
 namespace {{ .name }}.Composition;
 
 /// <summary>
 /// The component's host and service registrations, shared by the entrypoint
 /// (<c>Program.cs</c>) and the tests, so the tests build the exact graph the
-/// host runs. The loader is a generic-host worker: it consumes its topic
-/// through a Dapr streaming subscription and serves no HTTP.
+/// host runs. The loader is a generic-host worker: the Dapr sidecar pushes its
+/// topic's messages to the gRPC app callback it serves on APP_PORT, under the
+/// declarative Subscription the system renders from its topology, and each
+/// message runs through the pipeline of the route its CloudEvent type selects.
 /// </summary>
 public static class Composition
 {
@@ -94,42 +93,57 @@ public static class Composition
         // the cluster's secret store.
         services.AddDestinationPort(Constants.DestinationPort, configuration);
 
-        // The destination sender is a service like the other externals
+        // Each route's destination sender is a service like the other externals
         // (destination adapter, platform clients): tests swap it for their own
         // SendStep<Out, Context> registration.
-        services.AddSingleton<SendStep<Out, Context>>(sp =>
-            new Sender(sp.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort)));
+{{- range .routes }}
+{{- $route := printf "global::%s.Routes.%s" $.name (pascal .message) }}
+        services.AddSingleton<SendStep<{{ $route }}.Out, Context>>(sp =>
+            new {{ $route }}.Sender(sp.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort)));
+{{- end }}
 
-        // The loader: the pipeline, built in each message's own scope, and the consumer that
-        // subscribes to the topic and acks every message by its pipeline result. The pipeline
-        // is composed once at startup, before subscribing, so a missing registration stops the
-        // host (exit code 1) instead of failing every message.
-        services.AddLoader<{{ .payloadType }}, Out, Context>(
-            (builder, _) => builder
-                .WithDeserializer(new Deserializer())
-                .WithValidator(new Validator())
-                // The loader pipeline requires idempotency. It keys off CloudEvent
-                // Subject (id) and Time (date) read from context metadata — the
-                // Deserializer backfills both from the order's business identity
-                // when the envelope lacks them. The payload hash uses the default
-                // implementation (property reflection + SHA256).
-                .WithIdempotency()
-                .WithTransformer(new Transformer())
-                // The sender resolves from DI like every other external dependency;
-                // tests swap the SendStep<Out, Context> registration.
-                .WithSenderFromServices()
-                .WithBusinessIncidents(
-                    messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
-                        ctx.Metadata.GetValueOrDefault(Constants.ContextKeyCloudEventSubject, "unknown")),
-                    subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
-                        ctx.Metadata.GetValueOrDefault(Constants.ContextKeyCloudEventSubject, "unknown"))),
-            (metadata, isRetry) => new Context(metadata, isRetry),
+        // The loader: one route per message, each with its own typed pipeline, built in each
+        // message's own scope. Every route's pipeline is composed once at startup, before the
+        // loader consumes, so a missing registration stops the host (exit code 1) instead of
+        // failing every message. Idempotency is kept apart per route: two messages about one
+        // order never share an idempotency record.
+        services.AddLoader(
             loader =>
             {
                 loader.PubSubName = Constants.PubSubName;
                 loader.TopicName = Constants.TopicName;
-            });
+{{- if eq .default "ignore" }}
+                // A message no route takes — another type, or one a route's filter leaves
+                // out — is acknowledged and dropped, matching the system's IgnoreOthers().
+                loader.Unrouted = UnroutedPolicy.Ack;
+{{- else }}
+                // A message no route takes — another type, or one a route's filter leaves
+                // out — is left for redelivery, so the broker dead-letters it.
+                loader.Unrouted = UnroutedPolicy.DeadLetter;
+{{- end }}
+            },
+            routes => routes
+{{- range .routes }}
+{{- $route := printf "global::%s.Routes.%s" $.name (pascal .message) }}
+                .On<global::{{ $.contracts }}.{{ pascal .message }}, {{ $route }}.Out, Context>({{ $route }}.Route.Message,
+                    (builder, _) => builder
+                        .WithDeserializer(new {{ $route }}.Deserializer())
+                        .WithValidator(new {{ $route }}.Validator())
+                        // Keys off CloudEvent Subject (id) and Time (date) in context metadata;
+                        // the Deserializer backfills both from the payload's business identity.
+                        .WithIdempotency()
+                        .WithTransformer(new {{ $route }}.Transformer())
+                        // The sender resolves from DI like every other external dependency.
+                        .WithSenderFromServices()
+                        .WithBusinessIncidents(BusinessId, BusinessId),
+                    (metadata, isRetry) => new Context(metadata, isRetry))
+{{- end }});
 
         return services;
     }
+
+    /// <summary>The business identifier a message is about, for business incidents: the id
+    /// the Deserializer stamped, else the CloudEvent subject.</summary>
+    private static string BusinessId(Context ctx) => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
+        ctx.Metadata.GetValueOrDefault(Constants.ContextKeyCloudEventSubject, "unknown"));
 }

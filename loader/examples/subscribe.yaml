@@ -1,6 +1,0 @@
-# Render fixture: scalar message-first loader.
-#   intropy int create loader -o /tmp/loader-msg -f loader/examples/subscribe.yaml --version main --no-input
-name: ProductLoader
-organization: Maxbo
-subscribes: product-exported
-empty: false

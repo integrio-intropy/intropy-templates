@@ -1,4 +1,5 @@
-namespace {{ .name }}.Model;
+// The destination system's record for this route's messages.
+namespace {{ .name }}.Routes.{{ pascal .route.message }};
 
 {{- if .empty }}
 

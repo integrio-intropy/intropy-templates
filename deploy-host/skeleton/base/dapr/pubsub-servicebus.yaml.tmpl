@@ -16,6 +16,13 @@ spec:
         key: servicebus-connection
     - name: maxActiveMessages
       value: "100"
+    # Deliveries before Service Bus moves a message to the subscription's own
+    # $deadletterqueue, where message-resender replays it from. Each delivery
+    # already includes the sidecar's in-place retries (the subscriber's
+    # Resiliency policy), so a few suffice. Applies when Dapr creates the
+    # subscription; an existing subscription keeps its own setting.
+    - name: maxDeliveryCount
+      value: "3"
 scopes:
 {{- range .topology.pubsubs }}
 {{- range .appIds }}

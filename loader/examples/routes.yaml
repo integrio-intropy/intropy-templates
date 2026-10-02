@@ -1,0 +1,12 @@
+# Render fixture: a loader routing two messages that share one topic, one of
+# them through a content filter; anything else on the topic is dropped.
+#   intropy int create loader -o /tmp/loader-routes -f loader/examples/routes.yaml --version main --no-input
+name: FulfillmentLoader
+organization: Fluxia
+topic: orders
+routes:
+  - message: fluxia.orders.order-placed
+  - message: fluxia.orders.order-cancelled
+    when: event.data.reason != 'fraud-review'
+default: ignore
+empty: false

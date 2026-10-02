@@ -34,10 +34,32 @@ public sealed class {{ .systemClass }} : ISystemDefinition
             .Uses(Services.Idempotency)
             .Uses(Services.BusinessIncidents);
 {{- else if eq .kind "loader" }}
+{{- if hasKey . "routes" }}
+{{- $loader := . }}
+{{- range .routes }}
+{{- if not (hasKey $msgField .message) }}{{- fail (printf "component %q routes message %q, but the system payload carries no contract for it" $loader.appId .message) }}{{- end }}
+{{- end }}
+        // Rendered as a declarative Dapr Subscription: one routing rule per route, in order,
+        // and a default route for the rest of the topic.
+        builder.AddLoader("{{ .appId }}")
+            .Subscribes(sub => sub
+{{- range .routes }}
+{{- if get . "when" }}
+                .Handles(Messages.{{ index $msgField .message }}, when: "{{ get . "when" | replace "\\" "\\\\" | replace "\"" "\\\"" }}")
+{{- else }}
+                .Handles(Messages.{{ index $msgField .message }})
+{{- end }}
+{{- end }}
+{{- if eq .default "ignore" }}
+                .IgnoreOthers())
+{{- else }})
+{{- end }}
+{{- else }}
 {{- if not (hasKey . "subscribes") }}{{- fail (printf "component %q declares no subscribes message" .appId) }}{{- end }}
 {{- if not (hasKey $msgField .subscribes) }}{{- fail (printf "component %q wires message %q, but the system payload carries no contract for it" .appId .subscribes) }}{{- end }}
         builder.AddLoader("{{ .appId }}")
             .Subscribes(Messages.{{ index $msgField .subscribes }})
+{{- end }}
 {{- if hasKey . "port" }}
             .To(Ports.{{ index $portField .port }})
 {{- end }}

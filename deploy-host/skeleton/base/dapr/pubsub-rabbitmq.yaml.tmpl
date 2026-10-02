@@ -29,6 +29,20 @@ spec:
       value: "true"
     - name: deliveryMode
       value: "2"
+    # Keep a subscriber's queue when its last consumer disconnects: a pod
+    # restart, a rollout, scaling to zero, a sidecar pausing an unhealthy app.
+    # The component's default (true) deletes the queue then, and everything
+    # published until the subscriber is back is lost. (The key really is
+    # spelled deletedWhenUnused.)
+    - name: deletedWhenUnused
+      value: "false"
+    # A message a subscriber leaves for redelivery once its sidecar has stopped
+    # retrying lands in the broker's own dead-letter queue (dlq-<app-id>-<topic>),
+    # where message-resender replays it from. Without it RabbitMQ discards the
+    # message. Subscribers must not set a Dapr deadLetterTopic: that would take
+    # the message away from this queue.
+    - name: enableDeadLetter
+      value: "true"
 # Exactly the app-ids the topology says publish to or subscribe from this
 # broker's topics. The Component is namespace-scoped and this directory is its
 # only owner, so scopes is what limits who may use it.

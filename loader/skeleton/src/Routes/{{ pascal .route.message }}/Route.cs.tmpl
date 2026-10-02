@@ -1,0 +1,14 @@
+namespace {{ .name }}.Routes.{{ pascal .route.message }};
+
+/// <summary>
+/// The route for <c>{{ .route.message }}</c>: the message this pipeline handles, by its
+/// CloudEvents type — the name the system host's Messages.cs declares and the sidecar routes on.
+{{- if get .route "when" }}
+/// The system's subscription delivers it here only when its event matches
+/// <c>{{ get .route "when" }}</c>; the others arrive as unrouted.
+{{- end }}
+/// </summary>
+public static class Route
+{
+    public const string Message = "{{ .route.message }}";
+}

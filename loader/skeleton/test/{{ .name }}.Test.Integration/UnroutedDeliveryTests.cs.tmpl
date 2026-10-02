@@ -1,0 +1,62 @@
+using CloudNative.CloudEvents;
+using Intropy.Framework.Testing.Delivery;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// What the loader does with a message on its topic that no route takes — another event type,
+/// or one a route's content filter leaves out, which the sidecar delivers on the
+/// subscription's default route.
+{{- if eq .default "ignore" }} Unrouted messages are acknowledged and dropped
+/// (<c>default: ignore</c>; the system's IgnoreOthers()), leaving no trace.
+{{- else }} Unrouted messages are left for redelivery
+/// (<c>default: dead-letter</c>), so the broker dead-letters them; nothing is written.
+{{- end }}
+/// </summary>
+public class UnroutedDeliveryTests
+{
+    private static readonly DeliveryAck Expected = DeliveryAck.{{ if eq .default "ignore" }}Success{{ else }}Retry{{ end }};
+
+    [Fact]
+    public async Task DeliverAsync_WithAnEventTypeNoRouteHandles_LeavesNoTrace()
+    {
+        // Arrange
+        await using var sut = await LoaderSut.StartAsync();
+        var (sidecar, files, idempotency, _) = sut;
+
+        // Act
+        var ack = await sidecar.DeliverAsync(NewDelivery("{{ .appId }}.unrouted-test-event"));
+
+        // Assert
+        Assert.Equal(Expected, ack);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task DeliverUnhandledAsync_WithAnEventAFilterLeftOut_LeavesNoTrace()
+    {
+        // Arrange: the subscription's rules selected no route, so the sidecar delivers it on
+        // the default route — unrouted although a route handles its type.
+        await using var sut = await LoaderSut.StartAsync();
+        var (sidecar, files, idempotency, _) = sut;
+
+        // Act
+        var ack = await sidecar.DeliverUnhandledAsync(NewDelivery("{{ (index .routes 0).message }}"));
+
+        // Assert
+        Assert.Equal(Expected, ack);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+    }
+
+    private static CloudEvent NewDelivery(string type) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        Source = new Uri("urn:test:delivery"),
+        Type = type,
+        Time = DateTimeOffset.UtcNow,
+        DataContentType = "application/json",
+        Data = "{}"
+    };
+}

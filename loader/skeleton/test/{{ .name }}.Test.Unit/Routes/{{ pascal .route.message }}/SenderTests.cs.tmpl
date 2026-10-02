@@ -1,12 +1,11 @@
 using System.Text;
-using {{ .name }}.Process;
-using {{ .name }}.Model;
+using {{ .name }}.Routes.{{ pascal .route.message }};
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 using NSubstitute;
 
-namespace {{ .name }}.Test.Unit.Process;
+namespace {{ .name }}.Test.Unit.Routes.{{ pascal .route.message }};
 
 public class SenderTests
 {
@@ -54,7 +53,7 @@ public class SenderTests
         // Assert
         // The text write is an extension over the adapter's binary WriteAsync: assert on the bytes.
         await fileAdapter.Received(1).WriteAsync(
-            "ORD-1001.json",
+            $"ORD-1001.{Route.Message}.json",
             Arg.Is<byte[]>(bytes => Encoding.UTF8.GetString(bytes).Contains("\"OrderId\":\"ORD-1001\"")
                                     && Encoding.UTF8.GetString(bytes).Contains("\"Status\":\"Loaded\"")),
             Arg.Any<string?>(), Arg.Any<CancellationToken>());

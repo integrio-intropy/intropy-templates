@@ -45,6 +45,26 @@ environment. No framework file adapter speaks the `blob` binding
 (`bindings.aws.s3`) yet, so a blob port fails the render instead of the
 component's first run.
 
+## Loaders and transactional integrations get a redelivery policy
+
+A loader leaves what it cannot load for redelivery: a failed send, a timeout,
+a message no route handles. A transactional integration does the same with the
+files it hops through its internal queue. Without a policy the sidecar does not
+retry such a message at all; it hands it straight back to the broker, which
+dead-letters it (see deploy-host). So these blocks render one more file,
+`base/resiliency.yaml`: a Dapr `Resiliency` scoped to the block's app-id that
+retries inbound deliveries, with exponential backoff, before the broker
+dead-letters the message. A loader's target is the pub/sub its topics subscribe
+through; a transactional integration's is its internal hop, `internal-<name>`
+(the name the topology mints). The block kind is folded the way the CLI folds
+it, so `transactional-integration`, `transactionalIntegration` and
+`TransactionalIntegration` all match.
+
+`redeliveryMaxRetries` (default 10) and `redeliveryMaxInterval` (default `15s`)
+tune it. The sidecar holds the message while it retries, so the whole window,
+about `(retries + 1) x` the loader's `MaxMessageProcessingTime` plus the
+backoff, must fit inside the broker's own lock or processing timeout.
+
 ## imageNamespace must match CI
 
 Customers disagree on the path segment between the registry and the image name —

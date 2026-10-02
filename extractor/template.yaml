@@ -38,6 +38,11 @@ spec:
         title: Publishes
         description: Logical name of the message this extractor publishes. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      topic:
+        type: string
+        title: Topic
+        description: The topic the extractor publishes on. Defaults to the message name; set it to share one topic between several messages, so one loader can route them all.
+        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -73,7 +78,7 @@ spec:
     # named after it. The message is the declaration; the channel and this
     # type are its projections. The CLI assembly derives the same value from
     # the scalar message wiring.
-    payloadType: '{{ .publishes | regexReplaceAll "[^0-9A-Za-z]+" " " | title | replace " " "" }}'
+    payloadType: '{{ pascal .publishes }}'
     # The extractor's source port — the named interface it reads the outside
     # world through. Derived like appId so it stays unique per component.
     # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to
@@ -85,9 +90,9 @@ spec:
     # exist: a topic name is never guessed into an event type, and a
     # second way to name the event is a second identity.
     eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
-    # The channel the message is published on: the message name. One
-    # derivation, so every file that names the channel agrees.
-    channel: '{{ .publishes }}'
+    # The channel the message is published on: the topic parameter, else the
+    # message name. One derivation, so every file that names the channel agrees.
+    channel: '{{ get . "topic" | default .publishes }}'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'

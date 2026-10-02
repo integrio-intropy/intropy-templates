@@ -1,23 +1,19 @@
-using Dapr.Messaging.PublishSubscribe;
-
 namespace {{ .name }}.Test.Integration;
 
 /// <summary>
-/// Boot smoke test: the host the system will run must start and subscribe to its topic
-/// without a sidecar. The loader composes its pipeline before subscribing, so a missing
+/// Boot smoke test: the host the system will run must start and serve its app callback without a
+/// sidecar. The loader composes every route's pipeline before it serves, so a missing
 /// registration (framework upgrade, renamed builder) fails here, not at system-host time.
 /// </summary>
 public class BootSmokeTests
 {
     [Fact]
-    public async Task Host_StartsAndSubscribesToItsTopic()
+    public async Task Host_StartsAndServesTheAppCallback()
     {
         await using var sut = await LoaderSut.StartAsync();
 
-        var subscription = sut.Subscriber.Current;
-        Assert.Equal(Constants.PubSubName, subscription.PubSubName);
-        Assert.Equal(Constants.TopicName, subscription.TopicName);
-        // A message the loader does not acknowledge is redelivered, never dropped.
-        Assert.Equal(TopicResponseAction.Retry, subscription.Options.MessageHandlingPolicy.DefaultResponseAction);
+        // The subscription is a declarative Dapr resource the system renders: the loader
+        // announces none of its own.
+        Assert.Empty(await sut.Sidecar.GetSubscriptionsAsync());
     }
 }

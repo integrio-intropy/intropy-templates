@@ -5,7 +5,6 @@
 #   intropy int create loader -o /tmp/loader-empty -f loader/examples/empty.yaml --version main --no-input
 name: OrderLoader
 organization: Fluxia
-subscribes: orders
-# The channel and payload type are projections of the subscribes value:
-# topic 'orders', payload type 'Orders'.
+routes:
+  - message: orders
 empty: true

@@ -1,7 +1,7 @@
 using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Contracts.IdempotencyService;
 using Intropy.Framework.Adapters.File;
-using Intropy.Framework.Hosting.Messaging.Streaming;
+using Intropy.Framework.Hosting.Loader;
 using Intropy.Framework.Testing.Adapters;
 using Intropy.Framework.Testing.Delivery;
 using Intropy.Framework.Testing.Services;
@@ -11,39 +11,42 @@ using Microsoft.Extensions.Hosting;
 namespace {{ .name }}.Test.Integration;
 
 /// <summary>
-/// The real host — production composition, hosted consumer, ack mapping — with only the
-/// edges faked: the sidecar's streaming subscription (<see cref="FakeStreamingSubscriber"/>),
-/// the keyed destination adapter, and both platform-service clients. The fakes are registered
+/// The real host — production composition, the gRPC app callback, ack mapping — with only the
+/// edges faked: the sidecar's pushes (<see cref="AppCallbackDelivery"/> on a free port), the
+/// keyed destination adapter, and both platform-service clients. The fakes are registered
 /// after the component's own registrations, so plain last-wins registrations replace them.
 /// </summary>
 public sealed class LoaderSut : IAsyncDisposable
 {
     public IHost Host { get; private set; } = null!;
-    public FakeStreamingSubscriber Subscriber { get; } = new();
+    public AppCallbackDelivery Sidecar { get; private set; } = null!;
     public InMemoryFileAdapter Files { get; } = new();
     public FakeIdempotencyServiceClient Idempotency { get; } = new();
     public FakeBusinessIncidentServiceClient Incidents { get; } = new();
 
-    /// <summary>Starts the host and waits until the loader has subscribed to its topic.</summary>
+    /// <summary>Starts the host with its callback on a free port, so tests can run in parallel.</summary>
     public static async Task<LoaderSut> StartAsync()
     {
         var sut = new LoaderSut();
         var builder = Composition.Composition.CreateHostBuilder([], "Development");
-        builder.Services.AddSingleton<IStreamingSubscriber>(sut.Subscriber);
         builder.Services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationPort, sut.Files);
         builder.Services.AddSingleton<IIdempotencyServiceClient>(sut.Idempotency);
         builder.Services.AddSingleton<IBusinessIncidentServiceClient>(sut.Incidents);
 
         sut.Host = builder.Build();
+        // In a deployment the callback listens on APP_PORT, which the sidecar's host sets; the
+        // test gives this host a free port of its own instead.
+        var options = sut.Host.Services.GetRequiredService<LoaderOptions>();
+        options.CallbackPort = AppCallbackDelivery.AvailablePort();
         await sut.Host.StartAsync();
-        await sut.Subscriber.WaitForSubscriptionAsync();
+        sut.Sidecar = new AppCallbackDelivery(options.CallbackPort.Value, Constants.PubSubName, Constants.TopicName);
         return sut;
     }
 
-    public void Deconstruct(out FakeStreamingSubscriber subscriber, out InMemoryFileAdapter files,
+    public void Deconstruct(out AppCallbackDelivery sidecar, out InMemoryFileAdapter files,
         out FakeIdempotencyServiceClient idempotency, out FakeBusinessIncidentServiceClient incidents)
     {
-        subscriber = Subscriber;
+        sidecar = Sidecar;
         files = Files;
         idempotency = Idempotency;
         incidents = Incidents;
@@ -53,5 +56,6 @@ public sealed class LoaderSut : IAsyncDisposable
     {
         await Host.StopAsync();
         Host.Dispose();
+        Sidecar.Dispose();
     }
 }
