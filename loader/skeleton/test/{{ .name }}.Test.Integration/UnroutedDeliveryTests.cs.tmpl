@@ -4,9 +4,8 @@ using Intropy.Framework.Testing.Delivery;
 namespace {{ .name }}.Test.Integration;
 
 /// <summary>
-/// What the loader does with a message on its topic that no route takes — another event type,
-/// or one a route's content filter leaves out, which the sidecar delivers on the
-/// subscription's default route.
+/// What the loader does with a message the Dapr subscription's content filters leave out
+/// and deliver on the subscription's default route.
 {{- if eq .default "ignore" }} Unrouted messages are acknowledged and dropped
 /// (<c>default: ignore</c>; the system's IgnoreOthers()), leaving no trace.
 {{- else }} Unrouted messages are left for redelivery
@@ -18,31 +17,15 @@ public class UnroutedDeliveryTests
     private static readonly DeliveryAck Expected = DeliveryAck.{{ if eq .default "ignore" }}Success{{ else }}Retry{{ end }};
 
     [Fact]
-    public async Task DeliverAsync_WithAnEventTypeNoRouteHandles_LeavesNoTrace()
+    public async Task DeliverUnhandledAsync_WithAnEventTheSubscriptionFilterLeftOut_LeavesNoTrace()
     {
-        // Arrange
+        // Arrange: the Dapr subscription selected its default route, so the framework marks
+        // the message unrouted before the pipeline runs.
         await using var sut = await LoaderSut.StartAsync();
         var (sidecar, files, idempotency, _) = sut;
 
         // Act
-        var ack = await sidecar.DeliverAsync(NewDelivery("{{ .appId }}.unrouted-test-event"));
-
-        // Assert
-        Assert.Equal(Expected, ack);
-        Assert.Empty(files.Files);
-        Assert.Empty(idempotency.Committed);
-    }
-
-    [Fact]
-    public async Task DeliverUnhandledAsync_WithAnEventAFilterLeftOut_LeavesNoTrace()
-    {
-        // Arrange: the subscription's rules selected no route, so the sidecar delivers it on
-        // the default route — unrouted although a route handles its type.
-        await using var sut = await LoaderSut.StartAsync();
-        var (sidecar, files, idempotency, _) = sut;
-
-        // Act
-        var ack = await sidecar.DeliverUnhandledAsync(NewDelivery("{{ (index .routes 0).message }}"));
+        var ack = await sidecar.DeliverUnhandledAsync(NewDelivery("{{ .subscribes }}"));
 
         // Assert
         Assert.Equal(Expected, ack);

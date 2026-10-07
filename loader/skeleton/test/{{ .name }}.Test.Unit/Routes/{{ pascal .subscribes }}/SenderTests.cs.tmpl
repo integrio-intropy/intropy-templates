@@ -1,11 +1,11 @@
 using System.Text;
-using {{ .name }}.Routes.{{ pascal .route.message }};
+using {{ .name }}.Routes.{{ pascal .subscribes }};
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 using NSubstitute;
 
-namespace {{ .name }}.Test.Unit.Routes.{{ pascal .route.message }};
+namespace {{ .name }}.Test.Unit.Routes.{{ pascal .subscribes }};
 
 public class SenderTests
 {

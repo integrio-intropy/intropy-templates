@@ -2,9 +2,9 @@ using {{ .contracts }};
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
-using Payload = {{ .contracts }}.{{ pascal .route.message }};
+using Payload = {{ .contracts }}.{{ pascal .subscribes }};
 
-namespace {{ .name }}.Routes.{{ pascal .route.message }};
+namespace {{ .name }}.Routes.{{ pascal .subscribes }};
 
 public class Transformer : TransformStep<Payload, Out, Context>
 {

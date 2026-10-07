@@ -1,5 +1,5 @@
-// The destination system's record for this route's messages.
-namespace {{ .name }}.Routes.{{ pascal .route.message }};
+// The destination system's record for this subscribed message.
+namespace {{ .name }}.Routes.{{ pascal .subscribes }};
 
 {{- if .empty }}
 

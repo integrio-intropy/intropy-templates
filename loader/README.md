@@ -1,14 +1,16 @@
 # loader
 
 Scaffolds a long-running loader integration: a generic-host worker that
-consumes a Dapr pub/sub topic through a streaming subscription (the app
-connects to its sidecar; it serves no HTTP and needs no app port), runs each
-message through the Intropy loader pipeline (`AddLoader` from
+consumes one Dapr pub/sub message through a streaming subscription (the app
+connects to its sidecar; it serves no HTTP and needs no app port), runs every
+delivered event through one Intropy loader pipeline (`AddLoader` from
 `Intropy.Framework.Hosting`), and writes the result as `{orderId}.json`
-through a local destination folder binding. In production
-the loader runs as a Deployment (unlike the run-to-completion `extractor`).
-The loader subscribes to the system's message: scaffold the publishing
-extractor with the same message value (`subscribes` here, `publishes` there).
+through a local destination folder binding. In production the loader runs as a
+Deployment (unlike the run-to-completion `extractor`). The loader subscribes
+to the system's message: scaffold the publishing extractor with the same
+message value (`subscribes` here, `publishes` there). To route multiple event
+types to different pipelines, change the composition to use the framework's
+routed `AddLoader` overload.
 
 The rendered project is a generic-host worker with a Taskfile (`task build`,
 `task test`, `task coverage` — the component-level loop), two test projects, a
@@ -49,10 +51,10 @@ it is left untouched. The loader's csproj references it as
 local to the component. The name is plain `Contracts` because the project is
 scoped by the system directory it lives in.
 
-The sample logic and the scaffolded Contracts project use `Order` as the
-contract record. Passing a different `contract` value renames the record the
-topic is typed with, so rename the record in Contracts (and the sample
-pipeline code, unless `empty=true`) to match.
+The payload type derives from `subscribes` (`orders` becomes `Orders`) and is
+scaffolded in the sibling Contracts project. If that project already exists,
+ensure it declares the same payload type; this template leaves existing shared
+contracts untouched.
 
 ## Parameters
 

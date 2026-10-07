@@ -2,12 +2,12 @@ using CloudNative.CloudEvents;
 using Intropy.Contracts.IdempotencyService;
 using Intropy.Framework.Testing.Delivery;
 using Action = Intropy.Contracts.IdempotencyService.Action;
-using {{ .name }}.Routes.{{ pascal .route.message }};
+using {{ .name }}.Routes.{{ pascal .subscribes }};
 
-namespace {{ .name }}.Test.Integration.Routes.{{ pascal .route.message }};
+namespace {{ .name }}.Test.Integration.Routes.{{ pascal .subscribes }};
 
 /// <summary>
-/// End-to-end delivery tests for the <c>{{ .route.message }}</c> route:
+/// End-to-end delivery tests for the <c>{{ .subscribes }}</c> route:
 /// <see cref="LoaderSut"/> starts the real host — production DI graph, the app
 /// callback, ack mapping — with the externals faked (destination adapter, both
 /// platform-service clients), and <see cref="AppCallbackDelivery"/> pushes

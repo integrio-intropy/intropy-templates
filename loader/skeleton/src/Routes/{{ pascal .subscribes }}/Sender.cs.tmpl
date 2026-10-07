@@ -5,7 +5,7 @@ using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 
-namespace {{ .name }}.Routes.{{ pascal .route.message }};
+namespace {{ .name }}.Routes.{{ pascal .subscribes }};
 
 public class Sender(IFileAdapter fileAdapter) : SendStep<Out, Context>
 {
@@ -18,8 +18,8 @@ public class Sender(IFileAdapter fileAdapter) : SendStep<Out, Context>
         // Default System.Text.Json options — PascalCase property names, so the
         // destination file carries the C# record shape verbatim.
         var json = JsonSerializer.Serialize(input);
-        // One file per order and route, so two routes about one order never overwrite
-        // each other: {orderId}.{message}.json.
+        // Include the message identity so different message types for one order
+        // write distinct files: {orderId}.{message}.json.
         await fileAdapter.WriteAsync($"{input.OrderId}.{Route.Message}.json", json, Encoding.UTF8);
         return (new TechnicalStepResult<Out>.Success(input), context);
 {{- end }}

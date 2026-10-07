@@ -12,13 +12,9 @@ using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-{{- /* One alias pair per route: its pipeline's namespace and its payload type.
-A route's namespace and its contract share their last segment, so the aliases
-keep the composition below unambiguous whatever the project is named. */}}
-{{- range .routes }}
-using {{ pascal .message }}Route = {{ $.name }}.Routes.{{ pascal .message }};
-using {{ pascal .message }}Payload = {{ $.contracts }}.{{ pascal .message }};
-{{- end }}
+{{- /* The one message's pipeline namespace and payload type. */}}
+using {{ pascal .subscribes }}Route = {{ .name }}.Routes.{{ pascal .subscribes }};
+using {{ pascal .subscribes }}Payload = {{ .contracts }}.{{ pascal .subscribes }};
 
 namespace {{ .name }}.Composition;
 
@@ -27,8 +23,8 @@ namespace {{ .name }}.Composition;
 /// (<c>Program.cs</c>) and the tests, so the tests build the exact graph the
 /// host runs. The loader is a generic-host worker: the Dapr sidecar pushes its
 /// topic's messages to the gRPC app callback it serves on APP_PORT, under the
-/// declarative Subscription the system renders from its topology, and each
-/// message runs through the pipeline of the route its CloudEvent type selects.
+/// declarative Subscription the system renders from its topology. The one
+/// pipeline handles every message delivered to this component.
 /// </summary>
 public static class Composition
 {
@@ -100,51 +96,38 @@ public static class Composition
         // the cluster's secret store.
         services.AddDestinationPort(Constants.DestinationPort, configuration);
 
-        // Each route's destination sender is a service like the other externals
+        // The destination sender is a service like the other externals
         // (destination adapter, platform clients): tests swap it for their own
         // SendStep<Out, Context> registration.
-{{- range .routes }}
-{{- $route := printf "%sRoute" (pascal .message) }}
-        services.AddSingleton<SendStep<{{ $route }}.Out, Context>>(sp =>
-            new {{ $route }}.Sender(sp.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort)));
-{{- end }}
+        services.AddSingleton<SendStep<{{ pascal .subscribes }}Route.Out, Context>>(sp =>
+            new {{ pascal .subscribes }}Route.Sender(
+                sp.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort)));
 
-        // The loader: one route per message, each with its own typed pipeline, built in each
-        // message's own scope. Every route's pipeline is composed once at startup, before the
-        // loader consumes, so a missing registration stops the host (exit code 1) instead of
-        // failing every message. Idempotency is kept apart per route: two messages about one
-        // order never share an idempotency record.
-        services.AddLoader(
+        // One pipeline handles every event delivered by the subscription. Add typed
+        // CloudEvent routing here only when this component needs multiple pipelines.
+        services.AddLoader<{{ pascal .subscribes }}Payload, {{ pascal .subscribes }}Route.Out>(
+            (builder, _) => builder
+                .WithDeserializer(new {{ pascal .subscribes }}Route.Deserializer())
+                .WithValidator(new {{ pascal .subscribes }}Route.Validator())
+                // Keys off CloudEvent Subject (id) and Time (date) in context metadata;
+                // the Deserializer backfills both from the payload's business identity.
+                .WithIdempotency()
+                .WithTransformer(new {{ pascal .subscribes }}Route.Transformer())
+                // The sender resolves from DI like every other external dependency.
+                .WithSenderFromServices()
+                .WithBusinessIncidents(BusinessId, BusinessId),
             loader =>
             {
                 loader.PubSubName = Constants.PubSubName;
                 loader.TopicName = Constants.TopicName;
 {{- if eq .default "ignore" }}
-                // A message no route takes — another type, or one a route's filter leaves
-                // out — is acknowledged and dropped, matching the system's IgnoreOthers().
+                // Subscription-filtered events that reach the default path are acknowledged.
                 loader.Unrouted = UnroutedPolicy.Ack;
 {{- else }}
-                // A message no route takes — another type, or one a route's filter leaves
-                // out — is left for redelivery, so the broker dead-letters it.
+                // Unmatched events are left for broker redelivery and dead-lettering.
                 loader.Unrouted = UnroutedPolicy.DeadLetter;
 {{- end }}
-            },
-            routes => routes
-{{- range .routes }}
-{{- $route := printf "%sRoute" (pascal .message) }}
-                .On<{{ pascal .message }}Payload, {{ $route }}.Out, Context>({{ $route }}.Route.Message,
-                    (builder, _) => builder
-                        .WithDeserializer(new {{ $route }}.Deserializer())
-                        .WithValidator(new {{ $route }}.Validator())
-                        // Keys off CloudEvent Subject (id) and Time (date) in context metadata;
-                        // the Deserializer backfills both from the payload's business identity.
-                        .WithIdempotency()
-                        .WithTransformer(new {{ $route }}.Transformer())
-                        // The sender resolves from DI like every other external dependency.
-                        .WithSenderFromServices()
-                        .WithBusinessIncidents(BusinessId, BusinessId),
-                    (metadata, isRetry) => new Context(metadata, isRetry))
-{{- end }});
+            });
 
         return services;
     }

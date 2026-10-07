@@ -1,0 +1,10 @@
+namespace {{ .name }}.Routes.{{ pascal .subscribes }};
+
+/// <summary>
+/// The message this loader subscribes to. Its CloudEvents type is the name
+/// the system host's Messages.cs declares.
+/// </summary>
+public static class Route
+{
+    public const string Message = "{{ .subscribes }}";
+}

@@ -18,7 +18,7 @@ and written as `{orderId}.json` through a Dapr destination binding.
 - App id: `{{ .appId }}`
 - Pub/sub component: `pubsub` — provided by the system host; messages are
   published from there
-- Channel: `{{ .channel }}` — the topic the message arrives over (pubsub `pubsub`). It is the message name; the publishing extractor publishes to the same channel
+- Message and channel: `{{ .subscribes }}` — both the CloudEvents type and Dapr topic; the publishing extractor uses the same message identity
 - Destination port: `{{ .port }}` — the named interface the loader
   writes the outside world through; the system host declares it in
   `Ports.cs` and the Dapr binding uses the same name, resolved to a local
@@ -49,8 +49,8 @@ and written as `{orderId}.json` through a Dapr destination binding.
 - `src/Program.cs` - host bootstrap: builds the host from
   `Composition.CreateHostBuilder` and runs it until SIGTERM.
 - `src/Composition/Composition.cs` - the host builder and every service
-  registration, ending in `AddLoader` (the pipeline builder chain, the context
-  factory, and the pub/sub and topic). The sender is a DI-registered
+  registration, ending in the single-pipeline `AddLoader` overload and its
+  pub/sub and topic configuration. The sender is a DI-registered
   `SendStep<Out, Context>` resolved by `WithSenderFromServices()` like any other
   external. Note the namespace/type collision: `{{ .name }}.Composition` is both
   namespace and class, so call sites inside nested namespaces use the fully
@@ -58,9 +58,9 @@ and written as `{orderId}.json` through a Dapr destination binding.
 - `src/Constants.cs` - component/topic names, the destination port, and the
   CloudEvent context keys the idempotency step
   reads (root namespace — consumed by both `src` and the tests).
-- `src/Process/` - the loader pipeline steps only (`Deserializer`,
-  `Validator`, `Transformer`, `Sender`). All DI and `AddLoader` wiring lives in
-  `src/Composition/`.
+- `src/Routes/{{ pascal .subscribes }}/` - the loader's typed pipeline steps
+  (`Deserializer`, `Validator`, `Transformer`, `Sender`) and message identity.
+  All DI and `AddLoader` wiring lives in `src/Composition/`.
 - `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (pure xUnit; no
   fakes except the Sender's `IFileAdapter` seam via NSubstitute, no Dapr;
   `task test:unit`).

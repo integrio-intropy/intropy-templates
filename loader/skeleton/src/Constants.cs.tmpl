@@ -6,8 +6,7 @@ public static class Constants
     public const string Organization = "{{ .organization }}";
 
     public const string PubSubName = "pubsub";
-    // The one topic this loader consumes. The messages it routes travel on it;
-    // each route's message name is its Route.Message (src/Routes/<Message>/Route.cs).
+    // The topic and CloudEvents type are both the subscribed message identity.
     public const string TopicName = "{{ .channel }}";
 
     // The destination port: the named interface this component writes the

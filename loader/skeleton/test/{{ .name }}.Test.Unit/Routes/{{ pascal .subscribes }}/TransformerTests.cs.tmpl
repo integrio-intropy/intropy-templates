@@ -1,10 +1,10 @@
 using {{ .contracts }};
-using {{ .name }}.Routes.{{ pascal .route.message }};
+using {{ .name }}.Routes.{{ pascal .subscribes }};
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
-using Payload = {{ .contracts }}.{{ pascal .route.message }};
+using Payload = {{ .contracts }}.{{ pascal .subscribes }};
 
-namespace {{ .name }}.Test.Unit.Routes.{{ pascal .route.message }};
+namespace {{ .name }}.Test.Unit.Routes.{{ pascal .subscribes }};
 
 public class TransformerTests
 {

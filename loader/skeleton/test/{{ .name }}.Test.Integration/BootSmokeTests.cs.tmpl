@@ -2,7 +2,7 @@ namespace {{ .name }}.Test.Integration;
 
 /// <summary>
 /// Boot smoke test: the host the system will run must start and serve its app callback without a
-/// sidecar. The loader composes every route's pipeline before it serves, so a missing
+/// sidecar. The loader composes its pipeline before it serves, so a missing
 /// registration (framework upgrade, renamed builder) fails here, not at system-host time.
 /// </summary>
 public class BootSmokeTests

@@ -1,8 +1,8 @@
 # {{ .name }}
 
 .NET loader integration. A generic-host worker consumes the `{{ .channel }}`
-topic of the Dapr pub/sub through a streaming subscription, runs each message
-through the Intropy loader pipeline, and writes the result as `{orderId}.json`
+message from the Dapr pub/sub through a streaming subscription, runs every
+delivered event through one Intropy loader pipeline, and writes the result as `{orderId}.json`
 through the destination binding. It serves no HTTP, so the sidecar needs no
 app port. The loader is a long-running worker (a Deployment in production).
 
@@ -64,8 +64,8 @@ only the edges, assert on fake state and the delivery ack.**
 
 | Layer | Project / files | What it pins |
 |---|---|---|
-| Step unit tests | `test/{{ .name }}.Test.Unit/Process/*Tests.cs` | Each pipeline step's own contract: `Deserializer` (valid payload, business id and CloudEvent subject/time stamped into the context), `Validator` (one test per business rule), `Transformer` (field fidelity), `Sender` (writes through the adapter; the one NSubstitute seam). |
-| Delivery integration | `test/{{ .name }}.Test.Integration/DeliveryIntegrationTests.cs` | The full pipeline (deserialize → validate → idempotency → transform → send) driven end-to-end: `LoaderSut` starts the real host with the externals faked, and `FakeStreamingSubscriber` delivers CloudEvents over the loader's subscription exactly as the sidecar would. Pins the ack contract: loaded, duplicate, and incident-routed messages ack Success; a dead destination acks Retry and leaves no trace.{{- if .empty }} In this empty-bodies scaffold two tests are not included: business-failure incident routing (which input fails validation is the Validator's to define), and duplicate-ack (the duplicate simulation relies on the idempotency commit the implemented pipeline records). Add them as the corresponding implementation lands.{{- end }} |
+| Step unit tests | `test/{{ .name }}.Test.Unit/Routes/{{ pascal .subscribes }}/*Tests.cs` | Each pipeline step's own contract: `Deserializer` (valid payload, business id and CloudEvent subject/time stamped into the context), `Validator` (one test per business rule), `Transformer` (field fidelity), `Sender` (writes through the adapter; the one NSubstitute seam). |
+| Delivery integration | `test/{{ .name }}.Test.Integration/Routes/{{ pascal .subscribes }}/DeliveryTests.cs` | The full pipeline (deserialize → validate → idempotency → transform → send) driven end-to-end: `LoaderSut` starts the real host with the externals faked, and `FakeStreamingSubscriber` delivers CloudEvents over the loader's subscription exactly as the sidecar would. Pins the ack contract: loaded, duplicate, and incident-routed messages ack Success; a dead destination acks Retry and leaves no trace.{{- if .empty }} In this empty-bodies scaffold two tests are not included: business-failure incident routing (which input fails validation is the Validator's to define), and duplicate-ack (the duplicate simulation relies on the idempotency commit the implemented pipeline records). Add them as the corresponding implementation lands.{{- end }} |
 | Boot / composition | `test/{{ .name }}.Test.Integration/BootSmokeTests.cs`, `CompositionTests.cs` | The host starts without a sidecar, composes its pipeline and subscribes to its topic with a redeliver-by-default policy; the validated DI graph from `Composition` builds and resolves the keyed destination adapter. |
 
 ### The edges and their fakes
@@ -106,7 +106,7 @@ The canonical payload types (`{{ .payloadType }}`) live in the sibling
 scaffolded together with this project (or already existed — components in the
 same parent directory share it); the publishing extractor serializes exactly
 those records. Only the destination load record (`Out`) stays local in
-`src/Model/`.
+`src/Routes/{{ pascal .subscribes }}/Out.cs`.
 
 ## Container image
 
