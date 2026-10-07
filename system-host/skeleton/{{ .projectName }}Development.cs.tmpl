@@ -13,7 +13,7 @@ public sealed class {{ .projectName }}Development : IDevelopmentDefinition
 {{- end }}
 {{- range $c := .components }}
 {{- if or (eq $c.kind "extractor") (eq $c.kind "transactional-integration") }}
-        development.Rerun("{{ $c.appId }}").Every(TimeSpan.FromSeconds(30));
+        development.Rerun("{{ $c.appId }}").AfterEachRun(TimeSpan.FromSeconds(30));
 {{- end }}
 {{- end }}
     }

@@ -50,9 +50,9 @@ and port file resolutions) to the graph document.
   the deployed binding type and connection values are deployment configuration)
 - `{{ .projectName }}Development.cs` — the local-run substitutions: OpenAPI
   mocks for platform services, a folder under `test/` per port, and a
-  30-second rerun per run-to-completion component (`Rerun(...).Every(...)`,
+  30-second rerun per run-to-completion component (`Rerun(...).AfterEachRun(...)`,
   extractors and transactional integrations)
-- `Services.cs` — the platform services the blocks call via `.Uses(...)`
+- `Services.cs` — the platform services the blocks call via `.Calls(...)`
 - `mocks/` — the OpenAPI documents backing the local service mocks
 - `sample-data/sample-order.json` — the sample order used by `task seed` and
   `task publish`

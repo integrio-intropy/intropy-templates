@@ -31,8 +31,8 @@ public sealed class {{ .systemClass }} : ISystemDefinition
             .From(Ports.{{ index $portField .port }})
 {{- end }}
             .Publishes(Messages.{{ index $msgField .publishes }})
-            .Uses(Services.Idempotency)
-            .Uses(Services.BusinessIncidents);
+            .Calls(Services.Idempotency)
+            .Calls(Services.BusinessIncidents);
 {{- else if eq .kind "loader" }}
 {{- if hasKey . "routes" }}
 {{- $loader := . }}
@@ -40,18 +40,27 @@ public sealed class {{ .systemClass }} : ISystemDefinition
 {{- if not (hasKey $msgField .message) }}{{- fail (printf "component %q routes message %q, but the system payload carries no contract for it" $loader.appId .message) }}{{- end }}
 {{- end }}
         // Rendered as a declarative Dapr Subscription: one routing rule per route, in order,
-        // and a default route for the rest of the topic.
+        // and a default route for the rest of the topic. The subscription's first message
+        // anchors it; the rest are also handled on the same channel.
         builder.AddLoader("{{ .appId }}")
-            .Subscribes(sub => sub
-{{- range .routes }}
-{{- if get . "when" }}
-                .Handles(Messages.{{ index $msgField .message }}, when: "{{ get . "when" | replace "\\" "\\\\" | replace "\"" "\\\"" }}")
+{{- $first := index .routes 0 }}
+            .Subscribes(Messages.{{ index $msgField $first.message }}
+{{- if get $first "when" }},
+                when: "{{ get $first "when" | replace "\\" "\\\\" | replace "\"" "\\\"" }}"
+{{- end }}
+{{- if or (gt (len .routes) 1) (eq .default "ignore") }},
+                sub => sub
+{{- range $i, $r := .routes }}{{- if $i }}
+{{- if get $r "when" }}
+                    .AlsoHandles(Messages.{{ index $msgField $r.message }}, when: "{{ get $r "when" | replace "\\" "\\\\" | replace "\"" "\\\"" }}")
 {{- else }}
-                .Handles(Messages.{{ index $msgField .message }})
+                    .AlsoHandles(Messages.{{ index $msgField $r.message }})
 {{- end }}
-{{- end }}
+{{- end }}{{- end }}
 {{- if eq .default "ignore" }}
-                .IgnoreOthers())
+                    .IgnoreOthers())
+{{- else }})
+{{- end }}
 {{- else }})
 {{- end }}
 {{- else }}
@@ -63,14 +72,14 @@ public sealed class {{ .systemClass }} : ISystemDefinition
 {{- if hasKey . "port" }}
             .To(Ports.{{ index $portField .port }})
 {{- end }}
-            .Uses(Services.Idempotency)
-            .Uses(Services.BusinessIncidents);
+            .Calls(Services.Idempotency)
+            .Calls(Services.BusinessIncidents);
 {{- else if eq .kind "transactional-integration" }}
         builder.AddTransactionalIntegration("{{ .appId }}")
             .From(Ports.{{ index $portField .fromPort }})
             .To(Ports.{{ index $portField .toPort }})
-            .Uses(Services.Idempotency)
-            .Uses(Services.BusinessIncidents);
+            .Calls(Services.Idempotency)
+            .Calls(Services.BusinessIncidents);
 {{- else }}
 {{- fail (printf "component %q has kind %q — the host declares extractor, loader, and transactional-integration components; add a branch for new kinds when their blocks exist" .appId .kind) }}
 {{- end }}

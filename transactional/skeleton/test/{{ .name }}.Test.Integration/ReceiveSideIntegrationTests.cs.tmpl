@@ -1,19 +1,20 @@
 using {{ .name }}.Configuration;
 using Intropy.Framework.Hosting.Jobs;
 using Intropy.Framework.Hosting.TransactionalIntegration;
+using Intropy.Framework.Testing.Delivery;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using NSubstitute;
 
 namespace {{ .name }}.Test.Integration;
 
 /// <summary>
 /// The receive side, run the way the host runs it: one execution of the
 /// component's run-to-completion job over the real DI graph, with the source
-/// adapter and the broker edge faked (see <see cref="FakeEdges"/>) and the
-/// topic subscription stubbed so the send side receives nothing. The framework
-/// sweeps the configured source port: every file is published, then deleted;
-/// a file that could not be published stays for the next run.
+/// adapter and the broker edge faked (see <see cref="FakeEdges"/>). The
+/// framework sweeps the configured source port: every file is published, then
+/// deleted; a file that could not be published stays for the next run. The
+/// send side serves the Dapr gRPC app callback, bound here to a free port — the
+/// enqueue fake captures instead of publishing, so nothing arrives on the
+/// integration's queue and the run ends once the sweep is done.
 /// </summary>
 public class ReceiveSideIntegrationTests
 {
@@ -53,16 +54,15 @@ public class ReceiveSideIntegrationTests
 
     private static IJob CreateJob(FakeEdges edges)
     {
-        var services = edges.CreateServices();
-        var subscriber = Substitute.For<ITopicSubscriber>();
-        subscriber.SubscribeAsync(default!, default!, default, default!, default)
-            .ReturnsForAnyArgs(Substitute.For<IAsyncDisposable>());
-        services.RemoveAll<ITopicSubscriber>();
-        services.AddSingleton(subscriber);
-        var provider = services.BuildServiceProvider();
+        var provider = edges.CreateServices().BuildServiceProvider();
 
-        // Nothing arrives on the stubbed subscription: end the run once the sweep is done.
+        // The send side serves the Dapr gRPC app callback that pushes the
+        // integration's queue; a test binds a free port instead of APP_PORT's
+        // default 8080.
         var options = provider.GetRequiredService<TransactionalIntegrationOptions>();
+        options.CallbackPort = AppCallbackDelivery.AvailablePort();
+
+        // Nothing arrives on the integration's queue: end the run once the sweep is done.
         options.IdleTimeout = TimeSpan.Zero;
         options.PostIdleGracePeriod = TimeSpan.Zero;
 

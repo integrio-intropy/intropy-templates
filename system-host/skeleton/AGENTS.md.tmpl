@@ -36,11 +36,11 @@ declaration — an Aspire run backend and a generation backend.
   regenerate-then-yours lifecycle. `Mock(...).FromOpenApi(...)` stands in an
   OpenAPI-backed mock for a platform service; `Files(...).RootPath(...)` resolves a
   port to a folder under this project (conventionally `test/<port>/`); and
-  `Rerun("<component>").Every(...)` re-runs a declared run-to-completion
+  `Rerun("<component>").AfterEachRun(...)` re-runs a declared run-to-completion
   component (extractor or transactional integration) on an interval
   during local runs so a later seed is picked up without a host restart.
 - `Services.cs` — the platform services as refs (`ServiceRef`), declared as static
-  fields; blocks attach them in `Define()` via `.Uses(...)`.
+  fields; blocks attach them in `Define()` via `.Calls(...)`.
 - `mocks/` — the OpenAPI 3.0.x documents backing the platform-service mocks,
   served by Microcks during `task run`.
 {{- if hasKey . "sharedContracts" }}
