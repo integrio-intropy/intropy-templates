@@ -10,6 +10,9 @@ resources:
 {{- if or (eq .kind "loader") (eq (lower (replace "-" "" .kind)) "transactionalintegration") }}
   - resiliency.yaml
 {{- end }}
+{{- if or (eq .kind "loader") (eq (lower (replace "-" "" .kind)) "transactionalintegration") (hasKey .component "subscription") }}
+  - subscription.yaml
+{{- end }}
 
 # includeSelectors: false on purpose. A Deployment's spec.selector is immutable
 # after creation, so letting these labels into it would turn any later change to

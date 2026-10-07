@@ -15,6 +15,9 @@ spec:
         dapr.io/enabled: "true"
         dapr.io/app-id: {{ .appId }}
         dapr.io/app-port: "8080"
+        # A subscribing block receives its messages pushed over the sidecar's
+        # gRPC app callback (the framework's callback server speaks HTTP/2 only).
+        dapr.io/app-protocol: grpc
         dapr.io/enable-api-logging: "false"
     spec:
       containers:

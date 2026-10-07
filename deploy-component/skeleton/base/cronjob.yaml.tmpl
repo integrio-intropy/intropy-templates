@@ -21,6 +21,14 @@ spec:
           annotations:
             dapr.io/enabled: "true"
             dapr.io/app-id: {{ .appId }}
+{{- if eq (lower (replace "-" "" .kind)) "transactionalintegration" }}
+            # The send side receives the integration's internal hop pushed over
+            # the sidecar's gRPC app callback; the sidecar must know where it
+            # listens (the framework's callback server speaks HTTP/2 only, on
+            # APP_PORT, default 8080). A plain extractor serves nothing.
+            dapr.io/app-port: "8080"
+            dapr.io/app-protocol: grpc
+{{- end }}
             # A Job's sidecar must be told to shut down, or the pod never
             # completes and the CronJob piles up.
             dapr.io/enable-app-health-check: "false"

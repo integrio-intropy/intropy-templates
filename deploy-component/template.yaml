@@ -106,6 +106,13 @@ spec:
     # TransactionalIntegration are one kind.
     - path: base/resiliency.yaml.tmpl
       when: '{{ or (eq .kind "loader") (eq (lower (replace "-" "" .kind)) "transactionalintegration") }}'
+    # The declarative Dapr Subscription: rendered for every component the
+    # topology gives one, and always for a loader or a transactional
+    # integration (its internal hop), which receive nothing without it — an
+    # old host record then fails the render instead of deploying a block that
+    # sits idle.
+    - path: base/subscription.yaml.tmpl
+      when: '{{ or (eq .kind "loader") (eq (lower (replace "-" "" .kind)) "transactionalintegration") (hasKey .component "subscription") }}'
 
     # The local overlay is static rather than named by .env, so its files must
     # only render during the local pass. A fixture file exists only when one
