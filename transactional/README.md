@@ -29,7 +29,7 @@ exactly as production composition does — with only the edges faked. No
 sidecar, no Testcontainers.
 
 Note on versions: every `Intropy.Framework.*` package — including
-`Intropy.Framework.Testing` — pins at `1.2.0-beta.1`, so the integration fakes
+`Intropy.Framework.Testing` — pins at `1.2.0-beta.2`, so the integration fakes
 and the framework types they build on always come from the same build.
 
 Components do not run standalone: the job runs via its system host, which
