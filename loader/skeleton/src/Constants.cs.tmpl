@@ -5,12 +5,6 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "pubsub";
-    // The topic the subscription consumes: the subscribed message's name unless
-    // the loader shares a topic with other messages. Which messages it takes
-    // from the topic is the system topology's, rendered from the scaffold record.
-    public const string TopicName = "{{ .channel }}";
-
     // The destination port: the named interface this component writes the
     // outside world through. The name is the port's whole identity —
     // declared in the system host's Ports.cs, it is also the Dapr binding

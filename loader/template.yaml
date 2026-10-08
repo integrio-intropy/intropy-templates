@@ -13,7 +13,7 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: loader
     intropy.io/data-flow: "out"
-    intropy.io/message-params: subscribes
+    intropy.io/message-params: routes
 
 spec:
   parameters:
@@ -21,7 +21,7 @@ spec:
     required:
       - name
       - organization
-      - subscribes
+      - routes
     properties:
       name:
         type: string
@@ -33,15 +33,11 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
-      subscribes:
-        type: string
-        title: Subscribes
-        description: Logical name of the message this loader's pipeline consumes. The CloudEvents type is the same value; the payload type derives from it.
-        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       routes:
         type: array
         title: Routes
-        description: The messages the loader takes from its topic, in evaluation order, each with an optional filter; must include the subscribed message. Empty means the subscribed message, unfiltered.
+        description: The messages the loader takes from its topic, in the order the sidecar evaluates them, each with an optional filter. The first route's message is the one the pipeline consumes; its payload type derives from the message name. A message may appear once.
+        minItems: 1
         items:
           type: object
           required:
@@ -60,7 +56,7 @@ spec:
       topic:
         type: string
         title: Topic
-        description: The topic the loader consumes. Defaults to the subscribed message name; set it to the shared topic when the routed messages' producers publish on one.
+        description: The topic the loader consumes. Defaults to the first route's message name; set it when the routed messages share a topic their producers publish on.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
@@ -87,14 +83,19 @@ spec:
     # "Contracts" on purpose: the project is scoped to the system directory it
     # lives in, not to the organization.
     contracts: 'Contracts'
+    # The message the pipeline consumes: the first route's. Recorded in
+    # .intropy/scaffold.json as the scalar subscribes value the system reads;
+    # routes is the component's whole subscription, recorded for the system
+    # topology — the skeleton reads only this. Derived values render in no
+    # fixed order, so the values below repeat the projection rather than
+    # read this one.
+    subscribes: '{{ (index .routes 0).message }}'
     # The payload type is the PascalCase projection of the subscribed message;
     # the shared-contracts sibling is created around this record when needed.
-    payloadType: '{{ pascal .subscribes }}'
+    payloadType: '{{ pascal (index .routes 0).message }}'
     # The topic the loader consumes: the topic parameter, else the subscribed
     # message name. One derivation, so every file that names the channel agrees.
-    # routes is the component's subscription, recorded for the system topology;
-    # the skeleton never reads it.
-    channel: '{{ get . "topic" | default .subscribes }}'
+    channel: '{{ get . "topic" | default (index .routes 0).message }}'
     # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`

@@ -118,9 +118,8 @@ public static class Composition
                 .WithBusinessIncidents(BusinessId, BusinessId),
             loader =>
             {
-                loader.PubSubName = Constants.PubSubName;
-                loader.TopicName = Constants.TopicName;
-                // The subscription's rules live in the system topology; an event that reaches
+                // The pub/sub, topic and rules of the subscription live in the system
+                // topology, rendered from .intropy/scaffold.json; an event that reaches
                 // this loader without matching them belongs to other components, so it is
                 // acknowledged and dropped rather than dead-lettered.
                 loader.Unrouted = UnroutedPolicy.Ack;

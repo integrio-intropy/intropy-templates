@@ -8,7 +8,7 @@ delivered event through one Intropy loader pipeline (`AddLoader` from
 through a local destination folder binding. In production the loader runs as a
 Deployment (unlike the run-to-completion `extractor`). The loader subscribes
 to the system's message: scaffold the publishing extractor with the same
-message value (`subscribes` here, `publishes` there). To route multiple event
+message value (the first of `routes` here, `publishes` there). To route multiple event
 types to different pipelines, change the composition to use the framework's
 routed `AddLoader` overload.
 
@@ -51,7 +51,7 @@ it is left untouched. The loader's csproj references it as
 local to the component. The name is plain `Contracts` because the project is
 scoped by the system directory it lives in.
 
-The payload type derives from `subscribes` (`orders` becomes `Orders`) and is
+The payload type derives from the first route's message (`orders` becomes `Orders`) and is
 scaffolded in the sibling Contracts project. If that project already exists,
 ensure it declares the same payload type; this template leaves existing shared
 contracts untouched.
@@ -62,9 +62,8 @@ contracts untouched.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderLoader`).                |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `subscribes`  | yes      | The message this loader subscribes to. The CloudEvents `type` and payload type derive from this value. |
-| `routes`       | no       | The loader's subscription: messages it takes from its topic, in evaluation order, each `{message, when?}` with an optional Dapr CEL filter over the camelCase payload. Must include `subscribes`; empty means `subscribes`, unfiltered. Recorded for the system topology; the skeleton never reads it. |
-| `topic`        | no       | The topic the loader consumes. Defaults to `subscribes`; set it to the shared topic when the routed messages' producers publish on one (`topic` on the extractor). |
+| `routes`       | yes      | The loader's subscription: messages it takes from its topic, in evaluation order, each `{message, when?}` with an optional Dapr CEL filter over the camelCase payload. The first route's message is the one the pipeline consumes — its CloudEvents `type` and payload type, recorded as `subscribes`. The other routes are recorded for the system topology; the skeleton never reads them. |
+| `topic`        | no       | The topic the loader consumes. Defaults to the first route's message; set it to the shared topic when the routed messages' producers publish on one (`topic` on the extractor). |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; no idempotency lambdas).     |

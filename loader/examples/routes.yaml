@@ -4,7 +4,6 @@
 #   intropy int create loader -o /tmp/loader-routes -f loader/examples/routes.yaml --version main --no-input
 name: FulfillmentLoader
 organization: Fluxia
-subscribes: fluxia.orders.order-placed
 topic: orders
 routes:
   - message: fluxia.orders.order-placed

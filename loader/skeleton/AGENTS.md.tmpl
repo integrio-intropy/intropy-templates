@@ -19,7 +19,7 @@ and written as `{orderId}.json` through a Dapr destination binding.
 - Pub/sub component: `pubsub` — provided by the system host; messages are
   published from there
 - Message: `{{ .subscribes }}` — the CloudEvents type the pipeline consumes; the publishing extractor uses the same message identity
-- Topic: `{{ .channel }}`; the subscription's messages and filters are the `routes` in `.intropy/scaffold.json`, rendered by the system host
+- Topic: `{{ .channel }}`; the topic and the subscription's messages and filters are the `topic` and `routes` in `.intropy/scaffold.json`, rendered by the system host as the component's Dapr Subscription. The code names neither the pub/sub nor the topic: the loader takes what the Subscription delivers
 - Destination port: `{{ .port }}` — the named interface the loader
   writes the outside world through; the system host declares it in
   `Ports.cs` and the Dapr binding uses the same name, resolved to a local
@@ -51,12 +51,12 @@ and written as `{orderId}.json` through a Dapr destination binding.
   `Composition.CreateHostBuilder` and runs it until SIGTERM.
 - `src/Composition/Composition.cs` - the host builder and every service
   registration, ending in the single-pipeline `AddLoader` overload and its
-  pub/sub and topic configuration. The sender is a DI-registered
+  unrouted policy. The sender is a DI-registered
   `SendStep<Out, Context>` resolved by `WithSenderFromServices()` like any other
   external. Note the namespace/type collision: `{{ .name }}.Composition` is both
   namespace and class, so call sites inside nested namespaces use the fully
   qualified `Composition.Composition.CreateHostBuilder(...)`.
-- `src/Constants.cs` - component/topic names, the destination port, and the
+- `src/Constants.cs` - the component name, the destination port, and the
   CloudEvent context keys the idempotency step
   reads (root namespace — consumed by both `src` and the tests).
 - `src/Routes/{{ pascal .subscribes }}/` - the loader's typed pipeline steps

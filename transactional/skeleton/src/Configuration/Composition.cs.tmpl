@@ -99,11 +99,10 @@ public static class Composition
         // file to the internal hop (carrying its context metadata and trace), and deletes
         // it once it is on the queue. A file that cannot be read or published stays for
         // the next run. The component supplies only the send pipeline.
-        services.AddTransactionalIntegration(options =>
-        {
-            options.DaprPubSubName = Constants.PubSubName;
-            options.DaprTopicName = Constants.TopicName;
-        });
+        // The hop is the one the topology mints for this component (decision 0011):
+        // internal-<app id> / hop, scoped to this component alone so two integrations
+        // under one host cannot cross wires. The framework names it by default.
+        services.AddTransactionalIntegration();
 
         // Each port is registered by its role: the source the framework sweeps, the
         // destination the Sender writes through. Each file adapter is chosen by configuration:

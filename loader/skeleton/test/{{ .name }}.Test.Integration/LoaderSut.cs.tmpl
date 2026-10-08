@@ -18,6 +18,11 @@ namespace {{ .name }}.Test.Integration;
 /// </summary>
 public sealed class LoaderSut : IAsyncDisposable
 {
+    // Where the faked sidecar delivers from — what the system topology's Subscription
+    // resource names for this component. The loader itself takes whatever it is delivered.
+    private const string PubSubName = "pubsub";
+    private const string TopicName = "{{ .channel }}";
+
     public IHost Host { get; private set; } = null!;
     public AppCallbackDelivery Sidecar { get; private set; } = null!;
     public InMemoryFileAdapter Files { get; } = new();
@@ -39,7 +44,7 @@ public sealed class LoaderSut : IAsyncDisposable
         var options = sut.Host.Services.GetRequiredService<LoaderOptions>();
         options.CallbackPort = AppCallbackDelivery.AvailablePort();
         await sut.Host.StartAsync();
-        sut.Sidecar = new AppCallbackDelivery(options.CallbackPort.Value, Constants.PubSubName, Constants.TopicName);
+        sut.Sidecar = new AppCallbackDelivery(options.CallbackPort.Value, PubSubName, TopicName);
         return sut;
     }
 

@@ -7,15 +7,6 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    // The component-owned internal hop: receive publishes each source file
-    // here for the send side to process. The names mirror what the topology
-    // mints for this component (decision 0011): the pubsub component is
-    // generated as internal-<component>, scoped to this component alone, so
-    // two integrations under one host cannot cross wires and the hop stays
-    // invisible to the system topology.
-    public const string PubSubName = "internal-{{ .name | kebabcase | replace "." "-" }}";
-    public const string TopicName = "hop";
-
     // The From/To ports: the named interfaces this component reads and
     // writes the outside world through. The name is each port's whole
     // identity — declared in the system host's Ports.cs, it is also the Dapr
