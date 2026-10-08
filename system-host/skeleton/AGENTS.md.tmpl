@@ -78,8 +78,10 @@ Components never run standalone — this host is the only run path, and triggers
 originate here too:
 
 - **Extractors**: an extractor runs once when the host starts, so seed before
-  `task run`: `task seed` drops `sample-data/sample-order.json` into the
-  port folder (override with `task seed PORT_DIR=./test/<port>`
+  `task run`: `task seed` drops both status samples
+  (`sample-data/sample-order-status-0.json` and
+  `sample-data/sample-order-status-1.json`) into the port folder (override with
+  `task seed PORT_DIR=./test/<port>`
   — the folder must match the `Files(...).RootPath(...)` resolution in the
   development definition, conventionally `test/<port-name>`; the default
   targets the first declared extractor's port folder — a system without a

@@ -1,0 +1,10 @@
+{
+  "orderId": "ORD-1002",
+  "customerId": "CUST-42",
+  "status": "1",
+  "orderDate": "2026-05-13T09:35:00Z",
+  "lines": [
+    { "sku": "SKU-CCC", "quantity": 1, "unitPrice": 29.95 },
+    { "sku": "SKU-DDD", "quantity": 3, "unitPrice": 12.50 }
+  ]
+}
