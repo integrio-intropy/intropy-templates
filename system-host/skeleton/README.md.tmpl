@@ -54,8 +54,9 @@ and port file resolutions) to the graph document.
   extractors and transactional integrations)
 - `Services.cs` — the platform services the blocks call via `.Calls(...)`
 - `mocks/` — the OpenAPI documents backing the local service mocks
-- `sample-data/sample-order.json` — the sample order used by `task seed` and
-  `task publish`
+- `sample-data/sample-order-status-0.json` and
+  `sample-data/sample-order-status-1.json` — the sample orders used by
+  `task seed`; `task publish` publishes the status-0 sample
 {{- if hasKey . "sharedContracts" }}
 - `{{ .sharedContracts.name }}/` — the contract records the messages carry
   (referenced from the csproj as rendered: `{{ .sharedContracts.include }}`)

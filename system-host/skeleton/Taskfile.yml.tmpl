@@ -60,7 +60,7 @@ tasks:
 
   # ── Trigger a run ─────────────────────────────────────────────────
   seed:
-    desc: Drop the sample order into a port folder (run-to-completion components sweep it at host start)
+    desc: Drop both sample orders into a port folder (run-to-completion components sweep them at host start)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     vars:
       # Folder the port resolves to — must match the Files(...).RootPath(...)
@@ -68,8 +68,8 @@ tasks:
       PORT_DIR: '{{ "{{" }}.PORT_DIR | default "./test/{{ $seedPort }}"}}'
     cmds:
       - mkdir -p {{ "{{" }}.PORT_DIR}}
-      - cp ./sample-data/sample-order.json {{ "{{" }}.PORT_DIR}}/
-      - echo "Seeded {{ "{{" }}.PORT_DIR}} with sample-order.json"
+      - cp ./sample-data/sample-order-status-0.json ./sample-data/sample-order-status-1.json {{ "{{" }}.PORT_DIR}}/
+      - echo "Seeded {{ "{{" }}.PORT_DIR}} with sample-order-status-0.json and sample-order-status-1.json"
 
   publish:
     desc: Publish the sample order to a topic via a component's sidecar (needs the host running)
@@ -86,7 +86,7 @@ tasks:
         --publish-app-id {{ "{{" }}.PUBLISH_APP_ID}}
         --pubsub {{ "{{" }}.PUBSUB}}
         --topic {{ "{{" }}.TOPIC}}
-        --data-file ./sample-data/sample-order.json
+        --data-file ./sample-data/sample-order-status-0.json
 
   # ── Generation backend ────────────────────────────────────────────
   # The generation backend is a plain CLI — `--no-launch-profile` keeps the Aspire

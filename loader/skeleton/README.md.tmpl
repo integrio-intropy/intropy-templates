@@ -183,7 +183,7 @@ business fields in your `Deserializer` (see `AGENTS.md`).
 3. Idempotency check — asks the Idempotency Service whether this Subject /
    Time combination was already processed; duplicates cancel the run.
 4. `Transformer` maps the canonical order to the load record `Out`
-   (`LoadedAt` = now, `Status` = `"Loaded"`).
+   (`LoadedAt` = now, preserving the input `Status`).
 5. `Sender` serializes `Out` with default System.Text.Json (PascalCase) and
    writes `{orderId}.json` through the destination binding.
 

@@ -10,6 +10,7 @@ namespace {{ .name }}.Model;
 public record Source{{ .payloadType }}(
     string OrderId,
     string CustomerId,
+    string Status,
     DateTimeOffset OrderDate,
     IReadOnlyList<OrderLine> Lines);
 {{- end }}

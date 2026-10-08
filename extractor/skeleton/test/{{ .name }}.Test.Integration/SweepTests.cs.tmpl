@@ -105,7 +105,7 @@ public class SweepTests
     }
 {{- else }}
     private const string ValidOrderJson =
-        """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+        """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Pending","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
     [Fact]
     public async Task Sweep_WithValidFile_PublishesAndDeletesSourceFile()
@@ -157,7 +157,7 @@ public class SweepTests
         // seen-before).
         var (job, files, topic, idempotency, incidents) = CreateSut();
         files.AddFile("order-1.json",
-            """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""");
+            """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Pending","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""");
 
         // Act
         var summary = await job.ExecuteAsync(CancellationToken.None);

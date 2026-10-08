@@ -20,6 +20,7 @@ public class Transformer : TransformStep<Source{{ .payloadType }}, {{ .payloadTy
         var output = new {{ .payloadType }}(
             OrderId: input.OrderId,
             CustomerId: input.CustomerId,
+            Status: input.Status,
             OrderDate: input.OrderDate,
             Lines: input.Lines);
 

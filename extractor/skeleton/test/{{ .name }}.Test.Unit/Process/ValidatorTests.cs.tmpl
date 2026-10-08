@@ -89,6 +89,7 @@ public class ValidatorTests
     private static Source{{ .payloadType }} CreateValidOrder() => new(
         OrderId: "ORD-1001",
         CustomerId: "CUST-42",
+        Status: "Pending",
         OrderDate: DateTimeOffset.UtcNow.AddDays(-1),
         Lines: [new OrderLine("SKU-1", 2, 10.0m)]);
 {{- end }}

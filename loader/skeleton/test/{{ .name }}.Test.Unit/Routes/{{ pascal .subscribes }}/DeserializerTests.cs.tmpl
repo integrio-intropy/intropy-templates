@@ -35,7 +35,7 @@ public class DeserializerTests
     }
 {{- else }}
     private const string Json =
-        """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+        """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Pending","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
     [Fact]
     public async Task ExecuteAsync_WithValidCloudEvent_ReturnsSuccess()
@@ -51,6 +51,7 @@ public class DeserializerTests
         // Assert
         var success = Assert.IsType<BusinessStepResult<Payload>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
+        Assert.Equal("Pending", success.Value.Status);
         Assert.Single(success.Value.Lines);
     }
 
