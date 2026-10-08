@@ -5,17 +5,11 @@ namespace {{ .name }}.Test.Integration;
 
 /// <summary>
 /// What the loader does with a message the Dapr subscription's content filters leave out
-/// and deliver on the subscription's default route.
-{{- if eq .default "ignore" }} Unrouted messages are acknowledged and dropped
-/// (<c>default: ignore</c>; the system's IgnoreOthers()), leaving no trace.
-{{- else }} Unrouted messages are left for redelivery
-/// (<c>default: dead-letter</c>), so the broker dead-letters them; nothing is written.
-{{- end }}
+/// and deliver on the subscription's default route: it belongs to other components, so it
+/// is acknowledged and dropped, leaving no trace.
 /// </summary>
 public class UnroutedDeliveryTests
 {
-    private static readonly DeliveryAck Expected = DeliveryAck.{{ if eq .default "ignore" }}Success{{ else }}Retry{{ end }};
-
     [Fact]
     public async Task DeliverUnhandledAsync_WithAnEventTheSubscriptionFilterLeftOut_LeavesNoTrace()
     {
@@ -28,7 +22,7 @@ public class UnroutedDeliveryTests
         var ack = await sidecar.DeliverUnhandledAsync(NewDelivery("{{ .subscribes }}"));
 
         // Assert
-        Assert.Equal(Expected, ack);
+        Assert.Equal(DeliveryAck.Success, ack);
         Assert.Empty(files.Files);
         Assert.Empty(idempotency.Committed);
     }

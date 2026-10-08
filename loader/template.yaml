@@ -38,14 +38,6 @@ spec:
         title: Subscribes
         description: Logical name of the message this loader consumes. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
-      default:
-        type: string
-        title: Unrouted messages
-        description: What becomes of a message on the topic no route takes — another type, or one a filter leaves out. dead-letter leaves it for the broker's dead-letter queue; ignore acknowledges and drops it.
-        enum:
-          - dead-letter
-          - ignore
-        default: dead-letter
       idempotencyAppId:
         type: string
         title: Idempotency service app-id

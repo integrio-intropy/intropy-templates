@@ -120,13 +120,10 @@ public static class Composition
             {
                 loader.PubSubName = Constants.PubSubName;
                 loader.TopicName = Constants.TopicName;
-{{- if eq .default "ignore" }}
-                // Subscription-filtered events that reach the default path are acknowledged.
+                // The subscription's rules live in the system topology; an event that reaches
+                // this loader without matching them belongs to other components, so it is
+                // acknowledged and dropped rather than dead-lettered.
                 loader.Unrouted = UnroutedPolicy.Ack;
-{{- else }}
-                // Unmatched events are left for broker redelivery and dead-lettering.
-                loader.Unrouted = UnroutedPolicy.DeadLetter;
-{{- end }}
             });
 
         return services;
