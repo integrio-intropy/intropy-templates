@@ -63,6 +63,7 @@ contracts untouched.
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderLoader`).                |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
 | `subscribes`  | yes      | The message this loader subscribes to. The topic, CloudEvents `type`, and payload type derive from this value. |
+| `when`         | no       | Dapr CEL filter over the camelCase payload (e.g. `event.data.reason != 'fraud-review'`). Not used by the skeleton: `intropy sys create` renders it as `Subscribes(..., when: ...)` in the system topology, so filtered-out events take the `default` path. |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; no idempotency lambdas).     |

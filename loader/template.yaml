@@ -38,6 +38,10 @@ spec:
         title: Subscribes
         description: Logical name of the message this loader consumes. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      when:
+        type: string
+        title: Filter
+        description: Optional Dapr CEL expression the subscribed message's events must also match, over the camelCase payload (e.g. event.data.reason != 'fraud-review'). Recorded for the system topology, which renders it on the loader's Subscription; events it leaves out are handled as unrouted.
       default:
         type: string
         title: Unrouted messages
