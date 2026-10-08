@@ -6,7 +6,9 @@ public static class Constants
     public const string Organization = "{{ .organization }}";
 
     public const string PubSubName = "pubsub";
-    // The topic and CloudEvents type are both the subscribed message identity.
+    // The topic the subscription consumes: the subscribed message's name unless
+    // the loader shares a topic with other messages. Which messages it takes
+    // from the topic is the system topology's, rendered from the scaffold record.
     public const string TopicName = "{{ .channel }}";
 
     // The destination port: the named interface this component writes the

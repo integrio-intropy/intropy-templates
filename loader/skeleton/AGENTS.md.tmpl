@@ -18,7 +18,8 @@ and written as `{orderId}.json` through a Dapr destination binding.
 - App id: `{{ .appId }}`
 - Pub/sub component: `pubsub` — provided by the system host; messages are
   published from there
-- Message and channel: `{{ .subscribes }}` — both the CloudEvents type and Dapr topic; the publishing extractor uses the same message identity
+- Message: `{{ .subscribes }}` — the CloudEvents type the pipeline consumes; the publishing extractor uses the same message identity
+- Topic: `{{ .channel }}`; the subscription's messages and filters are the `routes` in `.intropy/scaffold.json`, rendered by the system host
 - Destination port: `{{ .port }}` — the named interface the loader
   writes the outside world through; the system host declares it in
   `Ports.cs` and the Dapr binding uses the same name, resolved to a local

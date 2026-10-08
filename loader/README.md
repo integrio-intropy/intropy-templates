@@ -62,7 +62,9 @@ contracts untouched.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderLoader`).                |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `subscribes`  | yes      | The message this loader subscribes to. The topic, CloudEvents `type`, and payload type derive from this value. |
+| `subscribes`  | yes      | The message this loader subscribes to. The CloudEvents `type` and payload type derive from this value. |
+| `routes`       | no       | The loader's subscription: messages it takes from its topic, in evaluation order, each `{message, when?}` with an optional Dapr CEL filter over the camelCase payload. Must include `subscribes`; empty means `subscribes`, unfiltered. Recorded for the system topology; the skeleton never reads it. |
+| `topic`        | no       | The topic the loader consumes. Defaults to `subscribes`; set it to the shared topic when the routed messages' producers publish on one (`topic` on the extractor). |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; no idempotency lambdas).     |

@@ -36,7 +36,31 @@ spec:
       subscribes:
         type: string
         title: Subscribes
-        description: Logical name of the message this loader consumes. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
+        description: Logical name of the message this loader's pipeline consumes. The CloudEvents type is the same value; the payload type derives from it.
+        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      routes:
+        type: array
+        title: Routes
+        description: The messages the loader takes from its topic, in evaluation order, each with an optional filter; must include the subscribed message. Empty means the subscribed message, unfiltered.
+        items:
+          type: object
+          required:
+            - message
+          additionalProperties: false
+          properties:
+            message:
+              type: string
+              title: Message
+              description: Logical name of the message — the CloudEvents type the sidecar routes on.
+              pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+            when:
+              type: string
+              title: Filter
+              description: Optional Dapr CEL expression the message's events must also match, over the camelCase payload (e.g. event.data.reason != 'fraud-review').
+      topic:
+        type: string
+        title: Topic
+        description: The topic the loader consumes. Defaults to the subscribed message name; set it to the shared topic when the routed messages' producers publish on one.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
@@ -66,8 +90,11 @@ spec:
     # The payload type is the PascalCase projection of the subscribed message;
     # the shared-contracts sibling is created around this record when needed.
     payloadType: '{{ pascal .subscribes }}'
-    # The channel and CloudEvents type are the message name; keep one identity.
-    channel: '{{ .subscribes }}'
+    # The topic the loader consumes: the topic parameter, else the subscribed
+    # message name. One derivation, so every file that names the channel agrees.
+    # routes is the component's subscription, recorded for the system topology;
+    # the skeleton never reads it.
+    channel: '{{ get . "topic" | default .subscribes }}'
     # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`

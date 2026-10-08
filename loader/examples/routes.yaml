@@ -1,0 +1,13 @@
+# Render fixture: one pipeline whose subscription takes two messages sharing
+# one topic, one of them through a content filter. The routes are recorded for
+# the system topology; the rendered code is the same as minimal.yaml's.
+#   intropy int create loader -o /tmp/loader-routes -f loader/examples/routes.yaml --version main --no-input
+name: FulfillmentLoader
+organization: Fluxia
+subscribes: fluxia.orders.order-placed
+topic: orders
+routes:
+  - message: fluxia.orders.order-placed
+  - message: fluxia.orders.order-cancelled
+    when: event.data.reason != 'fraud-review'
+empty: false
