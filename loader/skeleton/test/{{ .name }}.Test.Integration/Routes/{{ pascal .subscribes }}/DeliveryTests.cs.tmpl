@@ -82,7 +82,7 @@ public class DeliveryTests
     }
 {{- else }}
     private const string ValidOrderJson =
-        """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+        """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Pending","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
     [Fact]
     public async Task DeliverAsync_WithValidMessage_WritesOutputAndAcksSuccess()
@@ -98,7 +98,9 @@ public class DeliveryTests
         // Assert: the destination carries the load record under its
         // order-named file, and idempotency recorded the commit.
         Assert.Equal(DeliveryAck.Success, ack);
-        Assert.Contains("\"OrderId\":\"ORD-1001\"", files.GetString($"ORD-1001.{Route.Message}.json"));
+        var output = files.GetString($"ORD-1001.{Route.Message}.json");
+        Assert.Contains("\"OrderId\":\"ORD-1001\"", output);
+        Assert.Contains("\"Status\":\"Pending\"", output);
         Assert.Single(idempotency.Committed);
     }
 
@@ -130,7 +132,7 @@ public class DeliveryTests
         await using var sut = await LoaderSut.StartAsync();
         var (sidecar, files, idempotency, incidents) = sut;
         var noLines =
-            """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
+            """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Pending","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
 
         // Act
         var ack = await sidecar.DeliverAsync(NewDelivery(noLines));

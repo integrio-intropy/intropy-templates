@@ -36,6 +36,7 @@ public class TransformerTests
         var order = new Source{{ .payloadType }}(
             OrderId: "ORD-1001",
             CustomerId: "CUST-42",
+            Status: "Pending",
             OrderDate: orderDate,
             Lines: [new OrderLine("SKU-1", 2, 10.0m), new OrderLine("SKU-2", 1, 5.0m)]);
 
@@ -47,6 +48,7 @@ public class TransformerTests
         var success = Assert.IsType<TechnicalStepResult<{{ .payloadType }}>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Equal("CUST-42", success.Value.CustomerId);
+        Assert.Equal("Pending", success.Value.Status);
         Assert.Equal(orderDate, success.Value.OrderDate);
         Assert.Equal(2, success.Value.Lines.Count);
     }

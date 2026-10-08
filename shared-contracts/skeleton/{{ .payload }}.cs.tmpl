@@ -11,6 +11,7 @@ public record {{ .payload }}();
 public record {{ .payload }}(
     string OrderId,
     string CustomerId,
+    string Status,
     DateTimeOffset OrderDate,
     IReadOnlyList<OrderLine> Lines);
 {{- end }}

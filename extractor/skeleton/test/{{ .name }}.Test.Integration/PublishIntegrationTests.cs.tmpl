@@ -126,7 +126,7 @@ public class PublishIntegrationTests
         // Production sender wiring: resolved from DI like any other external.
         var pipeline = FakeEdges.ResolvePipeline(provider);
         var context = new Intropy.Framework.Blocks.Shared.Context(new Dictionary<string, string>());
-        var json = """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+        var json = """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Pending","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
         // Act
         var (result, _) = await pipeline.Execute(json, context, false, CancellationToken.None);
@@ -145,6 +145,7 @@ public class PublishIntegrationTests
         Assert.Equal("ORD-1001", cloudEvent.Subject);
         Assert.Equal(new Uri(Constants.EventSource), cloudEvent.Source);
         Assert.Equal(Constants.EventType, cloudEvent.Type);
+        Assert.Contains("\"status\":\"Pending\"", cloudEvent.Data?.ToString());
     }
 {{- end }}
 }

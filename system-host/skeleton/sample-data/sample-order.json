@@ -1,6 +1,7 @@
 {
   "orderId": "ORD-1001",
   "customerId": "CUST-42",
+  "status": "Pending",
   "orderDate": "2026-05-13T09:30:00Z",
   "lines": [
     { "sku": "SKU-AAA", "quantity": 2, "unitPrice": 19.95 },

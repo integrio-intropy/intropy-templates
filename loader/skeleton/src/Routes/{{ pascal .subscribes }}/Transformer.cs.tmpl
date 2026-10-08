@@ -19,7 +19,7 @@ public class Transformer : TransformStep<Payload, Out, Context>
             OrderId: input.OrderId,
             CustomerId: input.CustomerId,
             LoadedAt: DateTimeOffset.UtcNow,
-            Status: "Loaded");
+            Status: input.Status);
 
         return Task.FromResult<(TechnicalStepResult<Out>, Context)>(
             (new TechnicalStepResult<Out>.Success(output), context));
