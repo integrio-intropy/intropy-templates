@@ -49,7 +49,7 @@ public sealed class {{ .systemClass }} : ISystemDefinition
                 when: "{{ get $first "when" | replace "\\" "\\\\" | replace "\"" "\\\"" }}"
 {{- end }}
 {{- if or (gt (len .routes) 1) (eq .default "ignore") }},
-                sub => sub
+                configure: sub => sub
 {{- range $i, $r := .routes }}{{- if $i }}
 {{- if get $r "when" }}
                     .AlsoHandles(Messages.{{ index $msgField $r.message }}, when: "{{ get $r "when" | replace "\\" "\\\\" | replace "\"" "\\\"" }}")
