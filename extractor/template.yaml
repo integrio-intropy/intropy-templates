@@ -13,6 +13,7 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: extractor
     intropy.io/data-flow: "in"
+    intropy.io/message-params: publishes
 
 spec:
   parameters:
@@ -20,8 +21,7 @@ spec:
     required:
       - name
       - organization
-      - topic
-      - contract
+      - publishes
     properties:
       name:
         type: string
@@ -33,16 +33,16 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      publishes:
+        type: string
+        title: Publishes
+        description: Logical name of the message this extractor publishes. The Dapr topic and CloudEvents type are the same value; the payload type derives from it.
+        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the extractor publishes to. The extractor's half of the system contract — scaffold the consuming loader with the same value.
-        pattern: "^[a-z][a-z0-9-]*$"
-      contract:
-        type: string
-        title: Contract type
-        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
-        pattern: "^[A-Z][A-Za-z0-9]*$"
+        description: The topic the extractor publishes on. Defaults to the message name; set it to share one topic between several messages, so one loader can route them all.
+        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -57,11 +57,6 @@ spec:
         type: string
         title: CloudEvent source
         description: Envelope `source` (URI) for published events. The default derives as urn:<organization>:<app-id>; set it to preserve an existing event identity during a migration.
-        default: ""
-      eventType:
-        type: string
-        title: CloudEvent type
-        description: Envelope `type` for published events. The default derives as <organization-lower>.<first-topic-segment>.<last-topic-segment>; set it to preserve an existing event identity during a migration.
         default: ""
       empty:
         type: boolean
@@ -78,25 +73,30 @@ spec:
     # "Contracts" on purpose: the project is scoped to the system directory it
     # lives in, not to the organization.
     contracts: 'Contracts'
-    # The pub/sub component name the skeleton publishes through
-    # (Constants.cs). Recorded in .intropy/scaffold.json for
-    # `intropy sys create`, together with the contract parameter above.
-    pubsub: 'pubsub'
+    # The payload type the message projects to: PascalCase of the message
+    # identity, and the generated record in the shared-contracts sibling is
+    # named after it. The message is the declaration; the channel and this
+    # type are its projections. The CLI assembly derives the same value from
+    # the scalar message wiring.
+    payloadType: '{{ pascal .publishes }}'
     # The extractor's source port — the named interface it reads the outside
     # world through. Derived like appId so it stays unique per component.
     # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to
     # a local file transport by default (external system and transport are
     # never asked for at scaffold time).
     port: '{{ .name | kebabcase | replace "." "-" }}-source'
-    # CloudEvent identity: overridable to preserve an existing identity during a
-    # migration; otherwise derived (type: <org>.<first>.<last> of the kebab topic,
-    # e.g. product-export -> maxbo.product.export).
+    # CloudEvent identity: the type is the message itself (D1 — message
+    # identity is the CloudEvents type). No derivation and no override
+    # exist: a topic name is never guessed into an event type, and a
+    # second way to name the event is a second identity.
     eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
-    eventTypeValue: '{{ printf "%s.%s.%s" (.organization | lower) (index (regexSplit "-" .topic -1) 0) (index (regexSplit "-" .topic -1) (sub (len (regexSplit "-" .topic -1)) 1)) }}'
+    # The channel the message is published on: the topic parameter, else the
+    # message name. One derivation, so every file that names the channel agrees.
+    channel: '{{ get . "topic" | default .publishes }}'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'
       values:
         name: '{{ .contracts }}'
-        contract: '{{ .contract }}'
+        contract: '{{ .payloadType }}'
         empty: '{{ .empty }}'

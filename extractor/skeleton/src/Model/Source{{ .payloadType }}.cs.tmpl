@@ -1,15 +1,16 @@
 {{- if .empty -}}
 namespace {{ .name }}.Model;
 
-public record Source{{ .contract }}();
+public record Source{{ .payloadType }}();
 {{- else -}}
 using {{ .contracts }};
 
 namespace {{ .name }}.Model;
 
-public record Source{{ .contract }}(
+public record Source{{ .payloadType }}(
     string OrderId,
     string CustomerId,
+    string Status,
     DateTimeOffset OrderDate,
     IReadOnlyList<OrderLine> Lines);
 {{- end }}

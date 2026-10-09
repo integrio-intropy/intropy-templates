@@ -22,7 +22,7 @@ declaration — an Aspire run backend and a generation backend.
 - `{{ .systemClass }}.cs` — the `ISystemDefinition`: `Define(SystemBuilder)` declares
   every component and its edges. Rendered from the sibling components' scaffold
   records by `intropy sys create`; owned by you afterwards.
-- `Topics.cs` — the system's topics as typed refs (`TopicRef<T>`), declared as
+- `Messages.cs` — the system's messages as typed refs (`MessageRef<T>`), declared as
   static fields. Same regenerate-then-yours lifecycle. `Apis.cs` appears
   the same way once components declare APIs.
 - `Ports.cs` — the system's ports as refs (`PortRef`), declared as
@@ -35,14 +35,16 @@ declaration — an Aspire run backend and a generation backend.
   assembly): local substitutions for the outside world. Same
   regenerate-then-yours lifecycle. `Mock(...).FromOpenApi(...)` stands in an
   OpenAPI-backed mock for a platform service; `Files(...).RootPath(...)` resolves a
-  port to a folder under this project (conventionally `test/<port>/`), so
-  the system runs end-to-end with zero external configuration.
+  port to a folder under this project (conventionally `test/<port>/`); and
+  `Rerun("<component>").AfterEachRun(...)` re-runs a declared run-to-completion
+  component (extractor or transactional integration) on an interval
+  during local runs so a later seed is picked up without a host restart.
 - `Services.cs` — the platform services as refs (`ServiceRef`), declared as static
-  fields; blocks attach them in `Define()` via `.Uses(...)`.
+  fields; blocks attach them in `Define()` via `.Calls(...)`.
 - `mocks/` — the OpenAPI 3.0.x documents backing the platform-service mocks,
   served by Microcks during `task run`.
 {{- if hasKey . "sharedContracts" }}
-- `{{ .sharedContracts.name }}/` — the contract records carried on topics and APIs,
+- `{{ .sharedContracts.name }}/` — the contract records the messages carry,
   shared by this host and every component project (csproj reference:
   `{{ .sharedContracts.include }}`).
 {{- end }}
@@ -76,18 +78,22 @@ Components never run standalone — this host is the only run path, and triggers
 originate here too:
 
 - **Extractors**: an extractor runs once when the host starts, so seed before
-  `task run`: `task seed` drops `sample-data/sample-order.json` into the
-  port folder (override with `task seed PORT_DIR=./test/<port>`
+  `task run`: `task seed` drops both status samples
+  (`sample-data/sample-order-status-0.json` and
+  `sample-data/sample-order-status-1.json`) into the port folder (override with
+  `task seed PORT_DIR=./test/<port>`
   — the folder must match the `Files(...).RootPath(...)` resolution in the
   development definition, conventionally `test/<port-name>`; the default
   targets the first declared extractor's port folder — a system without a
   port-bearing extractor renders a `test/<port>` placeholder, so pass
-  `PORT_DIR` there). Seeding into a live system needs a host restart to be
-  picked up.
+  `PORT_DIR` there). In development the rerun declared in the development
+  definition re-runs every run-to-completion component every 30 seconds, so
+  seeding a live system is picked up at the next rerun — no host restart needed.
 - **Transactional integrations**: also run-to-completion — each one sweeps its
   `From` port's folder once when the host starts. Trigger the same way:
   seed the source port folder before `task run`
-  (`task seed PORT_DIR=./test/<from-port>`), restart to re-run. Its
+  (`task seed PORT_DIR=./test/<from-port>`); in development the rerun
+  sweeps the folder again every 30 seconds. Its
   internal pub/sub hop (the receive side publishes for the send side to
   process) is component-owned and invisible to the topology — the host
   declares only the two ports.

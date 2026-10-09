@@ -8,14 +8,16 @@ Rendered once per topology component into
 
 ## Workload follows the block kind
 
-An extractor wakes on a schedule, pulls from its source and exits, so it renders
-a `CronJob`. Every other block reacts to messages or requests and must stay
-resident, so it renders a `Deployment`. `spec.files` picks one and never writes
-the other.
+An extractor and a transactional integration run to completion: each wakes on a
+schedule, sweeps its source port, drains what it produced and exits, so it
+renders a `CronJob`. Every other block reacts to messages or requests and must
+stay resident, so it renders a `Deployment`. `spec.files` picks one and never
+writes the other.
 
 This is not an invention: the hand-written manifests in two customer
-repositories already run their extractors as CronJobs. The topology's block kind
-is what lets the CLI derive it.
+repositories already run their extractors as CronJobs, and the Aspire host
+derives the same split from the same kinds. The topology's block kind is what
+lets the CLI derive it.
 
 The CronJob's schedule defaults to `* * * * *` — a once-a-minute dev cadence
 — and is its one and only home. Activation cadence is deployment
@@ -30,6 +32,38 @@ pin` writes the digest when a deployment must be frozen.
 
 The local render replaces the reference with a different convention — see "The
 local overlay" below.
+
+## Each file port's adapter kind follows its binding
+
+A component chooses the file adapter behind each port from `Ports:<port>:Kind`
+and refuses to start without it outside Development. Every overlay, local
+included, patches one `Ports__<port>__Kind` variable onto the workload for each
+port whose scopes list the component's app-id: `file` renders `Local`, `sftp`
+renders `Sftp`, and an `http` port is not a file port, so it gets none. It lives
+in the overlays, not the base, because a port's binding may differ per
+environment. No framework file adapter speaks the `blob` binding
+(`bindings.aws.s3`) yet, so a blob port fails the render instead of the
+component's first run.
+
+## Loaders and transactional integrations get a redelivery policy
+
+A loader leaves what it cannot load for redelivery: a failed send, a timeout,
+a message no route handles. A transactional integration does the same with the
+files it hops through its internal queue. Without a policy the sidecar does not
+retry such a message at all; it hands it straight back to the broker, which
+dead-letters it (see deploy-host). So these blocks render one more file,
+`base/resiliency.yaml`: a Dapr `Resiliency` scoped to the block's app-id that
+retries inbound deliveries, with exponential backoff, before the broker
+dead-letters the message. A loader's target is the pub/sub its topics subscribe
+through; a transactional integration's is its internal hop, `internal-<name>`
+(the name the topology mints). The block kind is folded the way the CLI folds
+it, so `transactional-integration`, `transactionalIntegration` and
+`TransactionalIntegration` all match.
+
+`redeliveryMaxRetries` (default 10) and `redeliveryMaxInterval` (default `15s`)
+tune it. The sidecar holds the message while it retries, so the whole window,
+about `(retries + 1) x` the loader's `MaxMessageProcessingTime` plus the
+backoff, must fit inside the broker's own lock or processing timeout.
 
 ## imageNamespace must match CI
 

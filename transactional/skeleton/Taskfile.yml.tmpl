@@ -21,7 +21,7 @@ tasks:
       - dotnet test ./test/{{ .name }}.Test.Unit
 
   test:integration:
-    desc: Run the integration tests (receive/send pipelines, composition — Intropy.Framework.Testing fakes)
+    desc: Run the integration tests (receive side, send pipeline, composition — Intropy.Framework.Testing fakes)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     cmds:
       - dotnet test ./test/{{ .name }}.Test.Integration

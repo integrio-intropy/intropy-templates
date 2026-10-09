@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: loader
   title: Loader Integration
-  description: Long-running ASP.NET loader that subscribes to a Dapr pub/sub topic over HTTP delivery, runs each delivered message through the Intropy loader pipeline, and writes the result through a local destination folder binding.
+  description: Long-running loader worker that consumes one Dapr pub/sub message through the Dapr gRPC app callback, runs it through one Intropy loader pipeline, and writes the result through a local destination folder binding.
   tags:
     - example
     - dotnet
@@ -13,6 +13,7 @@ metadata:
     intropy.io/template-level: example
     intropy.io/block-kind: loader
     intropy.io/data-flow: "out"
+    intropy.io/message-params: routes
 
 spec:
   parameters:
@@ -20,8 +21,7 @@ spec:
     required:
       - name
       - organization
-      - topic
-      - contract
+      - routes
     properties:
       name:
         type: string
@@ -33,16 +33,31 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      routes:
+        type: array
+        title: Routes
+        description: The messages the loader takes from its topic, in the order the sidecar evaluates them, each with an optional filter. The first route's message is the one the pipeline consumes; its payload type derives from the message name. A message may appear once.
+        minItems: 1
+        items:
+          type: object
+          required:
+            - message
+          additionalProperties: false
+          properties:
+            message:
+              type: string
+              title: Message
+              description: Logical name of the message — the CloudEvents type the sidecar routes on.
+              pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+            when:
+              type: string
+              title: Filter
+              description: Optional Dapr CEL expression the message's events must also match, over the camelCase payload (e.g. event.data.reason != 'fraud-review').
       topic:
         type: string
         title: Topic
-        description: The pub/sub topic the loader subscribes to. This is the loader's half of the system contract — scaffold the publishing extractor with the same value.
-        pattern: "^[a-z][a-z0-9-]*$"
-      contract:
-        type: string
-        title: Contract type
-        description: PascalCase name of the shared-contracts record the topic carries — the other half of the system contract, recorded in .intropy/scaffold.json for `intropy sys create` to type the topic with. The sample logic uses Order.
-        pattern: "^[A-Z][A-Za-z0-9]*$"
+        description: The topic the loader consumes. Defaults to the first route's message name; set it when the routed messages share a topic their producers publish on.
+        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -68,10 +83,24 @@ spec:
     # "Contracts" on purpose: the project is scoped to the system directory it
     # lives in, not to the organization.
     contracts: 'Contracts'
-    # The pub/sub component name the skeleton subscribes through
-    # (Constants.cs). Recorded in .intropy/scaffold.json for
-    # `intropy sys create`, together with the contract parameter above.
-    pubsub: 'pubsub'
+    # The message the pipeline consumes: the first route's. Recorded in
+    # .intropy/scaffold.json as the scalar subscribes value the system reads;
+    # routes is the component's whole subscription, recorded for the system
+    # topology — the skeleton reads only this. Derived values render in no
+    # fixed order, so the values below repeat the projection rather than
+    # read this one.
+    subscribes: '{{ (index .routes 0).message }}'
+    # The payload type is the PascalCase projection of the subscribed message;
+    # the shared-contracts sibling is created around this record when needed.
+    payloadType: '{{ pascal (index .routes 0).message }}'
+    # The topic the loader consumes: the topic parameter, else the subscribed
+    # message name. One derivation, so every file that names the channel agrees.
+    channel: '{{ get . "topic" | default (index .routes 0).message }}'
+    # What the subscription does with events no route takes: ignore, because
+    # Composition acknowledges them (UnroutedPolicy.Ack). Recorded so every
+    # CLI renders the topology the code implements; a CLI reading no value
+    # assumes dead-letter.
+    default: 'ignore'
     # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`
@@ -83,5 +112,5 @@ spec:
       output: '{{ .contracts }}'
       values:
         name: '{{ .contracts }}'
-        contract: '{{ .contract }}'
+        contract: '{{ .payloadType }}'
         empty: '{{ .empty }}'

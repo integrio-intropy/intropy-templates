@@ -1,8 +1,8 @@
 # {{ .name }} SystemHost
 
 The Aspire host of the `{{ .name }}` Intropy integration system. One class —
-`{{ .systemClass }}` — declares which components exist and which topics connect
-them; everything the host does is a backend over that declaration.
+`{{ .systemClass }}` — declares which components exist and which messages
+connect them; everything the host does is a backend over that declaration.
 
 ## Run
 
@@ -44,17 +44,21 @@ and port file resolutions) to the graph document.
 ## Layout
 
 - `{{ .systemClass }}.cs` — the system definition (`ISystemDefinition`)
-- `Topics.cs` — the system's topics as typed refs
+- `Messages.cs` — the system's messages as typed refs (`MessageRef<T>`); the
+  topic name defaults to the message name
 - `Ports.cs` — the system's ports (the name is the whole identity;
   the deployed binding type and connection values are deployment configuration)
 - `{{ .projectName }}Development.cs` — the local-run substitutions: OpenAPI
-  mocks for platform services and a folder under `test/` per port
-- `Services.cs` — the platform services the blocks call via `.Uses(...)`
+  mocks for platform services, a folder under `test/` per port, and a
+  30-second rerun per run-to-completion component (`Rerun(...).AfterEachRun(...)`,
+  extractors and transactional integrations)
+- `Services.cs` — the platform services the blocks call via `.Calls(...)`
 - `mocks/` — the OpenAPI documents backing the local service mocks
-- `sample-data/sample-order.json` — the sample order used by `task seed` and
-  `task publish`
+- `sample-data/sample-order-status-0.json` and
+  `sample-data/sample-order-status-1.json` — the sample orders used by
+  `task seed`; `task publish` publishes the status-0 sample
 {{- if hasKey . "sharedContracts" }}
-- `{{ .sharedContracts.name }}/` — the contract records the topics carry
+- `{{ .sharedContracts.name }}/` — the contract records the messages carry
   (referenced from the csproj as rendered: `{{ .sharedContracts.include }}`)
 {{- end }}
 - `Program.cs` — one entry point, two backends; not meant to be edited

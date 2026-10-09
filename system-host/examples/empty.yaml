@@ -5,6 +5,7 @@
 #   intropy int create system-host -o /tmp/system-host-empty -f system-host/examples/empty.yaml --version main --no-input
 name: order-flow
 topics: []
+messages: []
 ports: []
 components: []
 sharedContracts:

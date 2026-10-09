@@ -7,9 +7,12 @@ using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Extractor;
 using Intropy.Framework.Blocks.Extractor.Steps;
 using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Common;
 using Intropy.Framework.Core.Configuration;
-using Intropy.Framework.Hosting.RunToCompletion;
+using Intropy.Framework.Hosting.Extractor;
+using Intropy.Framework.Hosting.FileSweeps;
 using Intropy.IdempotencyService.Client;
+using Intropy.Telemetry;
 using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,9 +30,12 @@ namespace {{ .name }}.Composition;
 public static class Composition
 {
     /// <summary>Registers every service the extractor needs.</summary>
-    public static IServiceCollection ConfigureServices(IServiceCollection services)
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="environment">The environment whose appsettings overlay applies. Defaults to
+    /// DOTNET_ENVIRONMENT, or Production; tests pass Development.</param>
+    public static IServiceCollection ConfigureServices(IServiceCollection services, string? environment = null)
     {
-        var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+        environment ??= Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 
         // Configuration: appsettings.json + environment overlay + env vars. Based on the
         // binary directory, not the CWD — a host (or `dapr run`) may launch the app from a
@@ -48,11 +54,18 @@ public static class Composition
         // ordering-sensitive DaprClient registrations obvious.
         services.AddLogging(builder => builder.AddConsole());
 
+        // The service name is the component name, so traces identify the component through
+        // the resource's service.name. Strict mode exports only the framework's Intropy.* spans
+        // and the component's own: the Dapr gRPC and HttpClient spans around them are dropped,
+        // while trace context still propagates. Tracing:Mode in configuration overrides it.
+        // Intropy.Telemetry subscribes to no meters: add the framework's.
         services.AddOpenTelemetry(conf =>
         {
             conf.ServiceNamespace = Constants.Organization;
             conf.ServiceName = Constants.ComponentName;
             conf.Environment = environment;
+            conf.Mode = TracingMode.Strict;
+            conf.ConfigureMetrics = metrics => metrics.AddMeter(IntropyTelemetry.Meters);
         });
 
         services.AddSingleton(_ => new DaprClientBuilder().Build());
@@ -78,38 +91,19 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
-        // Bind the source adapter implementation to the component's stable inbound
-        // port. Deployment swaps the Dapr binding behind the port name; this keyed
-        // registration is where code chooses the adapter class that can speak it.
-        services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
-            new LocalFileAdapter(
-                sp.GetRequiredService<DaprClient>(),
-                new FileAdapterOptions(Constants.InboundBindingName)));
-
-        // The port name never changes between environments — deployment
-        // swaps the binding's type behind that same name, so rebinding the
-        // port is a configuration act, not a build. Today the adapter class
-        // must still match the deployed binding type (each binding speaks
-        // its own Dapr operation metadata), so a different adapter is a
-        // same-name class switch, e.g. when the production environment
-        // resolves this port to an SFTP binding:
-        //
-        // services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
-        //     environment == "Development"
-        //         ? (IFileAdapter)new LocalFileAdapter(
-        //             sp.GetRequiredService<DaprClient>(),
-        //             new FileAdapterOptions(Constants.InboundBindingName))
-        //         : new SftpAdapter(
-        //             sp.GetRequiredService<DaprClient>(),
-        //             new FileAdapterOptions(Constants.InboundBindingName)));
-        //
-        // The SFTP binding's address and credentials live in the
-        // environment's Dapr component (GitOps values), resolved out of the
-        // cluster's secret store — never hard-code them here.
+        // The source port is the one the framework sweeps once per run. Its file adapter is
+        // chosen by configuration: Ports:<port>:Kind selects the Dapr binding the port is
+        // deployed with (Local, Sftp or AzureBlob).
+        // appsettings.Development.json selects Local, the local folder the system host
+        // resolves each port to; a deployment sets Ports__<port>__Kind to match the binding it
+        // renders. With no Kind, startup fails naming the port. A binding's address and
+        // credentials live in the environment's Dapr component (GitOps values), resolved out of
+        // the cluster's secret store.
+        services.AddSourcePort(Constants.SourcePort, configuration);
 
         // The publisher is a service like the other externals (source adapter,
         // platform clients): tests swap it for a FakeTopic via RemoveAll/AddSingleton,
-        // exactly as they swap the others — no special seam in BuildPipeline.
+        // exactly as they swap the others — no special seam in ConfigurePipeline.
         services.AddSingleton<SendStep<Context>>(sp => new DaprTopicPublisher<Context>(
             sp.GetRequiredService<DaprClient>(),
             Constants.PubSubName,
@@ -117,57 +111,50 @@ public static class Composition
             new Uri(Constants.EventSource),
             Constants.EventType));
 
-        // Register the pipeline and runner last, after every adapter, publisher,
-        // and platform client it resolves from DI has been added to the service collection.
-        AddExtractPipeline(services);
-        services.AddSingleton<Sweep>();
-
-        // The framework's run-to-completion host owns the Dapr sidecar lifecycle,
-        // tracing, and exit-code mapping; ExtractJob adapts the sweep to it. JobName
-        // names the trace activity so this job is distinguishable in telemetry.
-        // AddRunToCompletionJob self-registers TJob (TryAddSingleton), so a component
-        // registration here would only be needed to override the lifetime/construction.
-        services.AddRunToCompletionJob<ExtractJob>(options => options.JobName = Constants.ComponentName);
+        // Register the extractor last, after every adapter, publisher, and platform
+        // client its pipeline resolves from DI has been added to the service collection.
+        // The framework sweeps the source port once per run: each file gets a fresh
+        // context (holding its file name) and its own pipeline, and is deleted once it
+        // has been published or cancelled as a duplicate. A file that cannot be read or
+        // processed stays for the next run. The run-to-completion host owns the Dapr
+        // sidecar lifecycle, tracing, and exit codes; the job is named after the component.
+        services.AddExtractor<Source{{ .payloadType }}, {{ .payloadType }}, Context>(
+            ConfigurePipeline,
+            (metadata, isRetry) => new Context(metadata, isRetry));
 
         return services;
     }
 
-    /// <summary>The single composition entrypoint for the pipeline: registers
-    /// <see cref="BuildPipeline"/> as the pipeline factory. The explicit lambda
-    /// matters — a method group (<c>AddSingleton(BuildPipeline)</c>) compiles but
-    /// registers a signature DI cannot resolve for <c>Extractor&lt;,,&gt;</c>.</summary>
-    private static void AddExtractPipeline(IServiceCollection services) =>
-        services.AddSingleton(provider => BuildPipeline(provider));
-
     /// <summary>
-    /// Builds the extract pipeline against the DI graph. Every external dependency —
-    /// source adapter, sender, idempotency, business incidents — resolves from
-    /// the provider, so a test swaps any of them by swapping its registration.
+    /// Configures the extract pipeline against the DI graph. Every external dependency —
+    /// sender, idempotency, business incidents — resolves from the provider, so a test
+    /// swaps any of them by swapping its registration.
     /// </summary>
-    public static Extractor<Source{{ .contract }}, {{ .contract }}, Context> BuildPipeline(IServiceProvider provider)
+    public static ExtractorBuilder<Source{{ .payloadType }}, {{ .payloadType }}, Context> ConfigurePipeline(
+        ExtractorBuilder<Source{{ .payloadType }}, {{ .payloadType }}, Context> builder, IServiceProvider provider)
     {
-        return ExtractorBuilder<Source{{ .contract }}, {{ .contract }}, Context>.Create("{{ .name }}.Process", provider)
+        return builder
             .WithDeserializer(new Deserializer())
             .WithValidator(new Validator())
             // Point the idempotency check at a stable business identifier and
             // timestamp — per-delivery values (fresh GUID, wall-clock time)
             // make the check pass everything.
             .WithIdempotency(
-                idExtractor: (Source{{ .contract }} order, Context _) =>
+                idExtractor: (Source{{ .payloadType }} order, Context _) =>
 {{- if .empty }}
                     throw new NotImplementedException(),
                 dateExtractor: (_, _) =>
                     throw new NotImplementedException())
 {{- else }}
                     order.OrderId,
-                dateExtractor: (Source{{ .contract }} order, Context _) =>
+                dateExtractor: (Source{{ .payloadType }} order, Context _) =>
                     order.OrderDate)
 {{- end }}
             .WithTransformer(new Transformer())
             // The framework's serialize step owns the CloudEvent envelope (Id,
             // Subject, Time, Data) and validates Subject/Time at serialize time;
             // the publisher adds Source/Type from the registration above.
-            .WithSerializer(new CloudEventSerializeStep<{{ .contract }}, Context>(
+            .WithSerializer(new CloudEventSerializeStep<{{ .payloadType }}, Context>(
 {{- if .empty }}
                 subject: _ => throw new NotImplementedException(),
                 time: _ => throw new NotImplementedException()))
@@ -182,7 +169,6 @@ public static class Composition
                 messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
                     ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")),
                 subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
-                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")))
-            .Build();
+                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")));
     }
 }

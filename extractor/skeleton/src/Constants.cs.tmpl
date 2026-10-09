@@ -1,3 +1,5 @@
+using Intropy.Framework.Blocks.Shared;
+
 namespace {{ .name }};
 
 public static class Constants
@@ -6,32 +8,29 @@ public static class Constants
     public const string Organization = "{{ .organization }}";
 
     public const string PubSubName = "pubsub";
-    public const string TopicName = "{{ .topic }}";
+    public const string TopicName = "{{ .channel }}";
 
     // The source port: the named interface this component reads the outside
     // world through. The name is the port's whole identity — declared in the
-    // system host's Ports.cs, resolved per environment by the deployment.
+    // system host's Ports.cs, it is also the Dapr binding component's name and
+    // the key of the file adapter registered for it. The name never changes
+    // between environments; the environment swaps the binding's type (local
+    // folder, SFTP, …) behind it.
     public const string SourcePort = "{{ .port }}";
 
-    // The Dapr binding component name is the port name. The name never changes
-    // between environments — the environment swaps the binding's type (local
-    // folder, SFTP, …) behind it.
-    public const string InboundBindingName = SourcePort;
-
-    public const string SourceFileAdapterKey = "source";
-
     // CloudEvent envelope: where the data came from and what kind of event it is.
+    // The type is the message name — message identity is the CloudEvents
+    // type (D1), so there is exactly one place the event is named. Never
+    // derived from the topic name, and never overridable: a second way to
+    // name the event would be a second identity.
 {{- if .eventSource }}
     public const string EventSource = "{{ .eventSource }}";
 {{- else }}
     public const string EventSource = "{{ .eventSourceValue }}";
 {{- end }}
-{{- if .eventType }}
-    public const string EventType = "{{ .eventType }}";
-{{- else }}
-    public const string EventType = "{{ .eventTypeValue }}";
-{{- end }}
+    public const string EventType = "{{ .publishes }}";
 
-    public const string ContextKeyFileName = "file_name";
+    // Set by the framework on every source file's context before the pipeline runs.
+    public const string ContextKeyFileName = SourceContextKeys.FileName;
     public const string ContextKeyOrderId = "order_id";
 }

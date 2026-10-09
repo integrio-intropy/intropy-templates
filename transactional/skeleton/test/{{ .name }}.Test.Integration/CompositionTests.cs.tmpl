@@ -1,6 +1,6 @@
 using {{ .name }}.Configuration;
 using Intropy.Framework.Adapters.File;
-using Intropy.Framework.Hosting.TransactionalIntegration.Job;
+using Intropy.Framework.Hosting.Jobs;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace {{ .name }}.Test.Integration;
@@ -13,11 +13,11 @@ namespace {{ .name }}.Test.Integration;
 public class CompositionTests
 {
     [Fact]
-    public void Composition_ResolvesTransactionalIntegrationRunner()
+    public void Composition_ResolvesJobRunner()
     {
-        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+        var provider = Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
 
-        var runner = provider.GetRequiredService<TransactionalIntegrationRunner>();
+        var runner = provider.GetRequiredService<JobRunner>();
 
         Assert.NotNull(runner);
     }
@@ -25,10 +25,10 @@ public class CompositionTests
     [Fact]
     public void Composition_ResolvesBothFileAdaptersUnderTheirKeys()
     {
-        var provider = Composition.ConfigureServices(new ServiceCollection()).BuildServiceProvider();
+        var provider = Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
 
-        var source = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourceFileAdapterKey);
-        var destination = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationFileAdapterKey);
+        var source = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourcePort);
+        var destination = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);
 
         Assert.NotNull(source);
         Assert.NotNull(destination);

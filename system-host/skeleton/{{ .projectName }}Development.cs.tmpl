@@ -11,5 +11,10 @@ public sealed class {{ .projectName }}Development : IDevelopmentDefinition
 {{- range $c := .ports }}
         development.Files(Ports.{{ regexReplaceAll "[-._]" $c.name " " | title | replace " " "" }}).RootPath("./test/{{ $c.name }}");
 {{- end }}
+{{- range $c := .components }}
+{{- if or (eq $c.kind "extractor") (eq $c.kind "transactional-integration") }}
+        development.Rerun("{{ $c.appId }}").AfterEachRun(TimeSpan.FromSeconds(30));
+{{- end }}
+{{- end }}
     }
 }

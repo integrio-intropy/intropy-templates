@@ -1,28 +1,19 @@
-using System.Net;
-using System.Text.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
-
 namespace {{ .name }}.Test.Integration;
 
 /// <summary>
-/// Boot smoke test: the host the system will run must build and expose its
-/// Dapr surface without a sidecar. A missing registration (framework
-/// upgrade, renamed builder) fails here, not at system-host time.
+/// Boot smoke test: the host the system will run must start and serve its app callback without a
+/// sidecar. The loader composes its pipeline before it serves, so a missing
+/// registration (framework upgrade, renamed builder) fails here, not at system-host time.
 /// </summary>
 public class BootSmokeTests
 {
     [Fact]
-    public async Task Host_BuildsAndAnnouncesItsSubscription()
+    public async Task Host_StartsAndServesTheAppCallback()
     {
-        using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        await using var sut = await LoaderSut.StartAsync();
 
-        var response = await client.GetAsync("/dapr/subscribe");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        var subscription = payload.RootElement[0];
-        Assert.Equal(Constants.PubSubName, subscription.GetProperty("pubsubName").GetString());
-        Assert.Equal(Constants.TopicName, subscription.GetProperty("topic").GetString());
+        // The subscription is a declarative Dapr resource the system renders: the loader
+        // announces none of its own.
+        Assert.Empty(await sut.Sidecar.GetSubscriptionsAsync());
     }
 }

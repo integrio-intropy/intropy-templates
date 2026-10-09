@@ -1,59 +1,66 @@
-using {{ .contracts }};
 using Dapr.Client;
-using {{ .name }}.Model;
-using {{ .name }}.Process;
 using Intropy.BusinessIncidentService.Client;
 using Intropy.Framework.Adapters.File;
-using Intropy.Framework.Blocks.Loader;
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Configuration;
+using Intropy.Framework.Hosting.Loader;
+using Intropy.Framework.Hosting.Messaging;
 using Intropy.IdempotencyService.Client;
-using Intropy.Telemetry.AspNetCore;
+using Intropy.Telemetry;
+using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Sender = {{ .name }}.Process.Sender;
+using Microsoft.Extensions.Hosting;
+{{- /* The one message's pipeline namespace and payload type. */}}
+using {{ pascal .subscribes }}Route = {{ .name }}.Routes.{{ pascal .subscribes }};
+using {{ pascal .subscribes }}Payload = {{ .contracts }}.{{ pascal .subscribes }};
 
 namespace {{ .name }}.Composition;
 
 /// <summary>
-/// The component's service registrations, shared by the entrypoint
-/// (<c>Program.cs</c>) and the composition smoke test. Everything the host
-/// needs — telemetry, Dapr clients, the destination file adapter, the load
-/// pipeline — is registered here so the test can prove the whole graph
-/// builds without a sidecar.
+/// The component's host and service registrations, shared by the entrypoint
+/// (<c>Program.cs</c>) and the tests, so the tests build the exact graph the
+/// host runs. The loader is a generic-host worker: the Dapr sidecar pushes its
+/// topic's messages to the gRPC app callback it serves on APP_PORT, under the
+/// declarative Subscription the system renders from its topology. The one
+/// pipeline handles every message delivered to this component.
 /// </summary>
 public static class Composition
 {
-    /// <summary>Registers every service the loader needs.</summary>
-    public static IServiceCollection ConfigureServices(IServiceCollection services)
+    /// <summary>Creates the host builder with every service the loader needs.</summary>
+    /// <param name="args">The process arguments.</param>
+    /// <param name="environment">The environment whose appsettings overlay applies. Defaults to
+    /// DOTNET_ENVIRONMENT, or Production; tests pass Development.</param>
+    public static HostApplicationBuilder CreateHostBuilder(string[] args, string? environment = null)
     {
-        var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            Args = args,
+            EnvironmentName = environment,
+            // appsettings*.json are read from the binary directory, not the CWD: a host may
+            // launch the app from a different working directory.
+            ContentRootPath = AppContext.BaseDirectory
+        });
 
-        // Configuration: appsettings.json + environment overlay + env vars. Based on the
-        // binary directory, not the CWD — a host may launch the app from a different
-        // working directory. Built for this composition's own reads only, and
-        // deliberately NOT registered in DI: this component is a WebApplication, and
-        // replacing the host's IConfiguration breaks server port resolution —
-        // ASPNETCORE_HTTP_PORTS is ignored and the app binds localhost:5000 while
-        // the Dapr sidecar waits forever on the annotated app port.
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-            .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
-            .AddEnvironmentVariables()
-            .Build();
+        ConfigureServices(builder.Services, builder.Configuration, builder.Environment.EnvironmentName);
+        return builder;
+    }
 
-        // Register host-level platform plumbing first: diagnostics, Dapr, framework
-        // services, and shared platform clients. Keeping these together makes the
-        // ordering-sensitive DaprClient registrations obvious.
-        services.AddLogging(builder => builder.AddConsole());
-
+    /// <summary>Registers every service the loader needs.</summary>
+    public static IServiceCollection ConfigureServices(IServiceCollection services, IConfiguration configuration,
+        string environment)
+    {
+        // Strict mode exports only the framework's Intropy.* spans and the component's own
+        // (the loader's consumer span among them): the Dapr gRPC and HttpClient spans around
+        // them are dropped, while trace context still propagates. Tracing:Mode in
+        // configuration overrides it.
         services.AddOpenTelemetry(conf =>
         {
             conf.ServiceNamespace = Constants.Organization;
             conf.ServiceName = Constants.ComponentName;
             conf.Environment = environment;
+            conf.Mode = TracingMode.Strict;
         });
 
         services.AddSingleton(_ => new DaprClientBuilder().Build());
@@ -79,82 +86,50 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
-        // Bind the destination adapter implementation to the component's stable
-        // outbound port. Deployment swaps the Dapr binding behind the port name;
-        // this keyed registration is where code chooses the adapter class that can speak it.
-        services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationFileAdapterKey, (sp, _) =>
-            new LocalFileAdapter(
-                sp.GetRequiredService<DaprClient>(),
-                new FileAdapterOptions(Constants.DestinationBindingName)));
-
-        // The port name never changes between environments — deployment
-        // swaps the binding's type behind that same name, so rebinding the
-        // port is a configuration act, not a build. Today the adapter class
-        // must still match the deployed binding type (each binding speaks
-        // its own Dapr operation metadata), so a different adapter is a
-        // same-name class switch, e.g. when the production environment
-        // resolves this port to an SFTP binding:
-        //
-        // services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationFileAdapterKey, (sp, _) =>
-        //     environment == "Development"
-        //         ? (IFileAdapter)new LocalFileAdapter(
-        //             sp.GetRequiredService<DaprClient>(),
-        //             new FileAdapterOptions(Constants.DestinationBindingName))
-        //         : new SftpAdapter(
-        //             sp.GetRequiredService<DaprClient>(),
-        //             new FileAdapterOptions(Constants.DestinationBindingName)));
-        //
-        // The SFTP binding's address and credentials live in the
-        // environment's Dapr component (GitOps values), resolved out of the
-        // cluster's secret store — never hard-code them here.
+        // The destination port is the one the Sender writes through. Its file adapter is
+        // chosen by configuration: Ports:<port>:Kind selects the Dapr binding the port is
+        // deployed with (Local, Sftp or AzureBlob).
+        // appsettings.Development.json selects Local, the local folder the system host
+        // resolves each port to; a deployment sets Ports__<port>__Kind to match the binding it
+        // renders. With no Kind, startup fails naming the port. A binding's address and
+        // credentials live in the environment's Dapr component (GitOps values), resolved out of
+        // the cluster's secret store.
+        services.AddDestinationPort(Constants.DestinationPort, configuration);
 
         // The destination sender is a service like the other externals
         // (destination adapter, platform clients): tests swap it for their own
-        // SendStep<Out, Context> via RemoveAll/AddSingleton, exactly as they
-        // swap the others — no special seam in BuildPipeline.
-        services.AddSingleton<SendStep<Out, Context>>(sp =>
-            new Sender(sp.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationFileAdapterKey)));
+        // SendStep<Out, Context> registration.
+        services.AddSingleton<SendStep<{{ pascal .subscribes }}Route.Out, Context>>(sp =>
+            new {{ pascal .subscribes }}Route.Sender(
+                sp.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort)));
 
-        // Register the pipeline last, after every adapter, sender, and platform
-        // client it resolves from DI has been added to the service collection.
-        AddLoadPipeline(services);
+        // One pipeline handles every event delivered by the subscription. Add typed
+        // CloudEvent routing here only when this component needs multiple pipelines.
+        services.AddLoader<{{ pascal .subscribes }}Payload, {{ pascal .subscribes }}Route.Out>(
+            (builder, _) => builder
+                .WithDeserializer(new {{ pascal .subscribes }}Route.Deserializer())
+                .WithValidator(new {{ pascal .subscribes }}Route.Validator())
+                // Keys off CloudEvent Subject (id) and Time (date) in context metadata;
+                // the Deserializer backfills both from the payload's business identity.
+                .WithIdempotency()
+                .WithTransformer(new {{ pascal .subscribes }}Route.Transformer())
+                // The sender resolves from DI like every other external dependency.
+                .WithSenderFromServices()
+                .WithBusinessIncidents(BusinessId, BusinessId),
+            loader =>
+            {
+                // The pub/sub, topic and rules of the subscription live in the system
+                // topology, rendered from .intropy/scaffold.json; an event that reaches
+                // this loader without matching them belongs to other components, so it is
+                // acknowledged and dropped rather than dead-lettered.
+                loader.Unrouted = UnroutedPolicy.Ack;
+            });
 
         return services;
     }
 
-    /// <summary>The single composition entrypoint for the pipeline: registers
-    /// <see cref="BuildPipeline"/> as the pipeline factory. The explicit lambda
-    /// matters — a method group (<c>AddSingleton(BuildPipeline)</c>) compiles but
-    /// registers a signature DI cannot resolve for <c>Loader&lt;,,&gt;</c>.</summary>
-    private static void AddLoadPipeline(IServiceCollection services) =>
-        services.AddSingleton(provider => BuildPipeline(provider));
-
-    /// <summary>
-    /// Builds the load pipeline against the DI graph. Every external dependency —
-    /// destination adapter, sender, idempotency, business incidents — resolves
-    /// from the provider, so a test swaps any of them by swapping its
-    /// registration.
-    /// </summary>
-    public static Loader<{{ .contract }}, Out, Context> BuildPipeline(IServiceProvider provider)
-    {
-        return LoaderBuilder<{{ .contract }}, Out, Context>.Create("{{ .name }}.Process", provider)
-            .WithDeserializer(new Deserializer())
-            .WithValidator(new Validator())
-            // The loader pipeline requires idempotency. It keys off CloudEvent
-            // Subject (id) and Time (date) read from context metadata — the
-            // Deserializer backfills both from the order's business identity
-            // when the envelope lacks them. The payload hash uses the default
-            // implementation (property reflection + SHA256).
-            .WithIdempotency()
-            .WithTransformer(new Transformer())
-            // The sender resolves from DI like every other external dependency;
-            // tests swap the SendStep<Out, Context> registration.
-            .WithSender(provider.GetRequiredService<SendStep<Out, Context>>())
-            .WithBusinessIncidents(
-                messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
-                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyCloudEventSubject, "unknown")),
-                subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
-                    ctx.Metadata.GetValueOrDefault(Constants.ContextKeyCloudEventSubject, "unknown")))
-            .Build();
-    }
+    /// <summary>The business identifier a message is about, for business incidents: the id
+    /// the Deserializer stamped, else the CloudEvent subject.</summary>
+    private static string BusinessId(Context ctx) => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
+        ctx.Metadata.GetValueOrDefault(Constants.ContextKeyCloudEventSubject, "unknown"));
 }

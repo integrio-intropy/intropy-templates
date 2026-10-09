@@ -4,6 +4,7 @@
 #   intropy int create extractor -o /tmp/extractor-empty -f extractor/examples/empty.yaml --version main --no-input
 name: OrderExtractor
 organization: Fluxia
-topic: orders
+publishes: orders
+# The channel and payload type are projections of the publishes value:
+# topic 'orders', payload type 'Orders'.
 empty: true
-contract: Order

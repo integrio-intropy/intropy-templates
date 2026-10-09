@@ -1,9 +1,9 @@
-# Render fixture: migration — preserves an existing CloudEvent identity and
-# platform-service app-ids instead of accepting the derived defaults.
+# Render fixture: migration — preserves an existing CloudEvent source
+# instead of accepting the derived default. The message identity has no
+# override: `publishes` names the message, and its name IS the CloudEvents
+# type. Only the envelope source is pinnable.
 name: Extractor.Perfion
 organization: Maxbo
-topic: product-export
-contract: ExportEvent
+publishes: product-export
 eventSource: "urn:maxbo:perfion"
-eventType: "no.maxbo.product.export"
 empty: false

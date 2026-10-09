@@ -17,7 +17,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSendPipeline<In, Out, Context>("{{ .name }}.Send", (builder, provider) =>
         {
-            var destinationAdapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationFileAdapterKey);
+            var destinationAdapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);
 {{- if not .empty }}
             var idempotencyClient = provider.GetRequiredService<IIdempotencyServiceClient>();
             var incidentClient = provider.GetRequiredService<IBusinessIncidentServiceClient>();

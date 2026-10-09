@@ -1,15 +1,15 @@
 using {{ .contracts }};
-using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Payload = {{ .contracts }}.{{ pascal .subscribes }};
 
-namespace {{ .name }}.Process;
+namespace {{ .name }}.Routes.{{ pascal .subscribes }};
 
-public class Transformer : TransformStep<{{ .contract }}, Out, Context>
+public class Transformer : TransformStep<Payload, Out, Context>
 {
     public override Task<(TechnicalStepResult<Out> Result, Context Context)> ExecuteAsync(
-        {{ .contract }} input, Context context, CancellationToken ct)
+        Payload input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();
@@ -19,7 +19,7 @@ public class Transformer : TransformStep<{{ .contract }}, Out, Context>
             OrderId: input.OrderId,
             CustomerId: input.CustomerId,
             LoadedAt: DateTimeOffset.UtcNow,
-            Status: "Loaded");
+            Status: input.Status);
 
         return Task.FromResult<(TechnicalStepResult<Out>, Context)>(
             (new TechnicalStepResult<Out>.Success(output), context));

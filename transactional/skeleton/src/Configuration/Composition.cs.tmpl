@@ -1,19 +1,19 @@
 using Dapr.Client;
 using Dapr.Messaging.PublishSubscribe.Extensions;
-using {{ .name }}.Receive;
 using {{ .name }}.Send;
 {{- if not .empty }}
 using Intropy.BusinessIncidentService.Client;
 {{- end }}
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
-using Intropy.Framework.Blocks.TransactionalIntegration.Receive;
-using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
+using Intropy.Framework.Core.Common;
 using Intropy.Framework.Core.Configuration;
-using Intropy.Framework.Hosting.TransactionalIntegration.Job;
+using Intropy.Framework.Hosting.FileSweeps;
+using Intropy.Framework.Hosting.TransactionalIntegration;
 {{- if not .empty }}
 using Intropy.IdempotencyService.Client;
 {{- end }}
+using Intropy.Telemetry;
 using Intropy.Telemetry.ConsoleApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,18 +31,12 @@ namespace {{ .name }}.Configuration;
 public static class Composition
 {
     /// <summary>Registers every service the integration job needs.</summary>
-    /// <param name="receiveEnqueuerOverride">
-    /// Optional factory for the receive pipeline's enqueue step. Production
-    /// leaves this null; the integration suite substitutes
-    /// <c>FakeEnqueueStep&lt;Context&gt;</c> so the pipeline is still built by the
-    /// exact production builder chain with only the broker interaction faked.
-    /// Forwarded to <c>Receive.ServiceCollectionExtensions.AddReceivePipeline</c>.
-    /// </param>
-    public static IServiceCollection ConfigureServices(
-        IServiceCollection services,
-        Func<IServiceProvider, EnqueueStep<Context>>? receiveEnqueuerOverride = null)
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="environment">The environment whose appsettings overlay applies. Defaults to
+    /// DOTNET_ENVIRONMENT, or Production; tests pass Development.</param>
+    public static IServiceCollection ConfigureServices(IServiceCollection services, string? environment = null)
     {
-        var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+        environment ??= Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 
         // Configuration: appsettings.json + environment overlay + env vars. Based on the
         // binary directory, not the CWD — a host (or `dapr run`) may launch the app from a
@@ -61,11 +55,18 @@ public static class Composition
         // ordering-sensitive DaprClient registrations obvious.
         services.AddLogging(builder => builder.AddConsole());
 
+        // The service name is the component name, so traces identify the component through
+        // the resource's service.name. Strict mode exports only the framework's Intropy.* spans
+        // and the component's own: the Dapr gRPC and HttpClient spans around them are dropped,
+        // while trace context still propagates. Tracing:Mode in configuration overrides it.
+        // Intropy.Telemetry subscribes to no meters: add the framework's.
         services.AddOpenTelemetry(conf =>
         {
             conf.ServiceNamespace = Constants.Organization;
             conf.ServiceName = Constants.ComponentName;
             conf.Environment = environment;
+            conf.Mode = TracingMode.Strict;
+            conf.ConfigureMetrics = metrics => metrics.AddMeter(IntropyTelemetry.Meters);
         });
 
         services.AddSingleton(_ => new DaprClientBuilder().Build());
@@ -94,46 +95,28 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
-        services.AddTransactionalIntegration(options =>
-        {
-            options.DaprPubSubName = Constants.PubSubName;
-            options.DaprTopicName = Constants.TopicName;
-        });
+        // The framework owns the receive side: it sweeps the source port, publishes each
+        // file to the internal hop (carrying its context metadata and trace), and deletes
+        // it once it is on the queue. A file that cannot be read or published stays for
+        // the next run. The component supplies only the send pipeline.
+        // The hop is the one the topology mints for this component (decision 0011):
+        // internal-<app id> / hop, scoped to this component alone so two integrations
+        // under one host cannot cross wires. The framework names it by default.
+        services.AddTransactionalIntegration();
 
-        // Bind each adapter implementation to the component's stable port names.
-        // Deployment swaps the Dapr binding behind a port name; these keyed
-        // registrations are where code chooses the adapter classes that can speak them.
-        //
-        // The port names never change between environments — deployment
-        // swaps each binding's type behind that same name, so rebinding a
-        // port is a configuration act, not a build. Today the adapter class
-        // must still match the deployed binding type (each binding speaks
-        // its own Dapr operation metadata), so a different adapter is a
-        // same-name class switch, e.g. when the production environment
-        // resolves the source port to an SFTP binding:
-        //
-        // environment == "Development"
-        //     ? (IFileAdapter)new LocalFileAdapter(dapr, new FileAdapterOptions(Constants.InboundBindingName))
-        //     : new SftpAdapter(dapr, new FileAdapterOptions(Constants.InboundBindingName));
-        //
-        // A binding's address and credentials live in the environment's Dapr
-        // component (GitOps values), resolved out of the cluster's secret
-        // store — never hard-code them here.
-        services.AddKeyedSingleton<IFileAdapter>(Constants.SourceFileAdapterKey, (sp, _) =>
-            new LocalFileAdapter(
-                sp.GetRequiredService<DaprClient>(),
-                new FileAdapterOptions(Constants.InboundBindingName)));
+        // Each port is registered by its role: the source the framework sweeps, the
+        // destination the Sender writes through. Each file adapter is chosen by configuration:
+        // Ports:<port>:Kind selects the Dapr binding the port is deployed with (Local, Sftp or AzureBlob).
+        // appsettings.Development.json selects Local, the local folder the system host
+        // resolves each port to; a deployment sets Ports__<port>__Kind to match the binding it
+        // renders. With no Kind, startup fails naming the port. A binding's address and
+        // credentials live in the environment's Dapr component (GitOps values), resolved out of
+        // the cluster's secret store.
+        services.AddSourcePort(Constants.SourcePort, configuration);
+        services.AddDestinationPort(Constants.DestinationPort, configuration);
 
-        services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationFileAdapterKey, (sp, _) =>
-            new LocalFileAdapter(
-                sp.GetRequiredService<DaprClient>(),
-                new FileAdapterOptions(Constants.OutboundBindingName)));
-
-        services.AddSingleton<ISourceLister, SourceLister>();
-
-        // Register the pipelines last, after every adapter and platform service
-        // they resolve from DI has been added to the service collection.
-        services.AddReceivePipeline(receiveEnqueuerOverride);
+        // Register the send pipeline last, after every adapter and platform service
+        // it resolves from DI has been added to the service collection.
         services.AddSendPipeline();
 
         return services;

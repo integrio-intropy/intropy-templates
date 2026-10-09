@@ -11,14 +11,14 @@ production); locally the system host runs the block once at startup.
 
 - Framework: .NET 10
 - App type: Run-to-completion console job (no web endpoints; one sweep per run,
-  then exit). Hosted by the framework's `RunToCompletionRunner`, which owns the
+  then exit). Hosted by the framework's `JobRunner`, which owns the
   Dapr sidecar lifecycle, tracing, and the exit-code contract: `0` success /
   no-op / cancelled, `1` job failure (a file failed and was left in place), `2`
   infrastructure failure (sidecar unavailable).
-- Runner: the framework's `RunToCompletionRunner` (in `Intropy.Framework.Hosting`),
-  driven by `{{ .name }}.ExtractJob` — an `IRunToCompletionJob` that adapts
-  `{{ .name }}.Sweep` (the sidecar-free one-shot sweep) and reports a
-  `JobRunSummary`.
+- Runner: the framework's `JobRunner` (in `Intropy.Framework.Hosting`),
+  running the framework's extractor job (`AddExtractor`): one
+  sweep of the source port per run, each file through the pipeline, reported
+  as a `RunSummary`.
 - App id: `{{ .appId }}`
 - Source port: `{{ .port }}` — the named interface the extractor reads
   the outside world through; the system host declares it in `Ports.cs`
@@ -27,18 +27,20 @@ production); locally the system host runs the block once at startup.
   binding (e.g. SFTP) from the deploy overlay's GitOps values — rebinding
   the port is a deployment change, never a code change
 - Pub/sub component: `pubsub`
-- Topic: `{{ .topic }}` — the extractor's half of the system contract; the
-  consuming loader subscribes to the same topic
-- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ if .eventType }}{{ .eventType }}{{ else }}{{ .eventTypeValue }}{{ end }}`
+- Message: `{{ .publishes }}` — what the extractor publishes; the message name doubles
+  as the CloudEvents type. Set by `--publishes` from the resolved registry
+  message; carried in the scaffold record's scalar `publishes` value.
+- Channel: `{{ .channel }}` — the topic the message flows over (pubsub `pubsub`). It is the message name; the consuming loader subscribes to the same channel
+- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ .publishes }}` (the message name IS the type)
 - Idempotency Service: reached via Dapr service invocation, app id
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
   `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the published contract (`{{ .contract }}`, `OrderLine`) lives in the
+- Shared contracts: the published payload type (`{{ .payloadType }}`) — derived from the message name — lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
   dependency declaration; when it already exists (another component created
-  it) the scaffold leaves it untouched. `Source{{ .contract }}` (the source file shape) stays
+  it) the scaffold leaves it untouched. `Source{{ .payloadType }}` (the source file shape) stays
   local in `src/Model/`.
 
 ## Important files
@@ -51,23 +53,19 @@ production); locally the system host runs the block once at startup.
   only the app — the Dapr sidecar and components come from the deployment
   environment.
 - `src/Program.cs` - entrypoint: builds the service provider via `Composition`
-  and runs the framework `RunToCompletionRunner`.
+  and runs the framework `JobRunner`.
 - `src/Composition/Composition.cs` - every service registration (including
   the pipeline and the publish edge: the sender is a DI-registered
   `SendStep<Context>` — a `DaprTopicPublisher` in production — resolved by
-  `BuildPipeline(provider)` like any other external). The idempotency key
-  extractors (`OrderId`/`OrderDate`) are inlined in `BuildPipeline`. Note the
-  namespace/type collision: `{{ .name }}.Composition` is both namespace and
-  class, so call sites inside nested namespaces use the fully qualified
-  `Composition.Composition.BuildPipeline(...)`.
-- `src/ExtractJob.cs` - adapts `Sweep` to the framework's `IRunToCompletionJob`;
-  a thin pass-through returning the sweep's `JobRunSummary`
-  (Processed/Failed/Cancelled). `Failed > 0` drives the job-failure exit code;
-  a delete-failure-after-publish counts as `Failed` (the file stays).
-- `src/Sweep.cs` - the one-shot sweep: list inbound, run the pipeline per
-  file, delete on success. Sidecar-free on purpose: the integration suite
-  constructs it directly against the framework's testing fakes.
-- `src/Constants.cs` - component/topic names, keyed-adapter key, CloudEvent
+  `ConfigurePipeline(builder, provider)` like any other external). The
+  framework builds the pipeline in each source file's own scope, and deletes
+  the file once it is published or cancelled as a duplicate; a file that cannot
+  be read or processed stays and counts as `Failed`, which drives the
+  job-failure exit code. The idempotency key extractors (`OrderId`/`OrderDate`)
+  are inlined in `ConfigurePipeline`. Note the namespace/type collision:
+  `{{ .name }}.Composition` is both namespace and class, so call sites inside
+  nested namespaces use the fully qualified `Composition.Composition`.
+- `src/Constants.cs` - component/topic names, the source port, CloudEvent
   envelope values (root namespace — consumed by both `src` and the tests).
 - `src/Process/` - the extractor pipeline steps only (`Deserializer`,
   `Validator`, `Transformer`); serialization is the framework's
@@ -86,6 +84,13 @@ Settings live in `src/appsettings.json` (copied to the build output), overridden
 `IConfiguration` from the binary directory, registers it in DI, and reads the
 platform-service app ids from `PlatformServices:*`. Deployment overlays the file
 via ConfigMap. Components that need typed options bind them themselves.
+
+The file adapter behind each port is chosen by `Ports:{{ .port }}`: `Kind` selects the Dapr
+binding the port is deployed with (`Local`, `Sftp` or `AzureBlob`). `src/appsettings.Development.json`
+selects `Local`, the local folder the system host resolves each port to (the host runs
+every component as Development). `appsettings.json` sets no `Kind`: a deployment sets
+`Ports__<port>__Kind` to match the binding it renders, and without it the component
+fails at startup naming the port.
 
 ## Build and test
 
@@ -111,14 +116,14 @@ coverage (Cobertura report under the integration project's `TestResults/`).
 
 ## Development notes
 
-- The source `IFileAdapter` is registered as a keyed singleton
-  (`Constants.SourceFileAdapterKey`). Inject it via `[FromKeyedServices(...)]`
+- The source `IFileAdapter` is registered (from configuration, see above) as a keyed singleton under its port name
+  (`Constants.SourcePort`). Inject it via `[FromKeyedServices(...)]`
   or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
 - A failed file stays in the inbound folder and is retried on the next
   scheduled run; the idempotency check makes the retry safe. Duplicates cancel
   as a traceable no-op and the file is removed.
 - Additional enrichment steps go into the builder chain in
-  `src/Composition/Composition.cs` (`BuildPipeline`) via `.WithExtractor(...)` —
+  `src/Composition/Composition.cs` (`ConfigurePipeline`) via `.WithExtractor(...)` —
   the extractor pipeline supports any number of them, executed in order.
 {{- if .empty }}
 - The step bodies are scaffolded empty (`NotImplementedException`). The
@@ -148,7 +153,7 @@ coverage (Cobertura report under the integration project's `TestResults/`).
   Service, keyed on the order id (falling back to the source file name).
 - The framework's `CloudEventSerializeStep` builds the CloudEvent envelope and
   validates `Subject`/`Time` at serialize time (the publisher keeps its checks
-  as defense-in-depth). The component supplies both as lambdas in `BuildPipeline`.
+  as defense-in-depth). The component supplies both as lambdas in `ConfigurePipeline`.
 {{- end }}
 
 ## Framework guidance

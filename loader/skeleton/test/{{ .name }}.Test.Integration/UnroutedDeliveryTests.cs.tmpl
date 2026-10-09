@@ -1,0 +1,39 @@
+using CloudNative.CloudEvents;
+using Intropy.Framework.Testing.Delivery;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// What the loader does with a message the Dapr subscription's content filters leave out
+/// and deliver on the subscription's default route: it belongs to other components, so it
+/// is acknowledged and dropped, leaving no trace.
+/// </summary>
+public class UnroutedDeliveryTests
+{
+    [Fact]
+    public async Task DeliverUnhandledAsync_WithAnEventTheSubscriptionFilterLeftOut_LeavesNoTrace()
+    {
+        // Arrange: the Dapr subscription selected its default route, so the framework marks
+        // the message unrouted before the pipeline runs.
+        await using var sut = await LoaderSut.StartAsync();
+        var (sidecar, files, idempotency, _) = sut;
+
+        // Act
+        var ack = await sidecar.DeliverUnhandledAsync(NewDelivery("{{ .subscribes }}"));
+
+        // Assert
+        Assert.Equal(DeliveryAck.Success, ack);
+        Assert.Empty(files.Files);
+        Assert.Empty(idempotency.Committed);
+    }
+
+    private static CloudEvent NewDelivery(string type) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        Source = new Uri("urn:test:delivery"),
+        Type = type,
+        Time = DateTimeOffset.UtcNow,
+        DataContentType = "application/json",
+        Data = "{}"
+    };
+}

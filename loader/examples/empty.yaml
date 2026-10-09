@@ -5,6 +5,6 @@
 #   intropy int create loader -o /tmp/loader-empty -f loader/examples/empty.yaml --version main --no-input
 name: OrderLoader
 organization: Fluxia
-topic: orders
+routes:
+  - message: orders
 empty: true
-contract: Order

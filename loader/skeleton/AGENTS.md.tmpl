@@ -1,28 +1,25 @@
 # Agent Instructions
 
 This project is a .NET loader integration built on the Intropy framework.
-An ASP.NET service holds a Dapr subscription on a pub/sub topic; the sidecar
-POSTs each delivered message to the subscription endpoint, where it is rebuilt
-into a CloudEvent, run through the Intropy loader pipeline, and written as
-`{orderId}.json` through a Dapr destination binding.
+A generic-host worker consumes a Dapr pub/sub topic through a streaming
+subscription (the app connects to its sidecar; it serves no HTTP). Each
+message is rebuilt into a CloudEvent, run through the Intropy loader pipeline,
+and written as `{orderId}.json` through a Dapr destination binding.
 
 ## Project overview
 
 - Framework: .NET 10
-- App type: ASP.NET Dapr subscriber service (long-running; a Deployment in
-  production)
-- App port: assigned by the system host in development; 8080 in the
-  container image
-- Subscription endpoint: `POST /events/{{ .topic }}`
-  (`src/Endpoints/LoaderEndpoints.cs`), announced to the sidecar via
-  `GET /dapr/subscribe`; the ack is the response body's `status` field
-  (SUCCESS / RETRY)
-- Health endpoint: `GET /healthz`
+- App type: generic-host worker (long-running; a Deployment in production)
+- No app port and no HTTP endpoints: the framework's loader host
+  (`AddLoader`, `Intropy.Framework.Hosting`) opens a Dapr streaming
+  subscription and sends each message's ack (Success / Retry) back over it
+- Health: a pipeline that cannot be composed stops the host with exit code 1;
+  a broken subscription stream is reopened. There is no HTTP probe
 - App id: `{{ .appId }}`
 - Pub/sub component: `pubsub` — provided by the system host; messages are
   published from there
-- Topic: `{{ .topic }}` — the loader's half of the system contract; the
-  publishing extractor uses the same topic
+- Message: `{{ .subscribes }}` — the CloudEvents type the pipeline consumes; the publishing extractor uses the same message identity
+- Topic: `{{ .channel }}`; the topic and the subscription's messages and filters are the `topic` and `routes` in `.intropy/scaffold.json`, rendered by the system host as the component's Dapr Subscription. The code names neither the pub/sub nor the topic: the loader takes what the Subscription delivers
 - Destination port: `{{ .port }}` — the named interface the loader
   writes the outside world through; the system host declares it in
   `Ports.cs` and the Dapr binding uses the same name, resolved to a local
@@ -33,7 +30,7 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
 - Business Incident Service: reached via Dapr service invocation, app id
   `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the consumed contract (`{{ .contract }}`, `OrderLine`) lives in the
+- Shared contracts: the consumed payload type (`{{ .payloadType }}`) — derived from the message name — lives in the
   sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
   from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
   dependency declaration; when it already exists (another component created
@@ -44,43 +41,49 @@ into a CloudEvent, run through the Intropy loader pipeline, and written as
 
 - `Taskfile.yml` - build and test tasks (`task build`, `task test`; the
   suites also run separately via `task test:unit` / `task test:integration`).
-- `Dockerfile` - multi-stage image build on the chiseled ASP.NET runtime,
-  listening on port 8080 in the container
-  (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
+- `Dockerfile` - multi-stage image build on the chiseled ASP.NET Core
+  runtime, which the framework's hosting package needs; the app listens on no
+  port (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
   the shared contracts sibling enters as a named context); the image contains
   only the app — the Dapr sidecar and components come from the deployment
   environment.
-- `src/Program.cs` - host bootstrap: applies the service registrations from
-  `Composition` and maps the endpoints (subscription, `/dapr/subscribe`,
-  `/healthz`).
-- `src/Composition/Composition.cs` - every service registration (including
-  the pipeline and the load edge: the sender is a DI-registered
-  `SendStep<Out, Context>` resolved by `BuildPipeline(provider)` like any
-  other external). Note the namespace/type collision: `{{ .name }}.Composition`
-  is both namespace and class, so call sites inside nested namespaces use the
-  fully qualified `Composition.Composition.BuildPipeline(...)`.
-- `src/Endpoints/LoaderEndpoints.cs` - the subscription endpoint: the envelope
-  → CloudEvent rebuild and the pipeline-result → ack mapping.
-- `src/Constants.cs` - component/topic/binding names, the subscription route,
-  keyed-adapter key, and the CloudEvent context keys the idempotency step
+- `src/Program.cs` - host bootstrap: builds the host from
+  `Composition.CreateHostBuilder` and runs it until SIGTERM.
+- `src/Composition/Composition.cs` - the host builder and every service
+  registration, ending in the single-pipeline `AddLoader` overload and its
+  unrouted policy. The sender is a DI-registered
+  `SendStep<Out, Context>` resolved by `WithSenderFromServices()` like any other
+  external. Note the namespace/type collision: `{{ .name }}.Composition` is both
+  namespace and class, so call sites inside nested namespaces use the fully
+  qualified `Composition.Composition.CreateHostBuilder(...)`.
+- `src/Constants.cs` - the component name, the destination port, and the
+  CloudEvent context keys the idempotency step
   reads (root namespace — consumed by both `src` and the tests).
-- `src/Process/` - the loader pipeline steps only (`Deserializer`,
-  `Validator`, `Transformer`, `Sender`). All DI and `LoaderBuilder` wiring
-  lives in `src/Composition/`.
+- `src/Routes/{{ pascal .subscribes }}/` - the loader's typed pipeline steps
+  (`Deserializer`, `Validator`, `Transformer`, `Sender`) and message identity.
+  All DI and `AddLoader` wiring lives in `src/Composition/`.
 - `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (pure xUnit; no
   fakes except the Sender's `IFileAdapter` seam via NSubstitute, no Dapr;
   `task test:unit`).
 - `test/{{ .name }}.Test.Integration/` - delivery, boot-smoke, and
-  composition tests against `Intropy.Framework.Testing` fakes
-  (`task test:integration`; `task coverage` reports branch coverage).
+  composition tests against `Intropy.Framework.Testing` fakes, sharing the
+  `LoaderSut` host fixture (`task test:integration`; `task coverage` reports
+  branch coverage).
 
 ## Configuration
 
 Settings live in `src/appsettings.json` (copied to the build output), overridden by
-`appsettings.{Environment}.json` and environment variables — `Composition` builds
-`IConfiguration` from the binary directory, registers it in DI, and reads the
+`appsettings.{Environment}.json` and environment variables — the generic host reads
+them from the binary directory (its content root) and `Composition` reads the
 platform-service app ids from `PlatformServices:*`. Deployment overlays the file
 via ConfigMap. Components that need typed options bind them themselves.
+
+The file adapter behind each port is chosen by `Ports:{{ .port }}`: `Kind` selects the Dapr
+binding the port is deployed with (`Local`, `Sftp` or `AzureBlob`). `src/appsettings.Development.json`
+selects `Local`, the local folder the system host resolves each port to (the host runs
+every component as Development). `appsettings.json` sets no `Kind`: a deployment sets
+`Ports__<port>__Kind` to match the binding it renders, and without it the component
+fails at startup naming the port.
 
 ## Build and test
 
@@ -96,36 +99,34 @@ task test
 
 `task test` runs both test projects (`task test:unit` / `task test:integration`
 run them separately): the unit suite pins each pipeline step's own contract;
-the integration suite boots the real host (`WebApplicationFactory<Program>`)
-with only the externals faked (`InMemoryFileAdapter` at the keyed destination
-seam, `FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` —
-from `Intropy.Framework.Testing`), delivers CloudEvents to the subscription
-route exactly as a sidecar would (`DaprDelivery.DeliverAsync`), and asserts
+the integration suite starts the real host (`LoaderSut`, built from
+`Composition.CreateHostBuilder`) with only the externals faked
+(`InMemoryFileAdapter` at the keyed destination seam,
+`FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` — from
+`Intropy.Framework.Testing`), delivers CloudEvents over the loader's
+subscription exactly as the sidecar would (`FakeStreamingSubscriber`), and asserts
 on fake state and the delivery ack. `task coverage` runs the integration
 suite with branch coverage (Cobertura report under the integration project's
 `TestResults/`).
 
 ## Development notes
 
-- The destination `IFileAdapter` is registered as a keyed singleton
-  (`Constants.DestinationFileAdapterKey`). Inject it via
+- The destination `IFileAdapter` is registered (from configuration, see above) as a keyed singleton under its port name
+  (`Constants.DestinationPort`). Inject it via
   `[FromKeyedServices(...)]` or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
 - Loader idempotency keys off CloudEvent `Subject` (id) and `Time` (date),
   read from the context keys `cloudevent.subject` / `cloudevent.time`
   (constants in `Constants.cs`, mirroring the framework's internal keys —
   there are no id/date extractor lambdas to configure).
-- Ack mapping (`LoaderEndpoints`): success, an idempotent duplicate, and a
-  routed business incident all ack with `status: SUCCESS` (redelivering a
-  validation failure would loop forever); technical failures return
-  `status: RETRY` and the sidecar redelivers. Note the pipeline finalizer
-  reports a routed business failure as `Success` with a null value — which is
-  why the handler matches `Success { Value: not null }` for the loaded case.
-- Redelivery detection: HTTP delivery has no counterpart to the streaming
-  API's `retrycount` extension, so the pipeline context's `IsRetry` is always
-  false — a routed business incident is not auto-resolved by a later
-  successful redelivery.
+- Ack mapping (framework-owned): success, an idempotent duplicate, and a
+  routed business incident all ack Success (redelivering a validation failure
+  would loop forever); technical failures and interrupted messages ack Retry
+  and the sidecar redelivers.
+- Redelivery detection: the sidecar marks redeliveries (`retrycount`), which
+  reach the pipeline context as `IsRetry` — a successful redelivery resolves
+  the business incident an earlier delivery routed.
 - Additional extraction steps go into the builder chain in
-  `src/Composition/Composition.cs` (`BuildPipeline`) via `.WithExtractor(...)` —
+  `src/Composition/Composition.cs` (the `AddLoader` builder chain) via `.WithExtractor(...)` —
   the loader pipeline supports any number of them, executed in order after
   deserialization.
 {{- if .empty }}

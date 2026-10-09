@@ -1,10 +1,10 @@
 using {{ .contracts }};
-using {{ .name }}.Process;
-using {{ .name }}.Model;
+using {{ .name }}.Routes.{{ pascal .subscribes }};
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+using Payload = {{ .contracts }}.{{ pascal .subscribes }};
 
-namespace {{ .name }}.Test.Unit.Process;
+namespace {{ .name }}.Test.Unit.Routes.{{ pascal .subscribes }};
 
 public class TransformerTests
 {
@@ -19,7 +19,7 @@ public class TransformerTests
     {
         // Arrange
         var transformer = new Transformer();
-        var input = new {{ .contract }}();
+        var input = new Payload();
 
         // Act
         var (result, _) = await transformer.ExecuteAsync(input, new Context(new Dictionary<string, string>()), CancellationToken.None);
@@ -33,9 +33,10 @@ public class TransformerTests
     {
         // Arrange
         var transformer = new Transformer();
-        var order = new {{ .contract }}(
+        var order = new Payload(
             OrderId: "ORD-1001",
             CustomerId: "CUST-42",
+            Status: "Pending",
             OrderDate: new DateTimeOffset(2026, 1, 15, 9, 30, 0, TimeSpan.Zero),
             Lines: [new OrderLine("SKU-1", 2, 10.0m)]);
         var before = DateTimeOffset.UtcNow;
@@ -47,7 +48,7 @@ public class TransformerTests
         var success = Assert.IsType<TechnicalStepResult<Out>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Equal("CUST-42", success.Value.CustomerId);
-        Assert.Equal("Loaded", success.Value.Status);
+        Assert.Equal("Pending", success.Value.Status);
         Assert.InRange(success.Value.LoadedAt, before, DateTimeOffset.UtcNow);
     }
 {{- end }}

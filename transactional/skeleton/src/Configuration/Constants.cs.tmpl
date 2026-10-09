@@ -1,3 +1,5 @@
+using Intropy.Framework.Blocks.Shared;
+
 namespace {{ .name }}.Configuration;
 
 public static class Constants
@@ -5,32 +7,18 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    // The component-owned internal hop: receive publishes each source file
-    // here for the send side to process. The names mirror what the topology
-    // mints for this component (decision 0011): the pubsub component is
-    // generated as internal-<component>, scoped to this component alone, so
-    // two integrations under one host cannot cross wires and the hop stays
-    // invisible to the system topology.
-    public const string PubSubName = "internal-{{ .name | kebabcase | replace "." "-" }}";
-    public const string TopicName = "hop";
-
     // The From/To ports: the named interfaces this component reads and
     // writes the outside world through. The name is each port's whole
-    // identity — declared in the system host's Ports.cs, resolved per
-    // environment by the deployment.
+    // identity — declared in the system host's Ports.cs, it is also the Dapr
+    // binding component's name and the key of the file adapter registered for
+    // it. The names never change between environments; the environment swaps
+    // each binding's type (local folder, SFTP, …) behind its name.
     public const string SourcePort = "{{ .fromPort }}";
     public const string DestinationPort = "{{ .toPort }}";
 
-    // The Dapr binding component names are the port names. The names never
-    // change between environments — the environment swaps each binding's type
-    // (local folder, SFTP, …) behind its name.
-    public const string InboundBindingName = SourcePort;
-    public const string OutboundBindingName = DestinationPort;
-
-    public const string SourceFileAdapterKey = "source";
-    public const string DestinationFileAdapterKey = "destination";
-
-    public const string ContextKeyFileName = "file_name";
+    // Set by the framework on every source file's context before the receive
+    // pipeline runs, and propagated with the message to the send side.
+    public const string ContextKeyFileName = SourceContextKeys.FileName;
     public const string ContextKeyOrderId = "order_id";
     public const string ContextKeyProcessedAt = "processed_at";
 }

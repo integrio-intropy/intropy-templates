@@ -1,4 +1,5 @@
-namespace {{ .name }}.Model;
+// The destination system's record for this subscribed message.
+namespace {{ .name }}.Routes.{{ pascal .subscribes }};
 
 {{- if .empty }}
 
