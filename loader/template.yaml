@@ -96,6 +96,11 @@ spec:
     # The topic the loader consumes: the topic parameter, else the subscribed
     # message name. One derivation, so every file that names the channel agrees.
     channel: '{{ get . "topic" | default (index .routes 0).message }}'
+    # What the subscription does with events no route takes: ignore, because
+    # Composition acknowledges them (UnroutedPolicy.Ack). Recorded so every
+    # CLI renders the topology the code implements; a CLI reading no value
+    # assumes dead-letter.
+    default: 'ignore'
     # The loader's destination port — the named interface it writes the
     # outside world through. Derived like appId so it stays unique per
     # component. Recorded in .intropy/scaffold.json; `intropy sys create`
