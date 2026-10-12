@@ -51,10 +51,15 @@ public sealed class FakeEdges
     }
 
     /// <summary>
-    /// Resolves the pipeline exactly as the framework does for each source file: in a
-    /// fresh scope. <see cref="Topic"/> is already in the DI graph via
-    /// <see cref="CreateServices"/>, so there is nothing left to override.
+    /// Builds the source port's pipeline exactly as the framework does for each of its
+    /// files: in a fresh scope, for the port. <see cref="Topic"/> is already in the DI
+    /// graph via <see cref="CreateServices"/>, so there is nothing left to override.
     /// </summary>
-    public static Extractor<Source{{ .payloadType }}, {{ .payloadType }}, Context> ResolvePipeline(IServiceProvider provider) =>
-        provider.CreateScope().ServiceProvider.GetRequiredService<Extractor<Source{{ .payloadType }}, {{ .payloadType }}, Context>>();
+    public static Extractor<Source{{ .payloadType }}, {{ .payloadType }}, Context> ResolvePipeline(IServiceProvider provider)
+    {
+        var scope = provider.CreateScope().ServiceProvider;
+        var builder = ExtractorBuilder<Source{{ .payloadType }}, {{ .payloadType }}, Context>.Create(
+            $"{Constants.ComponentName}.Process.{Constants.SourcePort}", scope, Constants.SourcePort);
+        return Composition.Composition.ConfigurePipeline(builder, scope).Build();
+    }
 }

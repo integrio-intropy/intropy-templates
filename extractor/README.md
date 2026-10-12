@@ -17,8 +17,9 @@ runtime, and an `AGENTS.md` describing the component to coding agents. The
 component is hosted by the framework's `JobRunner` (in
 `Intropy.Framework.Hosting`) — sidecar lifecycle, tracing, and the 0/1/2
 exit-code contract — running the framework's extractor job
-(`AddExtractor`: list inbound, pipeline per file, delete on
-success), which the integration suite resolves from the real DI graph. The sender is a
+(`AddExtractor` with sources and routes: list each source port, run each
+file through its port's pipeline, delete on success), which the integration
+suite builds from the real DI graph. The sender is a
 DI-registered `SendStep<Context>` (a `DaprTopicPublisher` in production),
 swapped in tests like any other external.
 
@@ -31,7 +32,7 @@ the two platform-service clients swapped the same way, and
 `PublishedMessageCapture` for the single NSubstitute `DaprClient` seam (the
 test re-registers the production `DaprTopicPublisher` against the substituted
 client). The pipeline is always built exactly as production composition does —
-resolved from a DI scope, configured by `Composition.ConfigurePipeline` — with
+for the source port, in a DI scope, configured by `Composition.ConfigurePipeline` — with
 every edge resolved from DI. No sidecar, no Testcontainers.
 
 Components do not run standalone: the extractor runs via its system host,
