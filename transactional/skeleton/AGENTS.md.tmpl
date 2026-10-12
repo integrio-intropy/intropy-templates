@@ -108,7 +108,8 @@ with branch coverage (Cobertura report under the integration project's
   (`Ports.cs` and a `From` call), `Ports:<port>:Kind` in
   `appsettings.Development.json`, its file adapter, `.Port(...)` in the sources,
   and an `.On<TIn, TOut>(m => m.Port(...), ...)` route with its own send steps in
-  `src/Configuration/Composition.cs`. Idempotency ids are per route: include the
+  `src/Configuration/Composition.cs`; the integration tests fake its adapter in
+  `FakeEdges` like the scaffolded port's. Idempotency ids are per route: include the
   port (`SourceContextKeys.SourcePort` in the context) when two routes can
   produce the same id.
 - The send pipeline's `SendStep` is a `BusinessStep`, so a fault at the
