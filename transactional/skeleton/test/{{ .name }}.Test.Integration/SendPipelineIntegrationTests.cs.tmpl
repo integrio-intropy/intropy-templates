@@ -15,7 +15,7 @@ namespace {{ .name }}.Test.Integration;
 
 /// <summary>
 /// The full send pipeline (deserialize → idempotency → extract → validate →
-/// transform → serialize → send), resolved from the real DI graph with only
+/// transform → serialize → send), built from the real DI graph with only
 /// the externals faked (see <see cref="FakeEdges"/>). These tests pin the send
 /// pipeline's consumption contract: a valid message is written and committed;
 /// a duplicate is consumed without rewriting or recommitting; a validation
@@ -45,7 +45,7 @@ public class SendPipelineIntegrationTests
         // Arrange
         var edges = new FakeEdges();
         var provider = edges.CreateServices().BuildServiceProvider();
-        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+        var pipeline = FakeEdges.ResolveSendPipeline(provider);
 
         // Act
         var (result, _) = await pipeline.Execute(
@@ -65,7 +65,7 @@ public class SendPipelineIntegrationTests
         // Arrange
         var edges = new FakeEdges();
         var provider = edges.CreateServices().BuildServiceProvider();
-        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+        var pipeline = FakeEdges.ResolveSendPipeline(provider);
 
         // Act
         var (result, _) = await pipeline.Execute(
@@ -84,7 +84,7 @@ public class SendPipelineIntegrationTests
         var edges = new FakeEdges();
         edges.Idempotency.NextStatus = new StatusResponse(Action.Ignore, Reason.SameData);
         var provider = edges.CreateServices().BuildServiceProvider();
-        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+        var pipeline = FakeEdges.ResolveSendPipeline(provider);
 
         // Act
         var (result, _) = await pipeline.Execute(
@@ -106,7 +106,7 @@ public class SendPipelineIntegrationTests
         // as seen-before).
         var edges = new FakeEdges();
         var provider = edges.CreateServices().BuildServiceProvider();
-        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+        var pipeline = FakeEdges.ResolveSendPipeline(provider);
         const string noLines =
             """{"orderId":"ORD-1001","customerId":"CUST-42","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
 
@@ -131,7 +131,7 @@ public class SendPipelineIntegrationTests
         var edges = new FakeEdges();
         edges.DestinationFiles.WriteException = new InvalidOperationException("Destination unreachable");
         var provider = edges.CreateServices().BuildServiceProvider();
-        var pipeline = provider.GetRequiredService<ISendPipeline<Context>>();
+        var pipeline = FakeEdges.ResolveSendPipeline(provider);
 
         // Act
         var (result, _) = await pipeline.Execute(

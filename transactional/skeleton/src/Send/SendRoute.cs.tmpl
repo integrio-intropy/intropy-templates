@@ -1,0 +1,57 @@
+using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+{{- if not .empty }}
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Contracts.IdempotencyService;
+{{- end }}
+using Intropy.Framework.Adapters.File;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Blocks.TransactionalIntegration.Send;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ .name }}.Send;
+
+/// <summary>
+/// The send route of the <see cref="Constants.SourcePort"/> files: the send pipeline each of
+/// their messages goes through. The framework builds it in each message's own scope, so every
+/// external dependency resolves from the provider and a test swaps any of them by swapping its
+/// registration.
+/// </summary>
+public static class SendRoute
+{
+    /// <summary>Configures the route's send pipeline against the DI graph.</summary>
+    public static SendPipelineBuilder<In, Out, Context> Configure(
+        SendPipelineBuilder<In, Out, Context> builder, IServiceProvider provider)
+    {
+        var destinationAdapter = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);
+{{- if not .empty }}
+        var idempotencyClient = provider.GetRequiredService<IIdempotencyServiceClient>();
+        var incidentClient = provider.GetRequiredService<IBusinessIncidentServiceClient>();
+
+        return builder
+            .WithDeserializer(new Deserializer())
+            .WithIdempotency(
+                idempotencyClient,
+                idExtractor: (order, _) => order.OrderId,
+                dateExtractor: (order, _) => order.OrderDate)
+            .WithExtractor(new Extractor())
+            .WithValidator(new Validator())
+            .WithTransformer(new Transformer())
+            .WithSerializer(new Serializer())
+            .WithSender(new Sender(destinationAdapter))
+            .WithBusinessIncidents(
+                incidentClient,
+                messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId, "unknown"),
+                subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId, "unknown"));
+{{- else }}
+
+        return builder
+            .WithDeserializer(new Deserializer())
+            .WithExtractor(new Extractor())
+            .WithValidator(new Validator())
+            .WithTransformer(new Transformer())
+            .WithSerializer(new Serializer())
+            .WithSender(new Sender(destinationAdapter));
+{{- end }}
+    }
+}

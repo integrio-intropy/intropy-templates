@@ -44,11 +44,13 @@ writes the transformed result to a second file binding.
   and runs the `JobRunner`.
 - `src/Configuration/Composition.cs` - every service registration, shared by
   the entrypoint and the composition smoke test. `AddTransactionalIntegration`
-  registers the whole receive side: the framework sweeps the source port
-  (`SourcePort`), publishes each file to the internal hop, and deletes it
-  once it is on the queue. There is no receive-side component code.
+  registers the whole receive side: the framework sweeps the sources (the
+  `SourcePort`), publishes each file to the internal hop, and deletes it
+  once it is on the queue. There is no receive-side component code. Its
+  routes send each port's messages through their send pipeline
+  (`src/Send/SendRoute.cs`).
 - `src/Configuration/Constants.cs` - component names, the source and destination ports, context metadata keys.
-- `src/Send/` - the VETER send pipeline steps.
+- `src/Send/` - the VETER send pipeline steps and `SendRoute`, which composes them.
 - `test/{{ .name }}.Test.Unit/` - pipeline-step unit tests (pure xUnit; the only
   fakes are NSubstitute at the Sender's `IFileAdapter` constructor seam;
   `task test:unit`).
@@ -100,6 +102,16 @@ with branch coverage (Cobertura report under the integration project's
 - Source and destination `IFileAdapter` instances are registered (from configuration, see above) as keyed singletons under their port names
   (`Constants.SourcePort`, `Constants.DestinationPort`). Inject them
   via `[FromKeyedServices(...)]` or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
+- The integration is registered with sources (the ports it sweeps) and routes
+  (the send pipeline each port's messages go through); the scaffold has one of
+  each. A source carrying other data needs: the port in the system host
+  (`Ports.cs` and a `From` call), `Ports:<port>:Kind` in
+  `appsettings.Development.json`, its file adapter, `.Port(...)` in the sources,
+  and an `.On<TIn, TOut>([port], ...)` route with its own send steps in
+  `src/Configuration/Composition.cs`; the integration tests fake its adapter in
+  `FakeEdges` like the scaffolded port's. Idempotency ids are per route: include the
+  port (`SourceContextKeys.SourcePort` in the context) when two routes can
+  produce the same id.
 - The send pipeline's `SendStep` is a `BusinessStep`, so a fault at the
   destination adapter surfaces as a business failure with an incident routed —
   not a technical failure the broker retries. The integration suite pins it.
@@ -111,7 +123,7 @@ with branch coverage (Cobertura report under the integration project's
 - The pipelines are scaffolded without idempotency or business-incident wiring.
   When you implement the step bodies, also add `.WithIdempotency(client, idExtractor,
   dateExtractor)` and `.WithBusinessIncidents(client, messageIdExtractor, subjectExtractor)`
-  to the send pipeline builder in `Send/ServiceCollectionExtensions.cs`, register the clients in
+  to the send pipeline builder in `Send/SendRoute.cs`, register the clients in
   `Configuration/Composition.cs` with `services.AddIdempotencyServiceClient()` and
   `services.AddBusinessIncidentServiceClient()`, and pick a stable business identifier
   and business timestamp for the idempotency extractors.
