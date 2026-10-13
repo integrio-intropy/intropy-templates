@@ -123,7 +123,7 @@ public static class Composition
         services.AddTransactionalIntegration(
             new TransactionalIntegrationDefinition<Context>(),
             sources => sources.Port(Constants.SourcePort),
-            routes => routes.On<In, Out>(m => m.Port(Constants.SourcePort), SendRoute.Configure));
+            routes => routes.On<In, Out>([Constants.SourcePort], SendRoute.Configure));
 
         return services;
     }

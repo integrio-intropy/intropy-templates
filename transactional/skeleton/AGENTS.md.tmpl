@@ -107,7 +107,7 @@ with branch coverage (Cobertura report under the integration project's
   each. A source carrying other data needs: the port in the system host
   (`Ports.cs` and a `From` call), `Ports:<port>:Kind` in
   `appsettings.Development.json`, its file adapter, `.Port(...)` in the sources,
-  and an `.On<TIn, TOut>(m => m.Port(...), ...)` route with its own send steps in
+  and an `.On<TIn, TOut>([port], ...)` route with its own send steps in
   `src/Configuration/Composition.cs`; the integration tests fake its adapter in
   `FakeEdges` like the scaffolded port's. Idempotency ids are per route: include the
   port (`SourceContextKeys.SourcePort` in the context) when two routes can
