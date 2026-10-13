@@ -29,6 +29,17 @@ namespace {{ .name }}.Composition;
 /// </summary>
 public static class Composition
 {
+    /// <summary>
+    /// The system's pub/sub, <c>&lt;system&gt;-pubsub</c>: the component the message
+    /// travels on, named after the system the component runs in. The framework reads
+    /// the system from <c>INTROPY_SYSTEM_NAME</c>, which the system host and the
+    /// deployment set; the component's code does not name it.
+    /// </summary>
+    public static string PubSubName(IServiceProvider services) =>
+        services.GetRequiredService<FrameworkOptions>().SystemPubSubName
+        ?? throw new InvalidOperationException(
+            "INTROPY_SYSTEM_NAME is not set, so the system's pub/sub is unknown: run the component under its system host, or set FrameworkOptions.SystemName.");
+
     /// <summary>Registers every service the extractor needs.</summary>
     /// <param name="services">The service collection to register into.</param>
     /// <param name="environment">The environment whose appsettings overlay applies. Defaults to
@@ -107,7 +118,7 @@ public static class Composition
         // exactly as they swap the others — no special seam in ConfigurePipeline.
         services.AddSingleton<SendStep<Context>>(sp => new DaprTopicPublisher<Context>(
             sp.GetRequiredService<DaprClient>(),
-            Constants.PubSubName,
+            PubSubName(sp),
             Constants.TopicName,
             new Uri(Constants.EventSource),
             Constants.EventType));

@@ -24,9 +24,11 @@ spec:
 {{- $appId := .appId }}
 {{- $pubsubs := dict }}
 {{- if (eq (lower (replace "-" "" .kind)) "transactionalintegration") }}
-{{- /* The internal hop's pub/sub, minted by the topology as internal-<component>
-       (decision 0011); it is not a declared topic, so the topics cannot name it. */}}
-{{- $_ := set $pubsubs (printf "internal-%s" .name) true }}
+{{- /* The internal queue's pub/sub, as the topology minted it on the component's
+       Subscription; it is not a declared topic, so the topics cannot name it. */}}
+{{- with dig "subscription" "pubsub" "" .component }}
+{{- $_ := set $pubsubs . true }}
+{{- end }}
 {{- else }}
 {{- range .topology.topics }}
 {{- if has $appId (dig "subscribers" (list) .) }}

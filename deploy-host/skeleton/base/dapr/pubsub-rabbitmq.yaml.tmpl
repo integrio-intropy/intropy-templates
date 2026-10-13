@@ -43,12 +43,17 @@ spec:
     # the message away from this queue.
     - name: enableDeadLetter
       value: "true"
-# Exactly the app-ids the topology says publish to or subscribe from this
-# broker's topics. The Component is namespace-scoped and this directory is its
-# only owner, so scopes is what limits who may use it.
+# Exactly the app-ids the topology puts on this system's pub/sub: the
+# publishers and subscribers of its topics, and every transactional
+# integration's internal queue. The Component is namespace-scoped and this
+# directory is its only owner, so scopes is what limits who may use it. A
+# pub/sub the topology names that this system does not own is another system's
+# component, rendered by that system.
 scopes:
 {{- range .topology.pubsubs }}
+{{- if eq .name $.pubsubName }}
 {{- range .appIds }}
   - {{ . }}
+{{- end }}
 {{- end }}
 {{- end }}

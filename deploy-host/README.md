@@ -8,14 +8,22 @@ Rendered once per system into `domains/<domain>/<system>/host/`.
 ## Why these objects live here
 
 A Dapr `Component` is namespace-scoped, and every integration in the
-cluster's integration namespace shares it. So exactly one ArgoCD Application may own each one. If each
-block owned a copy, N Applications would claim the same `Component/pubsub` and
+environment's namespace shares it. So exactly one ArgoCD Application may own each one. If each
+block owned a copy, N Applications would claim the same `Component` and
 whichever synced last would win — a live example of that exists in one customer
 repository today.
 
 This directory is that single owner. `scopes:` is what limits *use*: it lists
-exactly the app-ids the topology says publish to or subscribe from the broker.
-Single ownership plus scopes is the correct pair; scopes alone is not.
+exactly the app-ids the topology puts on the system's pub/sub — the publishers
+and subscribers of its topics, and every transactional integration's internal
+queue. Single ownership plus scopes is the correct pair; scopes alone is not.
+
+Several systems deploy into one environment namespace and share its broker, so
+each system owns its own pub/sub component, `<system>-pubsub`, with its own
+scopes and its own broker credentials (the `<system>-secrets` Secret). The name
+is derived from `system`, not a parameter: the topology names the system's
+channels after it, and the framework derives the same name from the
+`INTROPY_SYSTEM_NAME` the deploy-component workloads set.
 
 Its `component.yaml` declares `kind: shared`, which is how `intropy deploy` and
 `intropy deploy promote` know to refuse it — there is no image to pin.

@@ -174,7 +174,7 @@ infrastructure failure):
 //         ┌─────────────────────────────┐
 //         │ 6. Dapr topic publisher     │
 //         └─────────────────────────────┘
-//                        sends source/type envelope to pubsub / {{ .channel }}
+//                        sends source/type envelope to <system>-pubsub / {{ .channel }}
 //
 // Technical failures from any step leave the source file in place for retry.
 ```
@@ -186,7 +186,8 @@ infrastructure failure):
 4. `Transformer` maps `Source{{ .payloadType }}` → the shared `{{ .payloadType }}` contract.
 5. `CloudEventSerializeStep` (framework) wraps `{{ .payloadType }}` in a CloudEvent
    (Subject and Time are mandatory).
-6. The Dapr topic publisher sends it to `pubsub` / `{{ .channel }}`.
+6. The Dapr topic publisher sends it to the system's pub/sub, `<system>-pubsub`,
+   on `{{ .channel }}`.
 
 Every step body throws `NotImplementedException` — this project was scaffolded
 with empty bodies for a migration agent to fill in. The idempotency and
@@ -212,7 +213,7 @@ implemented — the failing tests are the to-do list.
    `Subject` = order id and `Time` = order date, validating both at serialize
    time.
 6. The Dapr topic publisher sets the envelope source/type and sends it to
-   `pubsub` / `{{ .channel }}`.
+   `<system>-pubsub` / `{{ .channel }}`.
 
 On success (or an idempotent duplicate) the source file is deleted; a failed
 file stays in the inbound folder and is retried on the next scheduled run,

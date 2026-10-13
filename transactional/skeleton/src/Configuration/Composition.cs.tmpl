@@ -115,9 +115,11 @@ public static class Composition
         // trace), and deletes it once it is on the queue. A file that cannot be read or
         // published stays for the next run. The routes say which send pipeline each
         // port's messages go through; the component supplies only those.
-        // The hop is the one the topology mints for this component (decision 0011):
-        // internal-<app id> / hop, scoped to this component alone so two integrations
-        // under one host cannot cross wires. The framework names it by default.
+        // The queue is the one the topology mints for this component: the topic
+        // internal-<app id> on the system's pub/sub, <system>-pubsub. The topic is
+        // unique per integration, so two integrations cannot receive each other's
+        // files. The framework names both by default, the pub/sub from the
+        // INTROPY_SYSTEM_NAME the host and the deployment set.
         // A port carrying other data gets its own .Port(...) and .On(...) route, with a
         // send pipeline of its own.
         services.AddTransactionalIntegration(

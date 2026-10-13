@@ -4,4 +4,3 @@
 domain: sales
 system: ordersync
 pubsub: servicebus
-pubsubName: pubsub

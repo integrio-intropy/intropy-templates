@@ -48,6 +48,11 @@ spec:
               image: {{ .imageRepo }}:{{ .imageTag }}
 {{- end }}
               env:
+                # The system the component runs in. The framework derives the
+                # system's pub/sub, <system>-pubsub, from it; it wins over a
+                # name set in code, so the deployment decides.
+                - name: INTROPY_SYSTEM_NAME
+                  value: {{ .system }}
                 # The in-cluster collector in every environment, local
                 # included: Tempo in the monitoring namespace, OTLP/gRPC on
                 # 4317.

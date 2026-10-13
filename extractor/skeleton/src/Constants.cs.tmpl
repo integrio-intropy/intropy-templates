@@ -7,7 +7,8 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "pubsub";
+    // The channel's topic. Its pub/sub is the system's, named at run time
+    // (Composition.PubSubName): a component does not know its system.
     public const string TopicName = "{{ .channel }}";
 
     // The source port: the named interface this component reads the outside
