@@ -44,10 +44,11 @@ port-to-port block with no system message. The scaffold record
 `fromPort`/`toPort` (the two ports, `<app-id>-source` /
 `<app-id>-destination`; the Dapr binding names are the same port names) and
 `appId`/`projectName`. The
-internal pub/sub hop between the receive and send pipelines is
-component-owned: its topic (`<app-id>-in`) is unique per component and
-deliberately not recorded — invisible to the topology, so two transactional
-integrations under one host never cross wires.
+internal queue between the receive and send pipelines is
+component-owned: the topology mints it as the topic `internal-<app-id>` on the
+system's pub/sub, `<system>-pubsub`, and nothing declares it. The topic is
+unique per component, so two transactional integrations — in one system or in
+several sharing a broker — never receive each other's files.
 
 ## Parameters
 

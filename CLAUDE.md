@@ -106,7 +106,12 @@ Notes:
 - **Message wiring (message-first).** A block component's wiring is a
   message: one scalar declaration carries identity (message name, which
   doubles as the CloudEvents type). The channel is derived as pubsub/topic
-  `pubsub/<message>`, and the payload type is the PascalCase projection.
+  `<system>-pubsub/<message>`, and the payload type is the PascalCase
+  projection. The pub/sub is the system's own: systems share an environment's
+  namespace and broker, so each owns a component named after it. A component
+  template never hard-codes a pub/sub name — the component does not know its
+  system; the framework derives the name from `INTROPY_SYSTEM_NAME`, which the
+  system host and the deploy-component workloads set.
   Extractors declare `publishes`; loaders declare `subscribes`. Templates
   must not reintroduce `topic`, `contract`, nested subscribe/publishes
   blocks, registry snapshots, or compatibility fallbacks for topic-first

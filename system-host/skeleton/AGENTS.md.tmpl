@@ -10,8 +10,9 @@ declaration — an Aspire run backend and a generation backend.
 - Framework: .NET 10, Aspire AppHost
 - System name: `{{ .name }}`
 - System definition class: `{{ .systemClass }}` (the one `ISystemDefinition` in this assembly)
-- Pub/sub component: `{{ .pubsub }}` (system-independent name; the host generates
-  its backing at run time)
+- Pub/sub component: `{{ .pubsub }}` (the system's own; the host generates its
+  backing at run time, and each component reads the system name from
+  `INTROPY_SYSTEM_NAME`, which the host sets)
 - Shared contracts project: referenced from the csproj as rendered (the
   workspace's shared-library scaffold)
 

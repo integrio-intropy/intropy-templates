@@ -55,8 +55,9 @@ dead-letters it (see deploy-host). So these blocks render one more file,
 `base/resiliency.yaml`: a Dapr `Resiliency` scoped to the block's app-id that
 retries inbound deliveries, with exponential backoff, before the broker
 dead-letters the message. A loader's target is the pub/sub its topics subscribe
-through; a transactional integration's is its internal hop, `internal-<name>`
-(the name the topology mints). The block kind is folded the way the CLI folds
+through; a transactional integration's is the pub/sub its internal queue rides,
+taken from the Subscription the topology mints for it (the system's
+`<system>-pubsub`). The block kind is folded the way the CLI folds
 it, so `transactional-integration`, `transactionalIntegration` and
 `TransactionalIntegration` all match.
 
