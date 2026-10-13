@@ -125,7 +125,7 @@ public static class Composition
         services.AddExtractor(
             sources => sources.Port(Constants.SourcePort),
             routes => routes.On<Source{{ .payloadType }}, {{ .payloadType }}>(
-                m => m.Port(Constants.SourcePort), ConfigurePipeline));
+                [Constants.SourcePort], ConfigurePipeline));
 
         return services;
     }

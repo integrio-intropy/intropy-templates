@@ -123,7 +123,7 @@ coverage (Cobertura report under the integration project's `TestResults/`).
   pipeline each port's files go through); the scaffold has one of each. A port
   carrying other data needs: the port in the system host (`Ports.cs` and a `From`
   call), `Ports:<port>:Kind` in `appsettings.Development.json`, its file adapter,
-  `.Port(...)` in the sources, and an `.On<TIn, TOut>(m => m.Port(...), ...)` route
+  `.Port(...)` in the sources, and an `.On<TIn, TOut>([port], ...)` route
   with its own steps in `src/Composition/Composition.cs`; the integration tests
   fake its adapter in `FakeEdges` like the scaffolded port's. Each route's pipeline
   stamps its port on the events it publishes (`intropysourceport`) and keeps its
