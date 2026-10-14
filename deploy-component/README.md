@@ -104,7 +104,12 @@ conventional fixture server the k3s setup scripts always install —
 `/home/intropy`), `http.fixtures.svc.cluster.local:8080`
 (wiremock-style stub), `garage.fixtures.svc.cluster.local:3900`
 (S3-compatible, bucket `dev-fixtures`, pinned dev key pair) for `blob`, and
-`/data/<port>` in the component's own container for `file`. That fixture
+`/data/<port>` for `file`. A `file` port has no server: its directory is a
+`PersistentVolumeClaim`, `<port>-file`, rendered by the port's owning
+component and mounted into the sidecar of every component using the port
+(`dapr.io/volume-mounts-rw`), because the `localstorage` binding runs in
+daprd and daprd's filesystem is read-only. A claim, not an `emptyDir`, so a
+file dropped between two CronJob runs is still there for the next one. That fixture
 contract — namespace, service names, ports, credentials, the `local/` image
 reference above — is owned and verified by the `intropy-dev-env` repo (the
 k3s setup scripts install the fixture servers) and is the only coupling
