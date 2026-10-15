@@ -26,13 +26,13 @@ production); locally the system host runs the block once at startup.
   development. In production the same name resolves to the environment's
   binding (e.g. SFTP) from the deploy overlay's GitOps values — rebinding
   the port is a deployment change, never a code change
-- Pub/sub component: the system's own, `<system>-pubsub` — resolved at run time
-  from `INTROPY_SYSTEM_NAME`, which the system host and the deployment set
-  (`Composition.PubSubName`)
+- Pub/sub component: the system's bus, named by the topology (`<system>-pubsub`)
+  — read at run time from `INTROPY_PUBSUB_NAME`, which the system host
+  and the deployment set (`Composition.PubSubName`)
 - Message: `{{ .publishes }}` — what the extractor publishes; the message name doubles
   as the CloudEvents type. Set by `--publishes` from the resolved registry
   message; carried in the scaffold record's scalar `publishes` value.
-- Channel: `{{ .channel }}` — the topic the message flows over (on the system's pub/sub). It is the message name; the consuming loader subscribes to the same channel
+- Channel: `{{ .channel }}` — the topic declared in `.intropy/scaffold.json` (the message name unless a shared topic was given). The system host carries it into the topology, which settles the topic; the code reads it at run time from `INTROPY_TOPIC_NAME` (`Composition.TopicName`) and never names it. The consuming loader subscribes to the same channel
 - CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ .publishes }}` (the message name IS the type)
 - Idempotency Service: reached via Dapr service invocation, app id
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)

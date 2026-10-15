@@ -109,9 +109,13 @@ Notes:
   `<system>-pubsub/<message>`, and the payload type is the PascalCase
   projection. The pub/sub is the system's own: systems share an environment's
   namespace and broker, so each owns a component named after it. A component
-  template never hard-codes a pub/sub name — the component does not know its
-  system; the framework derives the name from `INTROPY_SYSTEM_NAME`, which the
-  system host and the deploy-component workloads set.
+  template never hard-codes a pub/sub name, and neither the templates nor the
+  framework derive one: the topology names the system's pub/subs and gives
+  each a role (`bus`, or `queue` for transactional integrations' internal
+  queues), deploy-host renders `.topology.pubsubs` as given, and the system
+  host and the deploy-component workloads pass each component the one
+  pub/sub it runs on, as the topology names it (`.component.pubsub`), in
+  `INTROPY_PUBSUB_NAME`.
   Extractors declare `publishes`; loaders declare `subscribes`. Templates
   must not reintroduce `topic`, `contract`, nested subscribe/publishes
   blocks, registry snapshots, or compatibility fallbacks for topic-first
@@ -122,11 +126,14 @@ Notes:
   topic-first guess this rule outlaws. The event type **is** the message
   name, with no override: `eventType` is gone, because a second way to name
   the event is a second identity.
-- **The message is the only channel declaration.** The component templates
-  declare no `topic` parameter. The channel is the derived `channel` value,
-  equal to the scalar message. Every file that names the channel reads
-  `{{ .channel }}`, so the announced route, the subscription, and the
-  scaffold record cannot disagree. A future host that must route a message
+- **The scaffold declares the channel; the topology settles it.** The channel
+  is the derived `channel` value: the optional `topic` parameter, else the
+  scalar message. It is recorded in `.intropy/scaffold.json`, where
+  `intropy sys create` reads it into the system host's declaration. Component
+  code never reads it: a component takes the topic the topology settles from
+  `INTROPY_TOPIC_NAME` (and its pub/sub from `INTROPY_PUBSUB_NAME`), so a
+  topic the system later changes cannot leave a stale name in code. Docs and
+  test fixtures may still show `{{ .channel }}` as the declared value. A future host that must route a message
   over an unrelated broker topic needs an explicit topology feature; the
   scaffold does not offer a second way to say it.
 - **Registry (xregistry) vocabulary is scoped to cross-system messages.**

@@ -57,9 +57,24 @@ retries inbound deliveries, with exponential backoff, before the broker
 dead-letters the message. A loader's target is the pub/sub its topics subscribe
 through; a transactional integration's is the pub/sub its internal queue rides,
 taken from the Subscription the topology mints for it (the system's
-`<system>-pubsub`). The block kind is folded the way the CLI folds
-it, so `transactional-integration`, `transactionalIntegration` and
-`TransactionalIntegration` all match.
+internal-queue pub/sub, `<system>-queue-pubsub` by the topology's naming). The block
+kind is folded the way the CLI folds it, so `transactional-integration`,
+`transactionalIntegration` and `TransactionalIntegration` all match.
+
+## The workload is told its pub/sub name
+
+The framework derives no Dapr component name. Each block runs on exactly one
+pub/sub, and the topology names it on the component (`.component.pubsub`):
+the system's bus for an extractor or a loader, the internal-queue pub/sub for
+a transactional integration. The workload gets it in `INTROPY_PUBSUB_NAME`,
+which wins over a name set in the component's code. A component the topology
+gives no pub/sub gets no variable.
+
+The workload is likewise told the one topic it runs on (`.component.topic`), in
+`INTROPY_TOPIC_NAME`: a transactional integration's internal queue topic, which
+the topology names `internal-<component>`, or the single topic an extractor's or
+a loader's messages share. The framework derives no topic either. A component the
+topology gives no single topic gets no variable.
 
 `redeliveryMaxRetries` (default 10) and `redeliveryMaxInterval` (default `15s`)
 tune it. The sidecar holds the message while it retries, so the whole window,

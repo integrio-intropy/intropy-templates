@@ -1,9 +1,30 @@
+{{- /* One Component per pub/sub the topology gives this system a role on. An
+       entry without a role is another system's component, rendered by that
+       system. The names are the topology's; nothing here derives one. */ -}}
+{{- $secretName := .secretName }}
+{{- $first := true }}
+{{- range .topology.pubsubs }}
+{{- $role := dig "role" "" . }}
+{{- if $role }}
+{{- if not $first }}
+---
+{{- end }}
+{{- $first = false }}
+{{- if eq $role "queue" }}
+# The pub/sub carrying the system's transactional integrations' internal
+# queues: each integration's receive side publishes to its own topic and its
+# send side is the only consumer, so it is a Service Bus queue per topic, not a
+# topic with subscriptions.
+{{- else }}
+# The system's bus: the topics its components publish and subscribe to, one
+# Service Bus subscription per subscriber.
+{{- end }}
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
-  name: {{ .pubsubName }}
+  name: {{ .name }}
 spec:
-  type: pubsub.azure.servicebus.topics
+  type: {{ if eq $role "queue" }}pubsub.azure.servicebus.queues{{ else }}pubsub.azure.servicebus.topics{{ end }}
   version: v1
   metadata:
     - name: connectionString
@@ -12,24 +33,24 @@ spec:
       # Key Vault or applied by hand) — the template only declares the name
       # and key the platform must provide.
       secretKeyRef:
-        name: {{ .secretName }}
+        name: {{ $secretName }}
         key: servicebus-connection
     - name: maxActiveMessages
       value: "100"
-    # Deliveries before Service Bus moves a message to the subscription's own
-    # $deadletterqueue, where message-resender replays it from. Each delivery
-    # already includes the sidecar's in-place retries (the subscriber's
-    # Resiliency policy), so a few suffice. Applies when Dapr creates the
-    # subscription; an existing subscription keeps its own setting.
+    # Deliveries before Service Bus moves a message to the
+{{- if eq $role "queue" }}
+    # queue's own $deadletterqueue, where message-resender replays it from.
+{{- else }}
+    # subscription's own $deadletterqueue, where message-resender replays it from.
+{{- end }}
+    # Each delivery already includes the sidecar's in-place retries (the
+    # subscriber's Resiliency policy), so a few suffice. Applies when Dapr
+    # creates the entity; an existing one keeps its own setting.
     - name: maxDeliveryCount
       value: "3"
-# The app-ids the topology puts on this system's pub/sub. A pub/sub the
-# topology names that this system does not own is another system's component,
-# rendered by that system.
+# The app-ids the topology puts on this pub/sub.
 scopes:
-{{- range .topology.pubsubs }}
-{{- if eq .name $.pubsubName }}
-{{- range .appIds }}
+{{- range dig "appIds" (list) . }}
   - {{ . }}
 {{- end }}
 {{- end }}

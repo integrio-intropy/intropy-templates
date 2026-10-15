@@ -33,7 +33,7 @@ spec:
       name:
         type: string
         title: System name
-        description: DNS-1123 name of the integration system (e.g. order-flow). Becomes the SystemName, and names the system's pub/sub component, `<name>-pubsub`. Several systems share an environment's namespace and broker, so each owns its own.
+        description: DNS-1123 name of the integration system (e.g. order-flow). Becomes the SystemName, and names the system's pub/sub components, `<name>-pubsub` (its bus) and `<name>-queue-pubsub` (its transactional integrations' internal queues). Several systems share an environment's namespace and broker, so each owns its own.
         pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
       # The payload below. Each component carries the raw message/port
       # names it touches; the skeleton joins them to the fields Messages.cs
@@ -99,6 +99,7 @@ spec:
     # summary does not report.
     projectName: '{{ .name | replace "-" " " | title | replace " " "" }}'
     systemClass: '{{ .name | replace "-" " " | title | replace " " "" }}System'
-    # The system's pub/sub: what the topology names every channel that names no
-    # other, and what the framework derives from INTROPY_SYSTEM_NAME.
+    # The system's bus: what the topology names every channel that names no
+    # other. The host passes each component the pub/sub it runs on in
+    # INTROPY_PUBSUB_NAME; the framework derives no name.
     pubsub: '{{ .name }}-pubsub'

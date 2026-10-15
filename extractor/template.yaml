@@ -41,7 +41,7 @@ spec:
       topic:
         type: string
         title: Topic
-        description: The topic the extractor publishes on. Defaults to the message name; set it to share one topic between several messages, so one loader can route them all.
+        description: The topic the extractor declares for its message, recorded for the system host. Defaults to the message name; set it to share one topic between several messages, so one loader can route them all. At run time the extractor publishes on the topic the topology settles (INTROPY_TOPIC_NAME).
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       idempotencyAppId:
         type: string
@@ -90,8 +90,10 @@ spec:
     # exist: a topic name is never guessed into an event type, and a
     # second way to name the event is a second identity.
     eventSourceValue: '{{ printf "urn:%s:%s" .organization (.name | kebabcase) }}'
-    # The channel the message is published on: the topic parameter, else the
-    # message name. One derivation, so every file that names the channel agrees.
+    # The channel the message is declared on: the topic parameter, else the
+    # message name. Recorded in .intropy/scaffold.json, where `intropy sys create`
+    # reads it into the system host's declaration; the code takes the topic the
+    # topology settles from INTROPY_TOPIC_NAME, never this value.
     channel: '{{ get . "topic" | default .publishes }}'
   dependencies:
     - template: shared-contracts
