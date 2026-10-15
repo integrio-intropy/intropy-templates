@@ -15,7 +15,8 @@ public class CompositionTests
     [Fact]
     public void Composition_ResolvesJobRunner()
     {
-        var provider = Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
+        var provider = FakeEdges.UseInternalQueue(Composition.ConfigureServices(new ServiceCollection(), "Development"))
+            .BuildServiceProvider();
 
         var runner = provider.GetRequiredService<JobRunner>();
 
@@ -25,7 +26,8 @@ public class CompositionTests
     [Fact]
     public void Composition_ResolvesBothFileAdaptersUnderTheirKeys()
     {
-        var provider = Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
+        var provider = FakeEdges.UseInternalQueue(Composition.ConfigureServices(new ServiceCollection(), "Development"))
+            .BuildServiceProvider();
 
         var source = provider.GetRequiredKeyedService<IFileAdapter>(Constants.SourcePort);
         var destination = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);

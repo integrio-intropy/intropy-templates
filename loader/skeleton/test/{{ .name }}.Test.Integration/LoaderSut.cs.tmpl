@@ -20,7 +20,7 @@ public sealed class LoaderSut : IAsyncDisposable
 {
     // Where the faked sidecar delivers from — what the system topology's Subscription
     // resource names for this component. The loader itself takes whatever it is delivered.
-    private const string PubSubName = "pubsub";
+    private const string PubSubName = "test-system-pubsub";
     private const string TopicName = "{{ .channel }}";
 
     public IHost Host { get; private set; } = null!;

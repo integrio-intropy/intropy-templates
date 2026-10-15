@@ -17,6 +17,8 @@ namespace {{ .name }}.Test.Integration;
 /// </summary>
 public class PublishIntegrationTests
 {
+    private const string PubSubName = "test-system-pubsub";
+    private const string TopicName = "{{ .channel }}";
 {{- if .empty }}
     // Fails from the start by design: the framework's BusinessStep wrapper
     // routes the throwing Deserializer as a business incident, so the pipeline
@@ -41,6 +43,13 @@ public class PublishIntegrationTests
                 ci.ArgAt<string>(3)));
 
         var services = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development");
+        // The pub/sub and topic the host or deployment would pass through
+        // INTROPY_PUBSUB_NAME and INTROPY_TOPIC_NAME.
+        services.Configure<Intropy.Framework.Core.Configuration.FrameworkOptions>(o =>
+        {
+            o.PubSubName = PubSubName;
+            o.TopicName = TopicName;
+        });
         // Last registration wins: the real platform-service clients would try
         // to reach their sidecar endpoints and fail.
         services.AddSingleton(daprClient);
@@ -53,8 +62,8 @@ public class PublishIntegrationTests
         services.AddSingleton<Intropy.Framework.Blocks.Extractor.Steps.SendStep<Intropy.Framework.Blocks.Shared.Context>>(
             sp => new Intropy.Framework.Blocks.Extractor.Steps.DaprTopicPublisher<Intropy.Framework.Blocks.Shared.Context>(
                 sp.GetRequiredService<DaprClient>(),
-                Constants.PubSubName,
-                Constants.TopicName,
+                Composition.Composition.PubSubName(sp),
+                Composition.Composition.TopicName(sp),
                 new Uri(Constants.EventSource),
                 Constants.EventType));
         var provider = services.BuildServiceProvider();
@@ -77,8 +86,8 @@ public class PublishIntegrationTests
                 ? $"Expected a successful publish, got a technical failure: {failure.Value.Exception}"
                 : $"Expected a successful publish, got {result.GetType().Name}");
         var message = capture.Messages.Single();
-        Assert.Equal(Constants.PubSubName, message.PubSubName);
-        Assert.Equal(Constants.TopicName, message.TopicName);
+        Assert.Equal(PubSubName, message.PubSubName);
+        Assert.Equal(TopicName, message.TopicName);
         Assert.Equal("application/cloudevents+json", message.ContentType);
 
         var cloudEvent = message.DecodeCloudEvent();
@@ -105,6 +114,13 @@ public class PublishIntegrationTests
                 ci.ArgAt<string>(3)));
 
         var services = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development");
+        // The pub/sub and topic the host or deployment would pass through
+        // INTROPY_PUBSUB_NAME and INTROPY_TOPIC_NAME.
+        services.Configure<Intropy.Framework.Core.Configuration.FrameworkOptions>(o =>
+        {
+            o.PubSubName = PubSubName;
+            o.TopicName = TopicName;
+        });
         // Last registration wins: the real platform-service clients would try
         // to reach their sidecar endpoints and fail.
         services.AddSingleton(daprClient);
@@ -117,8 +133,8 @@ public class PublishIntegrationTests
         services.AddSingleton<Intropy.Framework.Blocks.Extractor.Steps.SendStep<Intropy.Framework.Blocks.Shared.Context>>(
             sp => new Intropy.Framework.Blocks.Extractor.Steps.DaprTopicPublisher<Intropy.Framework.Blocks.Shared.Context>(
                 sp.GetRequiredService<DaprClient>(),
-                Constants.PubSubName,
-                Constants.TopicName,
+                Composition.Composition.PubSubName(sp),
+                Composition.Composition.TopicName(sp),
                 new Uri(Constants.EventSource),
                 Constants.EventType));
         var provider = services.BuildServiceProvider();
@@ -137,8 +153,8 @@ public class PublishIntegrationTests
                 ? $"Expected a successful publish, got a technical failure: {failure.Value.Exception}"
                 : $"Expected a successful publish, got {result.GetType().Name}");
         var message = capture.Messages.Single();
-        Assert.Equal(Constants.PubSubName, message.PubSubName);
-        Assert.Equal(Constants.TopicName, message.TopicName);
+        Assert.Equal(PubSubName, message.PubSubName);
+        Assert.Equal(TopicName, message.TopicName);
         Assert.Equal("application/cloudevents+json", message.ContentType);
 
         var cloudEvent = message.DecodeCloudEvent();

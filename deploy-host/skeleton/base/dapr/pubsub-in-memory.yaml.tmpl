@@ -7,9 +7,14 @@ metadata:
 spec:
   type: pubsub.in-memory
   version: v1
+# The app-ids the topology puts on this system's pub/sub. A pub/sub the
+# topology names that this system does not own is another system's component,
+# rendered by that system.
 scopes:
 {{- range .topology.pubsubs }}
+{{- if eq .name $.pubsubName }}
 {{- range .appIds }}
   - {{ . }}
+{{- end }}
 {{- end }}
 {{- end }}

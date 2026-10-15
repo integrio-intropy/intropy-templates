@@ -7,15 +7,14 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    public const string PubSubName = "pubsub";
-    public const string TopicName = "{{ .channel }}";
-
     // The source port: the named interface this component reads the outside
     // world through. The name is the port's whole identity — declared in the
     // system host's Ports.cs, it is also the Dapr binding component's name and
     // the key of the file adapter registered for it. The name never changes
     // between environments; the environment swaps the binding's type (local
-    // folder, SFTP, …) behind it.
+    // folder, SFTP, …) behind it. A second port carrying other data is
+    // declared next to it, in the system host, and as a source and route in
+    // Composition.
     public const string SourcePort = "{{ .port }}";
 
     // CloudEvent envelope: where the data came from and what kind of event it is.

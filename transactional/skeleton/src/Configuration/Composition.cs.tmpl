@@ -1,5 +1,6 @@
 using Dapr.Client;
 using Dapr.Messaging.PublishSubscribe.Extensions;
+using {{ .name }}.Model;
 using {{ .name }}.Send;
 {{- if not .empty }}
 using Intropy.BusinessIncidentService.Client;
@@ -95,29 +96,37 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
-        // The framework owns the receive side: it sweeps the source port, publishes each
-        // file to the internal hop (carrying its context metadata and trace), and deletes
-        // it once it is on the queue. A file that cannot be read or published stays for
-        // the next run. The component supplies only the send pipeline.
-        // The hop is the one the topology mints for this component (decision 0011):
-        // internal-<app id> / hop, scoped to this component alone so two integrations
-        // under one host cannot cross wires. The framework names it by default.
-        services.AddTransactionalIntegration();
-
-        // Each port is registered by its role: the source the framework sweeps, the
-        // destination the Sender writes through. Each file adapter is chosen by configuration:
+        // Each port's file adapter is registered under the port name: the source the
+        // framework sweeps, the destination the Sender writes through. Each is chosen by configuration:
         // Ports:<port>:Kind selects the Dapr binding the port is deployed with (Local, Sftp or AzureBlob).
         // appsettings.Development.json selects Local, the local folder the system host
         // resolves each port to; a deployment sets Ports__<port>__Kind to match the binding it
         // renders. With no Kind, startup fails naming the port. A binding's address and
         // credentials live in the environment's Dapr component (GitOps values), resolved out of
         // the cluster's secret store.
-        services.AddSourcePort(Constants.SourcePort, configuration);
+        services.AddFileAdapter(Constants.SourcePort, configuration.GetSection(
+            $"{PortServiceCollectionExtensions.PortsSectionName}:{Constants.SourcePort}"));
         services.AddDestinationPort(Constants.DestinationPort, configuration);
 
-        // Register the send pipeline last, after every adapter and platform service
-        // it resolves from DI has been added to the service collection.
-        services.AddSendPipeline();
+        // Register the integration last, after every adapter and platform service its
+        // send pipeline resolves from DI has been added to the service collection.
+        // The framework owns the receive side: it sweeps the sources, publishes each
+        // file to the internal hop (carrying its context metadata, its port and its
+        // trace), and deletes it once it is on the queue. A file that cannot be read or
+        // published stays for the next run. The routes say which send pipeline each
+        // port's messages go through; the component supplies only those.
+        // The queue is the one the topology mints for this component: the topic
+        // internal-<app id> on the system's internal-queue pub/sub. The topic is
+        // unique per integration, so two integrations cannot receive each other's
+        // files. The framework derives neither: it reads the pub/sub from
+        // INTROPY_PUBSUB_NAME and the topic from INTROPY_TOPIC_NAME, which the
+        // host and the deployment set from the topology.
+        // A port carrying other data gets its own .Port(...) and .On(...) route, with a
+        // send pipeline of its own.
+        services.AddTransactionalIntegration(
+            new TransactionalIntegrationDefinition<Context>(),
+            sources => sources.Port(Constants.SourcePort),
+            routes => routes.On<In, Out>([Constants.SourcePort], SendRoute.Configure));
 
         return services;
     }

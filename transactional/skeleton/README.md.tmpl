@@ -50,7 +50,9 @@ app — the Dapr sidecar and components come from the deployment environment.
 The framework owns the receive side; there is no component code for it.
 
 1. It lists the inbound binding and reads each file.
-2. It publishes the file to the internal hop (`internal-{{ .appId }}` / `hop`),
+2. It publishes the file to the internal queue (the topic `internal-{{ .appId }}`
+   on the system's internal-queue pub/sub, both passed in by the host and the
+   deployment as `INTROPY_TOPIC_NAME` and `INTROPY_PUBSUB_NAME`),
    carrying the context metadata and trace to the send side.
 3. It deletes the source file. A file that cannot be read or published stays
    for the next run.

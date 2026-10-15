@@ -1,12 +1,16 @@
 using {{ .name }}.Configuration;
+using {{ .name }}.Model;
+using {{ .name }}.Send;
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
+using Intropy.Framework.Blocks.TransactionalIntegration.Send;
 using Intropy.Framework.Core.Configuration;
 using Intropy.Framework.Testing.Adapters;
 using Intropy.Framework.Testing.Topics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 {{- if not .empty }}
 using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Contracts.IdempotencyService;
@@ -54,6 +58,7 @@ public sealed class FakeEdges
     public IServiceCollection CreateServices()
     {
         var services = Composition.ConfigureServices(new ServiceCollection(), "Development");
+        UseInternalQueue(services);
         services.RemoveAll<EnqueueStep<Context>>();
         services.AddSingleton<EnqueueStep<Context>>(Enqueue);
 
@@ -68,5 +73,32 @@ public sealed class FakeEdges
         services.AddSingleton<IBusinessIncidentServiceClient>(Incidents);
 {{- end }}
         return services;
+    }
+
+    /// <summary>
+    /// Names the internal queue as the system host or the deployment would, through
+    /// INTROPY_PUBSUB_NAME and INTROPY_TOPIC_NAME: the framework derives neither, so
+    /// the graph does not build without them.
+    /// </summary>
+    public static IServiceCollection UseInternalQueue(IServiceCollection services) =>
+        services.Configure<FrameworkOptions>(o =>
+        {
+            o.PubSubName = "test-system-pubsub";
+            o.TopicName = $"internal-{Constants.ComponentName}";
+        });
+
+    /// <summary>
+    /// Builds the source port's send pipeline exactly as the framework does for each of its
+    /// messages: in a fresh scope, from <see cref="SendRoute.Configure"/>. The fakes are
+    /// already in the DI graph via <see cref="CreateServices"/>, so there is nothing left to
+    /// override.
+    /// </summary>
+    public static ISendPipeline<Context> ResolveSendPipeline(IServiceProvider provider)
+    {
+        var scope = provider.CreateScope().ServiceProvider;
+        var builder = SendPipelineBuilder<In, Out, Context>.Create(
+            $"{Constants.ComponentName}.Send.{Constants.SourcePort}",
+            scope.GetRequiredService<FrameworkOptions>(), scope.GetRequiredService<ILoggerFactory>());
+        return SendRoute.Configure(builder, scope).Build();
     }
 }

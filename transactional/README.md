@@ -29,7 +29,7 @@ exactly as production composition does — with only the edges faked. No
 sidecar, no Testcontainers.
 
 Note on versions: every `Intropy.Framework.*` package — including
-`Intropy.Framework.Testing` — pins at `1.2.0-beta.3`, so the integration fakes
+`Intropy.Framework.Testing` — pins at `2.0.0-beta.1`, so the integration fakes
 and the framework types they build on always come from the same build.
 
 Components do not run standalone: the job runs via its system host, which
@@ -44,10 +44,13 @@ port-to-port block with no system message. The scaffold record
 `fromPort`/`toPort` (the two ports, `<app-id>-source` /
 `<app-id>-destination`; the Dapr binding names are the same port names) and
 `appId`/`projectName`. The
-internal pub/sub hop between the receive and send pipelines is
-component-owned: its topic (`<app-id>-in`) is unique per component and
-deliberately not recorded — invisible to the topology, so two transactional
-integrations under one host never cross wires.
+internal queue between the receive and send pipelines is
+component-owned: the topology mints it as the topic `internal-<app-id>` on the
+system's pub/sub, `<system>-pubsub`, and nothing declares it. The
+host and the deployment pass the pub/sub's name in `INTROPY_PUBSUB_NAME` and
+the topic in `INTROPY_TOPIC_NAME`; the framework derives neither. The topic is
+unique per component, so two transactional integrations — in one system or in
+several sharing a broker — never receive each other's files.
 
 ## Parameters
 

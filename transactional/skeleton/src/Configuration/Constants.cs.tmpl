@@ -12,7 +12,9 @@ public static class Constants
     // identity — declared in the system host's Ports.cs, it is also the Dapr
     // binding component's name and the key of the file adapter registered for
     // it. The names never change between environments; the environment swaps
-    // each binding's type (local folder, SFTP, …) behind its name.
+    // each binding's type (local folder, SFTP, …) behind its name. A second
+    // source carrying other data is declared next to it, in the system host,
+    // and as a source and route in Composition.
     public const string SourcePort = "{{ .fromPort }}";
     public const string DestinationPort = "{{ .toPort }}";
 

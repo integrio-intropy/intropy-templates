@@ -2,8 +2,10 @@
 
 .NET extractor integration. One run = one sweep: the runner lists the
 inbound folder, runs each swept JSON order through the Intropy extractor
-pipeline, publishes the result as a CloudEvent to the `{{ .channel }}` topic on
-the Dapr pub/sub, deletes the source file, and exits. Scheduling lives
+pipeline, publishes the result as a CloudEvent to its topic on the Dapr
+pub/sub, deletes the source file, and exits. The topic is the one the system
+topology settles — declared here as `{{ .channel }}` — and reaches the code in
+`INTROPY_TOPIC_NAME`. Scheduling lives
 outside the block — activation cadence is deployment configuration (a
 Kubernetes CronJob in production); locally the system host runs the block
 once at startup.
@@ -23,7 +25,7 @@ read ──▶ deserialize ──▶ validate ──▶ transform
 idempotency check
    │
    ▼
-publish CloudEvent to '{{ .channel }}'
+publish CloudEvent to INTROPY_TOPIC_NAME
    │
    ▼
 delete source file ──▶ next file
@@ -174,7 +176,7 @@ infrastructure failure):
 //         ┌─────────────────────────────┐
 //         │ 6. Dapr topic publisher     │
 //         └─────────────────────────────┘
-//                        sends source/type envelope to pubsub / {{ .channel }}
+//                        sends source/type envelope to INTROPY_PUBSUB_NAME / INTROPY_TOPIC_NAME
 //
 // Technical failures from any step leave the source file in place for retry.
 ```
@@ -186,7 +188,8 @@ infrastructure failure):
 4. `Transformer` maps `Source{{ .payloadType }}` → the shared `{{ .payloadType }}` contract.
 5. `CloudEventSerializeStep` (framework) wraps `{{ .payloadType }}` in a CloudEvent
    (Subject and Time are mandatory).
-6. The Dapr topic publisher sends it to `pubsub` / `{{ .channel }}`.
+6. The Dapr topic publisher sends it to the pub/sub and topic the system host
+   and the deployment pass in (`INTROPY_PUBSUB_NAME`, `INTROPY_TOPIC_NAME`).
 
 Every step body throws `NotImplementedException` — this project was scaffolded
 with empty bodies for a migration agent to fill in. The idempotency and
@@ -211,8 +214,9 @@ implemented — the failing tests are the to-do list.
 5. `CloudEventSerializeStep` (framework) wraps `{{ .payloadType }}` in a CloudEvent with
    `Subject` = order id and `Time` = order date, validating both at serialize
    time.
-6. The Dapr topic publisher sets the envelope source/type and sends it to
-   `pubsub` / `{{ .channel }}`.
+6. The Dapr topic publisher sets the envelope source/type and sends it to the
+   pub/sub and topic the system host and the deployment pass in
+   (`INTROPY_PUBSUB_NAME`, `INTROPY_TOPIC_NAME`).
 
 On success (or an idempotent duplicate) the source file is deleted; a failed
 file stays in the inbound folder and is retried on the next scheduled run,

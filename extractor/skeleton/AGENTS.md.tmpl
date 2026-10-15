@@ -26,11 +26,13 @@ production); locally the system host runs the block once at startup.
   development. In production the same name resolves to the environment's
   binding (e.g. SFTP) from the deploy overlay's GitOps values — rebinding
   the port is a deployment change, never a code change
-- Pub/sub component: `pubsub`
+- Pub/sub component: the system's bus, named by the topology (`<system>-pubsub`)
+  — read at run time from `INTROPY_PUBSUB_NAME`, which the system host
+  and the deployment set (`Composition.PubSubName`)
 - Message: `{{ .publishes }}` — what the extractor publishes; the message name doubles
   as the CloudEvents type. Set by `--publishes` from the resolved registry
   message; carried in the scaffold record's scalar `publishes` value.
-- Channel: `{{ .channel }}` — the topic the message flows over (pubsub `pubsub`). It is the message name; the consuming loader subscribes to the same channel
+- Channel: `{{ .channel }}` — the topic declared in `.intropy/scaffold.json` (the message name unless a shared topic was given). The system host carries it into the topology, which settles the topic; the code reads it at run time from `INTROPY_TOPIC_NAME` (`Composition.TopicName`) and never names it. The consuming loader subscribes to the same channel
 - CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ .publishes }}` (the message name IS the type)
 - Idempotency Service: reached via Dapr service invocation, app id
   `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
@@ -119,6 +121,15 @@ coverage (Cobertura report under the integration project's `TestResults/`).
 - The source `IFileAdapter` is registered (from configuration, see above) as a keyed singleton under its port name
   (`Constants.SourcePort`). Inject it via `[FromKeyedServices(...)]`
   or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
+- The extractor is registered with sources (the ports it sweeps) and routes (the
+  pipeline each port's files go through); the scaffold has one of each. A port
+  carrying other data needs: the port in the system host (`Ports.cs` and a `From`
+  call), `Ports:<port>:Kind` in `appsettings.Development.json`, its file adapter,
+  `.Port(...)` in the sources, and an `.On<TIn, TOut>([port], ...)` route
+  with its own steps in `src/Composition/Composition.cs`; the integration tests
+  fake its adapter in `FakeEdges` like the scaffolded port's. Each route's pipeline
+  stamps its port on the events it publishes (`intropysourceport`) and keeps its
+  idempotency records per port.
 - A failed file stays in the inbound folder and is retried on the next
   scheduled run; the idempotency check makes the retry safe. Duplicates cancel
   as a traceable no-op and the file is removed.

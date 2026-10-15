@@ -29,6 +29,29 @@ namespace {{ .name }}.Composition;
 /// </summary>
 public static class Composition
 {
+    /// <summary>
+    /// The system's bus: the pub/sub component the message travels on. The topology
+    /// names it and the system host and the deployment pass it in
+    /// <c>INTROPY_PUBSUB_NAME</c>; neither the component's code nor the
+    /// framework derives it.
+    /// </summary>
+    public static string PubSubName(IServiceProvider services) =>
+        services.GetRequiredService<FrameworkOptions>().PubSubName
+        ?? throw new InvalidOperationException(
+            "INTROPY_PUBSUB_NAME is not set, so the system's pub/sub is unknown: run the component under its system host, or set FrameworkOptions.PubSubName.");
+
+    /// <summary>
+    /// The topic the extractor publishes on. The scaffold record declares it (the
+    /// message name, or the shared topic given at scaffold time), the system host
+    /// carries it into the topology, and the system host and the deployment pass
+    /// what the topology settled in <c>INTROPY_TOPIC_NAME</c>: a topic the system
+    /// later shares between messages reaches the extractor without a code change.
+    /// </summary>
+    public static string TopicName(IServiceProvider services) =>
+        services.GetRequiredService<FrameworkOptions>().TopicName
+        ?? throw new InvalidOperationException(
+            "INTROPY_TOPIC_NAME is not set, so the topic is unknown: run the component under its system host, or set FrameworkOptions.TopicName.");
+
     /// <summary>Registers every service the extractor needs.</summary>
     /// <param name="services">The service collection to register into.</param>
     /// <param name="environment">The environment whose appsettings overlay applies. Defaults to
@@ -91,44 +114,51 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
-        // The source port is the one the framework sweeps once per run. Its file adapter is
-        // chosen by configuration: Ports:<port>:Kind selects the Dapr binding the port is
+        // The file adapter behind each source port the framework sweeps is chosen by
+        // configuration: Ports:<port>:Kind selects the Dapr binding the port is
         // deployed with (Local, Sftp or AzureBlob).
         // appsettings.Development.json selects Local, the local folder the system host
         // resolves each port to; a deployment sets Ports__<port>__Kind to match the binding it
         // renders. With no Kind, startup fails naming the port. A binding's address and
         // credentials live in the environment's Dapr component (GitOps values), resolved out of
         // the cluster's secret store.
-        services.AddSourcePort(Constants.SourcePort, configuration);
+        services.AddFileAdapter(Constants.SourcePort, configuration.GetSection(
+            $"{PortServiceCollectionExtensions.PortsSectionName}:{Constants.SourcePort}"));
 
         // The publisher is a service like the other externals (source adapter,
         // platform clients): tests swap it for a FakeTopic via RemoveAll/AddSingleton,
         // exactly as they swap the others — no special seam in ConfigurePipeline.
         services.AddSingleton<SendStep<Context>>(sp => new DaprTopicPublisher<Context>(
             sp.GetRequiredService<DaprClient>(),
-            Constants.PubSubName,
-            Constants.TopicName,
+            PubSubName(sp),
+            TopicName(sp),
             new Uri(Constants.EventSource),
             Constants.EventType));
 
         // Register the extractor last, after every adapter, publisher, and platform
         // client its pipeline resolves from DI has been added to the service collection.
-        // The framework sweeps the source port once per run: each file gets a fresh
-        // context (holding its file name) and its own pipeline, and is deleted once it
+        // The sources are the ports the framework sweeps once per run; the routes say
+        // which pipeline each port's files go through. Each file gets a fresh context
+        // (holding its file name and port) and its own pipeline, and is deleted once it
         // has been published or cancelled as a duplicate. A file that cannot be read or
         // processed stays for the next run. The run-to-completion host owns the Dapr
         // sidecar lifecycle, tracing, and exit codes; the job is named after the component.
-        services.AddExtractor<Source{{ .payloadType }}, {{ .payloadType }}, Context>(
-            ConfigurePipeline,
-            (metadata, isRetry) => new Context(metadata, isRetry));
+        // A port carrying other data gets its own .Port(...) and .On(...) route, with a
+        // pipeline of its own.
+        services.AddExtractor(
+            sources => sources.Port(Constants.SourcePort),
+            routes => routes.On<Source{{ .payloadType }}, {{ .payloadType }}>(
+                [Constants.SourcePort], ConfigurePipeline));
 
         return services;
     }
 
     /// <summary>
-    /// Configures the extract pipeline against the DI graph. Every external dependency —
-    /// sender, idempotency, business incidents — resolves from the provider, so a test
-    /// swaps any of them by swapping its registration.
+    /// Configures the extract pipeline of the <see cref="Constants.SourcePort"/> route against
+    /// the DI graph. Every external dependency — sender, idempotency, business incidents —
+    /// resolves from the provider, so a test swaps any of them by swapping its registration.
+    /// The framework builds the pipeline for the port, so it stamps the port on every
+    /// published event and keeps the idempotency records per port.
     /// </summary>
     public static ExtractorBuilder<Source{{ .payloadType }}, {{ .payloadType }}, Context> ConfigurePipeline(
         ExtractorBuilder<Source{{ .payloadType }}, {{ .payloadType }}, Context> builder, IServiceProvider provider)

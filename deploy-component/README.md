@@ -55,10 +55,26 @@ dead-letters it (see deploy-host). So these blocks render one more file,
 `base/resiliency.yaml`: a Dapr `Resiliency` scoped to the block's app-id that
 retries inbound deliveries, with exponential backoff, before the broker
 dead-letters the message. A loader's target is the pub/sub its topics subscribe
-through; a transactional integration's is its internal hop, `internal-<name>`
-(the name the topology mints). The block kind is folded the way the CLI folds
-it, so `transactional-integration`, `transactionalIntegration` and
-`TransactionalIntegration` all match.
+through; a transactional integration's is the pub/sub its internal queue rides,
+taken from the Subscription the topology mints for it (the system's
+pub/sub, `<system>-pubsub`, on the topic `internal-<app-id>`). The block
+kind is folded the way the CLI folds it, so `transactional-integration`,
+`transactionalIntegration` and `TransactionalIntegration` all match.
+
+## The workload is told its pub/sub name
+
+The framework derives no Dapr component name. Each block runs on exactly one
+pub/sub, and the topology names it on the component (`.component.pubsub`):
+the system's bus for an extractor or a loader, the internal-queue pub/sub for
+a transactional integration. The workload gets it in `INTROPY_PUBSUB_NAME`,
+which wins over a name set in the component's code. A component the topology
+gives no pub/sub gets no variable.
+
+The workload is likewise told the one topic it runs on (`.component.topic`), in
+`INTROPY_TOPIC_NAME`: a transactional integration's internal queue topic, which
+the topology names `internal-<component>`, or the single topic an extractor's or
+a loader's messages share. The framework derives no topic either. A component the
+topology gives no single topic gets no variable.
 
 `redeliveryMaxRetries` (default 10) and `redeliveryMaxInterval` (default `15s`)
 tune it. The sidecar holds the message while it retries, so the whole window,
@@ -103,7 +119,12 @@ conventional fixture server the k3s setup scripts always install —
 `/home/intropy`), `http.fixtures.svc.cluster.local:8080`
 (wiremock-style stub), `garage.fixtures.svc.cluster.local:3900`
 (S3-compatible, bucket `dev-fixtures`, pinned dev key pair) for `blob`, and
-`/data/<port>` in the component's own container for `file`. That fixture
+`/data/<port>` for `file`. A `file` port has no server: its directory is a
+`PersistentVolumeClaim`, `<port>-file`, rendered by the port's owning
+component and mounted into the sidecar of every component using the port
+(`dapr.io/volume-mounts-rw`), because the `localstorage` binding runs in
+daprd and daprd's filesystem is read-only. A claim, not an `emptyDir`, so a
+file dropped between two CronJob runs is still there for the next one. That fixture
 contract — namespace, service names, ports, credentials, the `local/` image
 reference above — is owned and verified by the `intropy-dev-env` repo (the
 k3s setup scripts install the fixture servers) and is the only coupling

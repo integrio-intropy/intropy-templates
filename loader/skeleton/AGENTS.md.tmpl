@@ -16,7 +16,8 @@ and written as `{orderId}.json` through a Dapr destination binding.
 - Health: a pipeline that cannot be composed stops the host with exit code 1;
   a broken subscription stream is reopened. There is no HTTP probe
 - App id: `{{ .appId }}`
-- Pub/sub component: `pubsub` — provided by the system host; messages are
+- Pub/sub component: the system's bus, named by the topology (`<system>-pubsub`)
+  — provided by the system host and the deploy manifests; messages are
   published from there
 - Message: `{{ .subscribes }}` — the CloudEvents type the pipeline consumes; the publishing extractor uses the same message identity
 - Topic: `{{ .channel }}`; the topic and the subscription's messages and filters are the `topic` and `routes` in `.intropy/scaffold.json`, rendered by the system host as the component's Dapr Subscription. The code names neither the pub/sub nor the topic: the loader takes what the Subscription delivers
