@@ -14,16 +14,27 @@ whichever synced last would win — a live example of that exists in one custome
 repository today.
 
 This directory is that single owner. `scopes:` is what limits *use*: it lists
-exactly the app-ids the topology puts on the system's pub/sub — the publishers
-and subscribers of its topics, and every transactional integration's internal
-queue. Single ownership plus scopes is the correct pair; scopes alone is not.
+exactly the app-ids the topology puts on each pub/sub — the publishers and
+subscribers of the bus's topics, or the transactional integrations whose
+internal queues the queue pub/sub carries. Single ownership plus scopes is the
+correct pair; scopes alone is not.
 
 Several systems deploy into one environment namespace and share its broker, so
-each system owns its own pub/sub component, `<system>-pubsub`, with its own
-scopes and its own broker credentials (the `<system>-secrets` Secret). The name
-is derived from `system`, not a parameter: the topology names the system's
-channels after it, and the framework derives the same name from the
-`INTROPY_SYSTEM_NAME` the deploy-component workloads set.
+each system owns its own pub/sub components, with their own scopes and their
+own broker credentials (the `<system>-secrets` Secret). A system owns up to two,
+each with a role the topology gives it in `.topology.pubsubs[].role`:
+
+| role | carries | Service Bus type |
+|---|---|---|
+| `bus` | the topics the system's extractors and loaders publish and subscribe to | `pubsub.azure.servicebus.topics` |
+| `queue` | the transactional integrations' internal queues (one consumer each) | `pubsub.azure.servicebus.queues` |
+
+RabbitMQ and in-memory use the same component type for both roles. The names
+are the topology's (`<system>-pubsub` and `<system>-queue-pubsub` today); this template
+renders whatever `.topology.pubsubs` names and derives none. An entry without a
+role is another system's component, rendered by that system. The workloads get
+their names the same way: deploy-component passes each one the pub/sub it runs
+on, as the topology names it, in `INTROPY_PUBSUB_NAME`.
 
 Its `component.yaml` declares `kind: shared`, which is how `intropy deploy` and
 `intropy deploy promote` know to refuse it — there is no image to pin.
@@ -34,11 +45,13 @@ Its `component.yaml` declares `kind: shared`, which is how `intropy deploy` and
 
 | condition | effect |
 |---|---|
-| `pubsub` | only the matching `base/dapr/pubsub-<broker>.yaml` |
+| `pubsub`, and a `.topology.pubsubs` entry with a role | only the matching `base/dapr/pubsub-<broker>.yaml`, one Component per entry with a role |
 | a port selects a binding kind | that kind's `base/bindings/<adapter>.yaml` |
 
 `base/kustomization.yaml` references `dapr/pubsub-{{ .pubsub }}.yaml`, so the
-list needs no conditional — the file name follows the parameter.
+broker needs no conditional — the file name follows the parameter. The one
+condition it carries is that the system owns a pub/sub at all: a file with no
+documents in a kustomize `resources` list breaks the build.
 
 Adding a broker is a new `pubsub-<name>.yaml.tmpl`, a new `enum` value and a new
 rule. The CLI is not involved: it passes `platform.pubsub` through from
@@ -70,11 +83,12 @@ reference the platform-owned Secret named by the template.
 
 A message a subscriber cannot process ends in the broker's own dead-letter
 queue, where `message-resender` replays it from: RabbitMQ's `dlq-<app-id>-<topic>`
-queue (the component's `enableDeadLetter`), or a Service Bus subscription's
-`$deadletterqueue` after `maxDeliveryCount` deliveries (3: each delivery
+queue (the component's `enableDeadLetter`), or the `$deadletterqueue` of a
+Service Bus subscription (bus) or queue (internal queue) after
+`maxDeliveryCount` deliveries (3: each delivery
 already includes the subscriber's in-place retries, see deploy-component).
-`maxDeliveryCount` applies when Dapr creates the subscription; an existing
-one keeps its setting. In-memory pub/sub has no dead-letter queue.
+`maxDeliveryCount` applies when Dapr creates the entity; an existing one keeps
+its setting. In-memory pub/sub has no dead-letter queue.
 
 RabbitMQ also sets `deletedWhenUnused: "false"` (the key really has that
 spelling). The component's default deletes a subscriber's queue when its last
@@ -177,7 +191,8 @@ Beyond the declared parameters, the CLI injects:
 
 - `.env` — the environment being rendered. Only meaningful under `overlays/`; the
   CLI refuses a skeleton where it changes anything else.
-- `.topology` — the derived system model: `pubsubs` (with `appIds` for `scopes:`),
+- `.topology` — the derived system model: `pubsubs` (with `appIds` for `scopes:`
+  and the `role` that decides which of them this system renders, and as what),
   `ports` (name, directions, appIds and a selected binding kind), `topics`,
   `components`. GitOps binding metadata remains `REPLACE-ME` for reviewers to
   complete.

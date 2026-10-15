@@ -7,10 +7,6 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
-    // The channel's topic. Its pub/sub is the system's, named at run time
-    // (Composition.PubSubName): a component does not know its system.
-    public const string TopicName = "{{ .channel }}";
-
     // The source port: the named interface this component reads the outside
     // world through. The name is the port's whole identity — declared in the
     // system host's Ports.cs, it is also the Dapr binding component's name and

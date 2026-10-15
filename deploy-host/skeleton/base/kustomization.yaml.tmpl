@@ -1,8 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# The file name follows the broker, so the pub/sub line needs no conditional:
-# only the matching pubsub-*.yaml is rendered at all.
+# The file name follows the broker: only the matching pubsub-*.yaml is rendered
+# at all, and only when the topology gives the system a pub/sub of its own (an
+# entry with a role), which is the one condition the line below carries.
 #
 # Binding references follow the same rule per adapter: spec.files renders an
 # adapter file only when a port selects it, so this list collects the
@@ -13,17 +14,24 @@ kind: Kustomization
 {{- range .topology.ports }}
 {{- if .binding }}{{- $_ := set $kinds .binding true -}}{{- end }}
 {{- end }}
+{{- $owned := false -}}
+{{- range .topology.pubsubs }}
+{{- if dig "role" "" . }}{{- $owned = true -}}{{- end }}
+{{- end }}
+{{- $resources := list -}}
+{{- if $owned }}{{- $resources = append $resources (printf "dapr/pubsub-%s.yaml" .pubsub) -}}{{- end }}
+{{- if ne .env "local" }}
+{{- range list "sftp" "http" "file" "blob" }}
+{{- if hasKey $kinds . }}{{- $resources = append $resources (printf "bindings/%s.yaml" .) -}}{{- end }}
+{{- end }}
+{{- end }}
+{{- /* A system that owns no pub/sub and selects no binding still needs a
+       buildable kustomization: an empty resources key is "empty" to kustomize. */}}
+{{- if $resources }}
 resources:
-  - dapr/pubsub-{{ .pubsub }}.yaml
-{{- if and (hasKey $kinds "sftp") (ne .env "local") }}
-  - bindings/sftp.yaml
+{{- range $resources }}
+  - {{ . }}
 {{- end }}
-{{- if and (hasKey $kinds "http") (ne .env "local") }}
-  - bindings/http.yaml
-{{- end }}
-{{- if and (hasKey $kinds "file") (ne .env "local") }}
-  - bindings/file.yaml
-{{- end }}
-{{- if and (hasKey $kinds "blob") (ne .env "local") }}
-  - bindings/blob.yaml
+{{- else }}
+resources: []
 {{- end }}

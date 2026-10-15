@@ -30,15 +30,27 @@ namespace {{ .name }}.Composition;
 public static class Composition
 {
     /// <summary>
-    /// The system's pub/sub, <c>&lt;system&gt;-pubsub</c>: the component the message
-    /// travels on, named after the system the component runs in. The framework reads
-    /// the system from <c>INTROPY_SYSTEM_NAME</c>, which the system host and the
-    /// deployment set; the component's code does not name it.
+    /// The system's bus: the pub/sub component the message travels on. The topology
+    /// names it and the system host and the deployment pass it in
+    /// <c>INTROPY_PUBSUB_NAME</c>; neither the component's code nor the
+    /// framework derives it.
     /// </summary>
     public static string PubSubName(IServiceProvider services) =>
-        services.GetRequiredService<FrameworkOptions>().SystemPubSubName
+        services.GetRequiredService<FrameworkOptions>().PubSubName
         ?? throw new InvalidOperationException(
-            "INTROPY_SYSTEM_NAME is not set, so the system's pub/sub is unknown: run the component under its system host, or set FrameworkOptions.SystemName.");
+            "INTROPY_PUBSUB_NAME is not set, so the system's pub/sub is unknown: run the component under its system host, or set FrameworkOptions.PubSubName.");
+
+    /// <summary>
+    /// The topic the extractor publishes on. The scaffold record declares it (the
+    /// message name, or the shared topic given at scaffold time), the system host
+    /// carries it into the topology, and the system host and the deployment pass
+    /// what the topology settled in <c>INTROPY_TOPIC_NAME</c>: a topic the system
+    /// later shares between messages reaches the extractor without a code change.
+    /// </summary>
+    public static string TopicName(IServiceProvider services) =>
+        services.GetRequiredService<FrameworkOptions>().TopicName
+        ?? throw new InvalidOperationException(
+            "INTROPY_TOPIC_NAME is not set, so the topic is unknown: run the component under its system host, or set FrameworkOptions.TopicName.");
 
     /// <summary>Registers every service the extractor needs.</summary>
     /// <param name="services">The service collection to register into.</param>
@@ -119,7 +131,7 @@ public static class Composition
         services.AddSingleton<SendStep<Context>>(sp => new DaprTopicPublisher<Context>(
             sp.GetRequiredService<DaprClient>(),
             PubSubName(sp),
-            Constants.TopicName,
+            TopicName(sp),
             new Uri(Constants.EventSource),
             Constants.EventType));
 

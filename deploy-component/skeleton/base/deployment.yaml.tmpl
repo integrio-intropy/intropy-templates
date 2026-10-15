@@ -40,11 +40,23 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            # The system the component runs in. The framework derives the
-            # system's pub/sub, <system>-pubsub, from it; it wins over a name
-            # set in code, so the deployment decides.
-            - name: INTROPY_SYSTEM_NAME
-              value: {{ .system }}
+{{- with dig "pubsub" "" .component }}
+            # The one pub/sub this workload runs on, as the topology named it: the
+            # system's bus for an extractor or a loader, the internal-queue pub/sub
+            # for a transactional integration. The framework derives no component
+            # name of its own, and the environment wins over a name set in code.
+            - name: INTROPY_PUBSUB_NAME
+              value: {{ . }}
+{{- end }}
+{{- with dig "topic" "" .component }}
+            # The one topic this workload runs on, as the topology named it: a
+            # transactional integration's internal queue topic, or the single
+            # topic an extractor's or a loader's messages share. The framework
+            # derives no topic of its own, and the environment wins over a name
+            # set in code.
+            - name: INTROPY_TOPIC_NAME
+              value: {{ . }}
+{{- end }}
             # The in-cluster collector in every environment, local included:
             # Tempo in the monitoring namespace, OTLP/gRPC on 4317.
             - name: OTEL_EXPORTER_OTLP_ENDPOINT

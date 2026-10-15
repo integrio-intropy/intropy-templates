@@ -58,6 +58,7 @@ public sealed class FakeEdges
     public IServiceCollection CreateServices()
     {
         var services = Composition.ConfigureServices(new ServiceCollection(), "Development");
+        UseInternalQueue(services);
         services.RemoveAll<EnqueueStep<Context>>();
         services.AddSingleton<EnqueueStep<Context>>(Enqueue);
 
@@ -73,6 +74,18 @@ public sealed class FakeEdges
 {{- end }}
         return services;
     }
+
+    /// <summary>
+    /// Names the internal queue as the system host or the deployment would, through
+    /// INTROPY_PUBSUB_NAME and INTROPY_TOPIC_NAME: the framework derives neither, so
+    /// the graph does not build without them.
+    /// </summary>
+    public static IServiceCollection UseInternalQueue(IServiceCollection services) =>
+        services.Configure<FrameworkOptions>(o =>
+        {
+            o.PubSubName = "test-system-queue-pubsub";
+            o.TopicName = $"internal-{Constants.ComponentName}";
+        });
 
     /// <summary>
     /// Builds the source port's send pipeline exactly as the framework does for each of its
