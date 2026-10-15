@@ -96,8 +96,8 @@ intropy int create system-host -o /tmp/system-host-out \
 requires the `Intropy.Topology.Aspire` / `Intropy.Topology.Generation`
 packages to be resolvable from the configured NuGet feeds.
 
-The Intropy.Topology / .Aspire / .Generation pins sit at **2.0.0-beta.3** — the
-message-first topology prerelease (`MessageRef<T>` replaces `TopicRef`; one
+The Intropy.Topology / .Aspire / .Generation pins sit at **2.0.0** — the
+message-first topology release (`MessageRef<T>` replaces `TopicRef`; one
 declaration carries identity + channel + contract). Do not lower any pin:
 the declaration shape and the run semantics require it (message-first refs,
 transactional `From`/`To` ports, run-to-completion terminal state). A
