@@ -33,7 +33,7 @@ spec:
       name:
         type: string
         title: System name
-        description: DNS-1123 name of the integration system (e.g. order-flow). Becomes the SystemName, and names the system's pub/sub components, `<name>-pubsub` (its bus) and `<name>-queue-pubsub` (its transactional integrations' internal queues). Several systems share an environment's namespace and broker, so each owns its own.
+        description: DNS-1123 name of the integration system (e.g. order-flow). Becomes the SystemName, and names the system's pub/sub component, `<name>-pubsub`. Several systems share an environment's namespace and broker, so each owns its own.
         pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
       # The payload below. Each component carries the raw message/port
       # names it touches; the skeleton joins them to the fields Messages.cs

@@ -46,11 +46,9 @@ port-to-port block with no system message. The scaffold record
 `appId`/`projectName`. The
 internal queue between the receive and send pipelines is
 component-owned: the topology mints it as the topic `internal-<app-id>` on the
-system's internal-queue pub/sub, `<system>-queue-pubsub`, and nothing declares it. The
+system's pub/sub, `<system>-pubsub`, and nothing declares it. The
 host and the deployment pass the pub/sub's name in `INTROPY_PUBSUB_NAME` and
-the topic in `INTROPY_TOPIC_NAME`; the framework derives neither. On
-Azure Service Bus the pub/sub is a queue
-component, apart from the topic component the system's bus uses. The topic is
+the topic in `INTROPY_TOPIC_NAME`; the framework derives neither. The topic is
 unique per component, so two transactional integrations — in one system or in
 several sharing a broker — never receive each other's files.
 

@@ -1,3 +1,16 @@
+{{- /* A block's framework reads its pub/sub, and an extractor's or a
+     transactional integration's its topic, from the environment and derives
+     neither: a workload rendered without them would only fail at startup, so
+     the render fails instead. */ -}}
+{{- $kind := lower (replace "-" "" .kind) -}}
+{{- $pubsub := dig "pubsub" "" .component -}}
+{{- $topic := dig "topic" "" .component -}}
+{{- if and (not $pubsub) (has $kind (list "extractor" "loader" "transactionalintegration")) -}}
+{{- fail (printf "component %s: the topology record names no pub/sub for it to run on; regenerate the record with Intropy.Topology 2.0.1 or later, and keep its channels on one pub/sub" .name) -}}
+{{- end -}}
+{{- if and (not $topic) (has $kind (list "extractor" "transactionalintegration")) -}}
+{{- fail (printf "component %s: the topology record names no topic for it to run on; regenerate the record with Intropy.Topology 2.0.1 or later, and keep its messages on one topic" .name) -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -40,22 +53,22 @@ spec:
           ports:
             - containerPort: 8080
           env:
-{{- with dig "pubsub" "" .component }}
+{{- if $pubsub }}
             # The one pub/sub this workload runs on, as the topology named it: the
-            # system's bus for an extractor or a loader, the internal-queue pub/sub
-            # for a transactional integration. The framework derives no component
-            # name of its own, and the environment wins over a name set in code.
+            # system's own, which also carries a transactional integration's internal
+            # queue. The framework derives no name, and the environment wins over a
+            # name set in code.
             - name: INTROPY_PUBSUB_NAME
-              value: {{ . }}
+              value: {{ $pubsub }}
 {{- end }}
-{{- with dig "topic" "" .component }}
+{{- if $topic }}
             # The one topic this workload runs on, as the topology named it: a
-            # transactional integration's internal queue topic, or the single
-            # topic an extractor's or a loader's messages share. The framework
-            # derives no topic of its own, and the environment wins over a name
-            # set in code.
+            # transactional integration's internal queue topic, or the single topic an
+            # extractor's or a loader's messages share. Unset for a loader taking
+            # several topics. The framework derives no topic, and the environment wins
+            # over a name set in code.
             - name: INTROPY_TOPIC_NAME
-              value: {{ . }}
+              value: {{ $topic }}
 {{- end }}
             # The in-cluster collector in every environment, local included:
             # Tempo in the monitoring namespace, OTLP/gRPC on 4317.

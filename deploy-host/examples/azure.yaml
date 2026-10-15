@@ -1,5 +1,4 @@
-# Azure: Service Bus — topics for the system's bus, queues for its
-# transactional integrations' internal queues. Credentials come from a Kubernetes Secret the
+# Azure: Service Bus topics. Credentials come from a Kubernetes Secret the
 # platform syncs out of Key Vault; the template only declares the Secret name
 # and key the pubsub Component resolves.
 domain: sales

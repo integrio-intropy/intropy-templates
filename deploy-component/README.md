@@ -57,7 +57,7 @@ retries inbound deliveries, with exponential backoff, before the broker
 dead-letters the message. A loader's target is the pub/sub its topics subscribe
 through; a transactional integration's is the pub/sub its internal queue rides,
 taken from the Subscription the topology mints for it (the system's
-internal-queue pub/sub, `<system>-queue-pubsub` by the topology's naming). The block
+pub/sub, `<system>-pubsub`, on the topic `internal-<app-id>`). The block
 kind is folded the way the CLI folds it, so `transactional-integration`,
 `transactionalIntegration` and `TransactionalIntegration` all match.
 

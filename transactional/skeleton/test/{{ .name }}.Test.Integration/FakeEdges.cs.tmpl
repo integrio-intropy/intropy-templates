@@ -83,7 +83,7 @@ public sealed class FakeEdges
     public static IServiceCollection UseInternalQueue(IServiceCollection services) =>
         services.Configure<FrameworkOptions>(o =>
         {
-            o.PubSubName = "test-system-queue-pubsub";
+            o.PubSubName = "test-system-pubsub";
             o.TopicName = $"internal-{Constants.ComponentName}";
         });
 

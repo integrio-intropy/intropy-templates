@@ -110,12 +110,12 @@ Notes:
   projection. The pub/sub is the system's own: systems share an environment's
   namespace and broker, so each owns a component named after it. A component
   template never hard-codes a pub/sub name, and neither the templates nor the
-  framework derive one: the topology names the system's pub/subs and gives
-  each a role (`bus`, or `queue` for transactional integrations' internal
-  queues), deploy-host renders `.topology.pubsubs` as given, and the system
-  host and the deploy-component workloads pass each component the one
-  pub/sub it runs on, as the topology names it (`.component.pubsub`), in
-  `INTROPY_PUBSUB_NAME`.
+  framework derive one: the topology names the system's pub/sub, which also
+  carries transactional integrations' internal queues (one `internal-<app-id>`
+  topic each), deploy-host renders it, and the system host and the
+  deploy-component workloads pass each component the one pub/sub and topic it
+  runs on, as the topology names them (`.component.pubsub`,
+  `.component.topic`), in `INTROPY_PUBSUB_NAME` and `INTROPY_TOPIC_NAME`.
   Extractors declare `publishes`; loaders declare `subscribes`. Templates
   must not reintroduce `topic`, `contract`, nested subscribe/publishes
   blocks, registry snapshots, or compatibility fallbacks for topic-first

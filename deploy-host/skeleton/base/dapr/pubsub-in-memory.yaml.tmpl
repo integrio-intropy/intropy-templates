@@ -1,26 +1,19 @@
-{{- /* One Component per pub/sub the topology gives this system a role on: its
-       bus and, with transactional integrations, its internal-queue pub/sub.
-       An entry without a role is another system's component, rendered by that
-       system. The names are the topology's; nothing here derives one. */ -}}
-{{- $first := true }}
-{{- range .topology.pubsubs }}
-{{- if dig "role" "" . }}
-{{- if not $first }}
----
-{{- end }}
-{{- $first = false }}
 # In-memory pub/sub: no broker, and no message leaves the pod. Only correct when
 # a single block both publishes and subscribes.
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
-  name: {{ .name }}
+  name: {{ .pubsubName }}
 spec:
   type: pubsub.in-memory
   version: v1
-# The app-ids the topology puts on this pub/sub.
+# The app-ids the topology puts on this system's pub/sub. A pub/sub the
+# topology names that this system does not own is another system's component,
+# rendered by that system.
 scopes:
-{{- range dig "appIds" (list) . }}
+{{- range .topology.pubsubs }}
+{{- if eq .name $.pubsubName }}
+{{- range .appIds }}
   - {{ . }}
 {{- end }}
 {{- end }}

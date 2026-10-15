@@ -1,18 +1,4 @@
-{{- /* One Component per pub/sub the topology gives this system a role on: its
-       bus and, with transactional integrations, its internal-queue pub/sub.
-       Both are plain RabbitMQ components; the role changes nothing here. An
-       entry without a role is another system's component, rendered by that
-       system. The names are the topology's; nothing here derives one. */ -}}
-{{- $env := .env }}
-{{- $secretName := .secretName }}
-{{- $first := true }}
-{{- range .topology.pubsubs }}
-{{- if dig "role" "" . }}
-{{- if not $first }}
----
-{{- end }}
-{{- $first = false }}
-{{- if eq $env "local" }}
+{{- if eq .env "local" }}
 # RabbitMQ pub/sub: what the local development cluster's k3s setup installs,
 # and the only broker a local render ever uses. The address is the fixture
 # contract (see deploy-host/README.md); the credentials are the contract's
@@ -22,13 +8,13 @@
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
-  name: {{ .name }}
+  name: {{ .pubsubName }}
 spec:
   type: pubsub.rabbitmq
   version: v1
   metadata:
     - name: connectionString
-{{- if eq $env "local" }}
+{{- if eq .env "local" }}
       value: amqp://guest:guest@rabbitmq.fixtures.svc.cluster.local:5672
 {{- else }}
       # With no auth block, secretKeyRef resolves against a plain Kubernetes
@@ -36,7 +22,7 @@ spec:
       # Key Vault, Vault, or applied by hand) — the template only declares the
       # name and key the platform must provide.
       secretKeyRef:
-        name: {{ $secretName }}
+        name: {{ .secretName }}
         key: rabbitmq-connection
 {{- end }}
     - name: durable
@@ -57,12 +43,16 @@ spec:
     # the message away from this queue.
     - name: enableDeadLetter
       value: "true"
-# Exactly the app-ids the topology puts on this pub/sub: the publishers and
-# subscribers of its topics, or the transactional integrations whose internal
-# queues it carries. The Component is namespace-scoped and this directory is
-# its only owner, so scopes is what limits who may use it.
+# Exactly the app-ids the topology puts on this system's pub/sub: the
+# publishers and subscribers of its topics, and every transactional
+# integration's internal queue. The Component is namespace-scoped and this
+# directory is its only owner, so scopes is what limits who may use it. A
+# pub/sub the topology names that this system does not own is another system's
+# component, rendered by that system.
 scopes:
-{{- range dig "appIds" (list) . }}
+{{- range .topology.pubsubs }}
+{{- if eq .name $.pubsubName }}
+{{- range .appIds }}
   - {{ . }}
 {{- end }}
 {{- end }}

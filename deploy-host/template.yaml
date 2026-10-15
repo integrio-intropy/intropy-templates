@@ -38,25 +38,22 @@ spec:
 
   values:
     secretName: "{{ .system }}-secrets"
-
-  # The pub/sub components themselves are not values: the topology names them
-  # and gives each a role (.topology.pubsubs[].role) — "bus" for the system's
-  # bus, "queue" for the one carrying its transactional integrations' internal
-  # queues — and this template renders one Component per entry with a role. An
-  # entry without one is another system's component, rendered by that system.
+    # The system's own pub/sub component. Systems share an environment's
+    # namespace and broker, so each owns one: scoped to its components, with the
+    # broker credentials in its own Secret. Not a parameter: the topology names
+    # it after the system (decision 0014 in intropy-topology) and passes each
+    # workload the name in INTROPY_PUBSUB_NAME; the framework derives none.
+    pubsubName: "{{ .system }}-pubsub"
 
   # Which files exist at all, rather than only what is in them. First match
   # decides; a path no rule matches is always included.
   files:
-    # Only the broker's file, and only when the system owns a pub/sub at all: a
-    # system without one would render a file with no documents, and an empty
-    # file in a kustomize resources list breaks the build.
     - path: base/dapr/pubsub-in-memory.yaml.tmpl
-      when: '{{- $hit := "" -}}{{- range .topology.pubsubs }}{{- if dig "role" "" . }}{{- $hit = "true" -}}{{- end }}{{- end }}{{ if and $hit (eq .pubsub "in-memory") }}true{{ end }}'
+      when: '{{ eq .pubsub "in-memory" }}'
     - path: base/dapr/pubsub-rabbitmq.yaml.tmpl
-      when: '{{- $hit := "" -}}{{- range .topology.pubsubs }}{{- if dig "role" "" . }}{{- $hit = "true" -}}{{- end }}{{- end }}{{ if and $hit (eq .pubsub "rabbitmq") }}true{{ end }}'
+      when: '{{ eq .pubsub "rabbitmq" }}'
     - path: base/dapr/pubsub-servicebus.yaml.tmpl
-      when: '{{- $hit := "" -}}{{- range .topology.pubsubs }}{{- if dig "role" "" . }}{{- $hit = "true" -}}{{- end }}{{- end }}{{ if and $hit (eq .pubsub "servicebus") }}true{{ end }}'
+      when: '{{ eq .pubsub "servicebus" }}'
 
     # The generic environment overlay never renders for the local environment:
     # it would set a namespace line, while the local overlay stays
