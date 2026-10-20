@@ -1,16 +1,14 @@
 # {{ .name }}
 
-.NET transactional integration job. Reads JSON orders from an inbound Dapr
-file binding, publishes them onto a Dapr pub/sub topic, processes each one
-through a VETER pipeline, and writes the transformed result to an outbound
-file binding.
+An Intropy transactional integration. Each run sweeps the `{{ .fromPort }}`
+source port and queues every file on the internal topic
+`internal-{{ .appId }}`; a send pipeline (deserialize, validate, transform,
+serialize, send) takes each queued file and writes the result to the
+`{{ .toPort }}` destination port.
+{{- if .empty }}
 
-Settings live in `src/appsettings.json`, overridable by
-`appsettings.{Environment}.json` and environment variables; deployment
-overlays the file via ConfigMap and `IConfiguration` is in DI.
-{{- if not .empty }}
-The platform-service app ids (`PlatformServices:*`) come from the scaffold
-parameters `idempotencyAppId`/`businessIncidentsAppId`.
+The pipeline steps were scaffolded empty: each throws
+`NotImplementedException` until it is implemented.
 {{- end }}
 
 ## Build and test
@@ -20,69 +18,16 @@ task build
 task test
 ```
 
-The job does not run standalone. It runs via its system host, which provides
-the storage bindings, pub/sub, and platform services, and carries the sample
-data used to seed a run. `task test` covers the component-level loop across two
-projects (`task test:unit` / `task test:integration` run them separately):
-
-- `test/{{ .name }}.Test.Unit` — pipeline-step unit tests. Pure xUnit; the only
-  fakes are NSubstitute at the Sender's `IFileAdapter` seam. No Dapr.
-- `test/{{ .name }}.Test.Integration` — the receive side (one run of the job)
-  and the send pipeline, built exactly as production composition does, with
-  only the externals faked via `Intropy.Framework.Testing` (`InMemoryFileAdapter`
-  at both keyed adapter seams, `FakeEnqueueStep` at the broker edge,
-  service-client fakes). No Dapr sidecar. Includes a composition smoke test
-  proving the DI graph builds without a sidecar.
+The job does not run standalone. Run it with the rest of the system from the
+system host (`task run` there).
 
 ## Container image
 
+From the system folder (the parent of this one):
+
 ```bash
-docker build -t {{ .appId }} .
+docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .
 ```
 
-Multi-stage build on the .NET 10 chiseled runtime. The image contains only the
-app — the Dapr sidecar and components come from the deployment environment.
-
-## Pipeline
-
-**Receive** (per source file):
-
-The framework owns the receive side; there is no component code for it.
-
-1. It lists the inbound binding and reads each file.
-2. It publishes the file to the internal queue (the topic `internal-{{ .appId }}`
-   on the system's internal-queue pub/sub, both passed in by the host and the
-   deployment as `INTROPY_TOPIC_NAME` and `INTROPY_PUBSUB_NAME`),
-   carrying the context metadata and trace to the send side.
-3. It deletes the source file. A file that cannot be read or published stays
-   for the next run.
-
-**Send** (per pub/sub delivery):
-{{- if .empty }}
-
-1. `Deserializer` parses the JSON into `In`.
-2. `Extractor` pass-through.
-3. `Validator` enforces business rules.
-4. `Transformer` maps `In` → `Out`.
-5. `Serializer` serializes back to JSON.
-6. `Sender` writes the JSON to the outbound binding.
-
-Every step body throws `NotImplementedException` — this project was scaffolded
-with empty bodies for a migration agent to fill in. When implementing, also wire
-idempotency and business incidents (see `AGENTS.md`).
-{{- else }}
-
-1. `Deserializer` parses the JSON into `In` and stamps `order_id` / `processed_at`
-   into the pipeline context.
-2. Idempotency check — asks the Idempotency Service whether this `OrderId` /
-   `OrderDate` combination was already processed; duplicates cancel the run.
-3. `Extractor` pass-through.
-4. `Validator` enforces required fields and basic business rules; failures are
-   routed to the Business Incident Service.
-5. `Transformer` maps `In` → `Out` and sums the line totals.
-6. `Serializer` serializes back to JSON.
-7. `Sender` writes the JSON to the outbound binding using `<orderId>.json`.
-
-After a successful send the idempotency record is committed, so the next delivery
-of the same order is recognised.
-{{- end }}
+See `AGENTS.md` for the component's names, ports and key files, and
+<https://docs.intropy.io> for how transactional integrations work.
