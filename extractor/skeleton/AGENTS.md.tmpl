@@ -1,170 +1,63 @@
 # Agent Instructions
 
-This project is a .NET extractor integration built on the Intropy framework.
-One run = one sweep of the inbound folder; each swept file goes through the
-Intropy extractor pipeline and is published as a CloudEvent to a Dapr pub/sub
-topic, then the source file is deleted. Scheduling lives outside the block —
-activation cadence is deployment configuration (a Kubernetes CronJob in
-production); locally the system host runs the block once at startup.
+`{{ .name }}` is an Intropy extractor: a run-to-completion .NET 10 job that
+sweeps its source port once per run and publishes each file as the
+`{{ .publishes }}` message.
 
 ## Project overview
 
-- Framework: .NET 10
-- App type: Run-to-completion console job (no web endpoints; one sweep per run,
-  then exit). Hosted by the framework's `JobRunner`, which owns the
-  Dapr sidecar lifecycle, tracing, and the exit-code contract: `0` success /
-  no-op / cancelled, `1` job failure (a file failed and was left in place), `2`
-  infrastructure failure (sidecar unavailable).
-- Runner: the framework's `JobRunner` (in `Intropy.Framework.Hosting`),
-  running the framework's extractor job (`AddExtractor`): one
-  sweep of the source port per run, each file through the pipeline, reported
-  as a `RunSummary`.
 - App id: `{{ .appId }}`
-- Source port: `{{ .port }}` — the named interface the extractor reads
-  the outside world through; the system host declares it in `Ports.cs`
-  and the Dapr binding uses the same name, resolved to a local folder in
-  development. In production the same name resolves to the environment's
-  binding (e.g. SFTP) from the deploy overlay's GitOps values — rebinding
-  the port is a deployment change, never a code change
-- Pub/sub component: the system's bus, named by the topology (`<system>-pubsub`)
-  — read at run time from `INTROPY_PUBSUB_NAME`, which the system host
-  and the deployment set (`Composition.PubSubName`)
-- Message: `{{ .publishes }}` — what the extractor publishes; the message name doubles
-  as the CloudEvents type. Set by `--publishes` from the resolved registry
-  message; carried in the scaffold record's scalar `publishes` value.
-- Channel: `{{ .channel }}` — the topic declared in `.intropy/scaffold.json` (the message name unless a shared topic was given). The system host carries it into the topology, which settles the topic; the code reads it at run time from `INTROPY_TOPIC_NAME` (`Composition.TopicName`) and never names it. The consuming loader subscribes to the same channel
-- CloudEvent envelope: source `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`, type `{{ .publishes }}` (the message name IS the type)
-- Idempotency Service: reached via Dapr service invocation, app id
-  `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Business Incident Service: reached via Dapr service invocation, app id
-  `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the published payload type (`{{ .payloadType }}`) — derived from the message name — lives in the
-  sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
-  from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
-  dependency declaration; when it already exists (another component created
-  it) the scaffold leaves it untouched. `Source{{ .payloadType }}` (the source file shape) stays
-  local in `src/Model/`.
+- Message: `{{ .publishes }}` (also the CloudEvents type)
+- CloudEvent source: `{{ if .eventSource }}{{ .eventSource }}{{ else }}{{ .eventSourceValue }}{{ end }}`
+- Topic: `{{ .channel }}`, declared in `.intropy/scaffold.json`. The code
+  publishes on `INTROPY_PUBSUB_NAME` / `INTROPY_TOPIC_NAME`, which the system
+  host and the deployment set.
+- Source port: `{{ .port }}`, declared in the system host's `Ports.cs`
+- Payload type: `{{ .payloadType }}` in the sibling `../{{ .contracts }}` project;
+  the source file shape `Source{{ .payloadType }}` stays in `src/Model/`
+- Exit codes: `0` success, `1` a file failed and was left in place,
+  `2` sidecar unavailable
+- Config keys (`src/appsettings*.json`):
+  - `Ports:{{ .port }}:Kind`: `Local` in Development; a deployment sets
+    `Ports__{{ .port }}__Kind` (`Sftp`, `AzureBlob`)
+  - `PlatformServices:IdempotencyServiceAppId`: `{{ .idempotencyAppId }}`
+  - `PlatformServices:BusinessIncidentServiceAppId`: `{{ .businessIncidentsAppId }}`
 
 ## Important files
 
-- `Taskfile.yml` - build and test tasks (`task build`, `task test`; the
-  suites also run separately via `task test:unit` / `task test:integration`).
-- `Dockerfile` - multi-stage image build on the .NET chiseled runtime
-  (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
-  the shared contracts sibling enters as a named context); the image contains
-  only the app — the Dapr sidecar and components come from the deployment
-  environment.
-- `src/Program.cs` - entrypoint: builds the service provider via `Composition`
-  and runs the framework `JobRunner`.
-- `src/Composition/Composition.cs` - every service registration (including
-  the pipeline and the publish edge: the sender is a DI-registered
-  `SendStep<Context>` — a `DaprTopicPublisher` in production — resolved by
-  `ConfigurePipeline(builder, provider)` like any other external). The
-  framework builds the pipeline in each source file's own scope, and deletes
-  the file once it is published or cancelled as a duplicate; a file that cannot
-  be read or processed stays and counts as `Failed`, which drives the
-  job-failure exit code. The idempotency key extractors (`OrderId`/`OrderDate`)
-  are inlined in `ConfigurePipeline`. Note the namespace/type collision:
-  `{{ .name }}.Composition` is both namespace and class, so call sites inside
-  nested namespaces use the fully qualified `Composition.Composition`.
-- `src/Constants.cs` - component/topic names, the source port, CloudEvent
-  envelope values (root namespace — consumed by both `src` and the tests).
-- `src/Process/` - the extractor pipeline steps only (`Deserializer`,
-  `Validator`, `Transformer`); serialization is the framework's
-  `CloudEventSerializeStep`. All DI and `ExtractorBuilder` wiring lives in
-  `src/Composition/`.
-- `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (pure xUnit; no
-  fakes, no Dapr; `task test:unit`).
-- `test/{{ .name }}.Test.Integration/` - sweep, publish-wiring, composition,
-  and runner tests against `Intropy.Framework.Testing` fakes
-  (`task test:integration`; `task coverage` reports branch coverage).
-
-## Configuration
-
-Settings live in `src/appsettings.json` (copied to the build output), overridden by
-`appsettings.{Environment}.json` and environment variables — `Composition` builds
-`IConfiguration` from the binary directory, registers it in DI, and reads the
-platform-service app ids from `PlatformServices:*`. Deployment overlays the file
-via ConfigMap. Components that need typed options bind them themselves.
-
-The file adapter behind each port is chosen by `Ports:{{ .port }}`: `Kind` selects the Dapr
-binding the port is deployed with (`Local`, `Sftp` or `AzureBlob`). `src/appsettings.Development.json`
-selects `Local`, the local folder the system host resolves each port to (the host runs
-every component as Development). `appsettings.json` sets no `Kind`: a deployment sets
-`Ports__<port>__Kind` to match the binding it renders, and without it the component
-fails at startup naming the port.
+- `src/Composition/Composition.cs`: DI registrations and the `AddExtractor`
+  sources, routes and pipeline (`ConfigurePipeline`, with the idempotency id
+  and date extractors). `{{ .name }}.Composition` is both a namespace and a
+  class, so nested namespaces call `Composition.Composition`.
+- `src/Constants.cs`: component name, source port, CloudEvent source and type.
+- `src/Process/`: the pipeline steps (`Deserializer`, `Validator`, `Transformer`).
+- `test/{{ .name }}.Test.Unit/`: step unit tests.
+- `test/{{ .name }}.Test.Integration/`: sweep, publish and composition tests
+  on `Intropy.Framework.Testing` fakes (fakes in `FakeEdges.cs`).
+- `Dockerfile`: image build (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .`).
 
 ## Build and test
 
-Components do not run standalone — this extractor runs via its system host,
-which runs it once at startup and provides every Dapr component (source
-binding, pub/sub, platform services). A re-run is a host restart. The
-component-level loop is build and test:
+The extractor runs via its system host, which runs it once at startup and
+provides the source binding, the pub/sub and the platform services.
 
 ```bash
 task build
-task test
+task test        # or task test:unit / task test:integration
+task coverage    # Cobertura report under the integration project's TestResults/
 ```
 
-`task test` runs both test projects (`task test:unit` / `task test:integration`
-run them separately): the unit suite pins each pipeline step's
-own contract; the integration suite builds the pipeline exactly as production
-composition does, fakes only the edges (`InMemoryFileAdapter`, `FakeTopic`,
-`FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` — from
-`Intropy.Framework.Testing`), and asserts on fake state. NSubstitute appears
-only for the `DaprClient` publish seam the testing library deliberately
-leaves open (`PublishIntegrationTests`). `task coverage` runs the integration suite with branch
-coverage (Cobertura report under the integration project's `TestResults/`).
-
 ## Development notes
-
-- The source `IFileAdapter` is registered (from configuration, see above) as a keyed singleton under its port name
-  (`Constants.SourcePort`). Inject it via `[FromKeyedServices(...)]`
-  or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
-- The extractor is registered with sources (the ports it sweeps) and routes (the
-  pipeline each port's files go through); the scaffold has one of each. A port
-  carrying other data needs: the port in the system host (`Ports.cs` and a `From`
-  call), `Ports:<port>:Kind` in `appsettings.Development.json`, its file adapter,
-  `.Port(...)` in the sources, and an `.On<TIn, TOut>([port], ...)` route
-  with its own steps in `src/Composition/Composition.cs`; the integration tests
-  fake its adapter in `FakeEdges` like the scaffolded port's. Each route's pipeline
-  stamps its port on the events it publishes (`intropysourceport`) and keeps its
-  idempotency records per port.
-- A failed file stays in the inbound folder and is retried on the next
-  scheduled run; the idempotency check makes the retry safe. Duplicates cancel
-  as a traceable no-op and the file is removed.
-- Additional enrichment steps go into the builder chain in
-  `src/Composition/Composition.cs` (`ConfigurePipeline`) via `.WithExtractor(...)` —
-  the extractor pipeline supports any number of them, executed in order.
-{{- if .empty }}
-- The step bodies are scaffolded empty (`NotImplementedException`). The
-  idempotency and business-incident wiring stays in place — `ExtractorBuilder`
-  requires both — but the idempotency extractor lambdas throw. When you
-  implement the steps, point them at a stable business identifier and business
-  timestamp; a per-delivery value (fresh GUID, wall-clock time) makes the
-  check pass everything.
-- The test suite is real and fails out of the box by design — `task test` is
-  red until the steps and the extractor lambdas land (only `CompositionTests`
-  starts green). The pinned behaviors flip green one by one as the
-  implementation progresses; no test edits are needed to get there. Three
-  sweep tests from the full sample suite are deliberately not scaffolded:
-  business-failure incident routing (which input fails validation is the
-  Validator's to define; scaffolded now its assertions would hold vacuously),
-  duplicate-cancel, and delete-failure-redelivery (both need the duplicate
-  simulation the idempotency extractors enable). Add them as the
-  corresponding implementation lands, copying the full sample suite's
-  versions.
+{{ if .empty }}
+- The step bodies and the idempotency id/date extractors throw
+  `NotImplementedException`; `task test` is red until they are implemented.
+  The business-incident, duplicate-cancel and delete-failure sweep tests are
+  not scaffolded; add them with the implementation.
 {{- else }}
-- The pipeline checks idempotency before transforming: the id is the order's
-  `OrderId` and the timestamp its `OrderDate`, so a redelivered unchanged order
-  cancels as a traceable no-op instead of publishing twice. Keep the id/date
-  extractors pointing at *business* fields — a per-delivery value (fresh GUID,
-  wall-clock time) makes the check pass everything.
-- Business failures (validation errors) are routed to the Business Incident
-  Service, keyed on the order id (falling back to the source file name).
-- The framework's `CloudEventSerializeStep` builds the CloudEvent envelope and
-  validates `Subject`/`Time` at serialize time (the publisher keeps its checks
-  as defense-in-depth). The component supplies both as lambdas in `ConfigurePipeline`.
+- Idempotency keys off the order's `OrderId` / `OrderDate`, which are also the
+  CloudEvent `Subject` / `Time`.
+- The `Validator` fails with `Retriable: false`: invalid data routes a
+  business incident and the file is consumed.
 {{- end }}
 
 ## Framework guidance

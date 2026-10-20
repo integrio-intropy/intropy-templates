@@ -1,162 +1,63 @@
 # Agent Instructions
 
-This project is a .NET loader integration built on the Intropy framework.
-A generic-host worker consumes a Dapr pub/sub topic through a streaming
-subscription (the app connects to its sidecar; it serves no HTTP). Each
-message is rebuilt into a CloudEvent, run through the Intropy loader pipeline,
-and written as `{orderId}.json` through a Dapr destination binding.
+`{{ .name }}` is an Intropy loader: a long-running .NET 10 worker that consumes
+the `{{ .subscribes }}` message over a Dapr streaming subscription and writes
+each one through its destination port.
 
 ## Project overview
 
-- Framework: .NET 10
-- App type: generic-host worker (long-running; a Deployment in production)
-- No app port and no HTTP endpoints: the framework's loader host
-  (`AddLoader`, `Intropy.Framework.Hosting`) opens a Dapr streaming
-  subscription and sends each message's ack (Success / Retry) back over it
-- Health: a pipeline that cannot be composed stops the host with exit code 1;
-  a broken subscription stream is reopened. There is no HTTP probe
 - App id: `{{ .appId }}`
-- Pub/sub component: the system's bus, named by the topology (`<system>-pubsub`)
-  — provided by the system host and the deploy manifests; messages are
-  published from there
-- Message: `{{ .subscribes }}` — the CloudEvents type the pipeline consumes; the publishing extractor uses the same message identity
-- Topic: `{{ .channel }}`; the topic and the subscription's messages and filters are the `topic` and `routes` in `.intropy/scaffold.json`, rendered by the system host as the component's Dapr Subscription. The code names neither the pub/sub nor the topic: the loader takes what the Subscription delivers
-- Destination port: `{{ .port }}` — the named interface the loader
-  writes the outside world through; the system host declares it in
-  `Ports.cs` and the Dapr binding uses the same name, resolved to a local
-  folder in development. In production the same name resolves to the
-  environment's binding (e.g. SFTP) from the deploy overlay's GitOps
-  values — rebinding the port is a deployment change, never a code change
-- Idempotency Service: reached via Dapr service invocation, app id
-  `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Business Incident Service: reached via Dapr service invocation, app id
-  `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per environment)
-- Shared contracts: the consumed payload type (`{{ .payloadType }}`) — derived from the message name — lives in the
-  sibling project `../{{ .contracts }}` (namespace `{{ .contracts }}`), referenced
-  from `src/{{ .name }}.csproj`. The sibling is scaffolded by this template's
-  dependency declaration; when it already exists (another component created
-  it) the scaffold leaves it untouched. The destination load record (`Out`)
-  stays local in `src/Model/`.
+- Message: `{{ .subscribes }}` (the CloudEvents type the pipeline consumes)
+- Topic: `{{ .channel }}`, declared in `.intropy/scaffold.json` with the
+  subscription's routes; the system host renders the Dapr Subscription. The
+  code names neither the pub/sub nor the topic.
+- Destination port: `{{ .port }}`, declared in the system host's `Ports.cs`
+- Payload type: `{{ .payloadType }}` in the sibling `../{{ .contracts }}` project
+- No HTTP endpoints and no app port
+- Config keys (`src/appsettings*.json`):
+  - `Ports:{{ .port }}:Kind`: `Local` in Development; a deployment sets
+    `Ports__{{ .port }}__Kind` (`Sftp`, `AzureBlob`)
+  - `PlatformServices:IdempotencyServiceAppId`: `{{ .idempotencyAppId }}`
+  - `PlatformServices:BusinessIncidentServiceAppId`: `{{ .businessIncidentsAppId }}`
 
 ## Important files
 
-- `Taskfile.yml` - build and test tasks (`task build`, `task test`; the
-  suites also run separately via `task test:unit` / `task test:integration`).
-- `Dockerfile` - multi-stage image build on the chiseled ASP.NET Core
-  runtime, which the framework's hosting package needs; the app listens on no
-  port (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .` —
-  the shared contracts sibling enters as a named context); the image contains
-  only the app — the Dapr sidecar and components come from the deployment
-  environment.
-- `src/Program.cs` - host bootstrap: builds the host from
-  `Composition.CreateHostBuilder` and runs it until SIGTERM.
-- `src/Composition/Composition.cs` - the host builder and every service
-  registration, ending in the single-pipeline `AddLoader` overload and its
-  unrouted policy. The sender is a DI-registered
-  `SendStep<Out, Context>` resolved by `WithSenderFromServices()` like any other
-  external. Note the namespace/type collision: `{{ .name }}.Composition` is both
-  namespace and class, so call sites inside nested namespaces use the fully
-  qualified `Composition.Composition.CreateHostBuilder(...)`.
-- `src/Constants.cs` - the component name, the destination port, and the
-  CloudEvent context keys the idempotency step
-  reads (root namespace — consumed by both `src` and the tests).
-- `src/Routes/{{ pascal .subscribes }}/` - the loader's typed pipeline steps
-  (`Deserializer`, `Validator`, `Transformer`, `Sender`) and message identity.
-  All DI and `AddLoader` wiring lives in `src/Composition/`.
-- `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (pure xUnit; no
-  fakes except the Sender's `IFileAdapter` seam via NSubstitute, no Dapr;
-  `task test:unit`).
-- `test/{{ .name }}.Test.Integration/` - delivery, boot-smoke, and
-  composition tests against `Intropy.Framework.Testing` fakes, sharing the
-  `LoaderSut` host fixture (`task test:integration`; `task coverage` reports
-  branch coverage).
-
-## Configuration
-
-Settings live in `src/appsettings.json` (copied to the build output), overridden by
-`appsettings.{Environment}.json` and environment variables — the generic host reads
-them from the binary directory (its content root) and `Composition` reads the
-platform-service app ids from `PlatformServices:*`. Deployment overlays the file
-via ConfigMap. Components that need typed options bind them themselves.
-
-The file adapter behind each port is chosen by `Ports:{{ .port }}`: `Kind` selects the Dapr
-binding the port is deployed with (`Local`, `Sftp` or `AzureBlob`). `src/appsettings.Development.json`
-selects `Local`, the local folder the system host resolves each port to (the host runs
-every component as Development). `appsettings.json` sets no `Kind`: a deployment sets
-`Ports__<port>__Kind` to match the binding it renders, and without it the component
-fails at startup naming the port.
+- `src/Composition/Composition.cs`: host builder, DI registrations and the
+  `AddLoader` pipeline. `{{ .name }}.Composition` is both a namespace and a
+  class, so nested namespaces call `Composition.Composition.CreateHostBuilder`.
+- `src/Constants.cs`: component name, destination port, context keys.
+- `src/Routes/{{ pascal .subscribes }}/`: the pipeline steps (`Deserializer`,
+  `Validator`, `Transformer`, `Sender`) and the `Out` record.
+- `test/{{ .name }}.Test.Unit/`: step unit tests.
+- `test/{{ .name }}.Test.Integration/`: delivery, boot and composition tests
+  on `Intropy.Framework.Testing` fakes (`LoaderSut` hosts them).
+- `Dockerfile`: image build (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .`).
 
 ## Build and test
 
-Components do not run standalone — this loader runs via its system host,
-which provides every Dapr component (pub/sub, destination binding, platform
-services) and carries the sample data used to publish a message. The
-component-level loop is build and test:
+The loader runs via its system host, which provides the pub/sub, the
+destination binding and the platform services.
 
 ```bash
 task build
-task test
+task test        # or task test:unit / task test:integration
+task coverage    # Cobertura report under the integration project's TestResults/
 ```
 
-`task test` runs both test projects (`task test:unit` / `task test:integration`
-run them separately): the unit suite pins each pipeline step's own contract;
-the integration suite starts the real host (`LoaderSut`, built from
-`Composition.CreateHostBuilder`) with only the externals faked
-(`InMemoryFileAdapter` at the keyed destination seam,
-`FakeIdempotencyServiceClient`, `FakeBusinessIncidentServiceClient` — from
-`Intropy.Framework.Testing`), delivers CloudEvents over the loader's
-subscription exactly as the sidecar would (`FakeStreamingSubscriber`), and asserts
-on fake state and the delivery ack. `task coverage` runs the integration
-suite with branch coverage (Cobertura report under the integration project's
-`TestResults/`).
-
 ## Development notes
-
-- The destination `IFileAdapter` is registered (from configuration, see above) as a keyed singleton under its port name
-  (`Constants.DestinationPort`). Inject it via
-  `[FromKeyedServices(...)]` or resolve via `GetRequiredKeyedService<IFileAdapter>(...)`.
-- Loader idempotency keys off CloudEvent `Subject` (id) and `Time` (date),
-  read from the context keys `cloudevent.subject` / `cloudevent.time`
-  (constants in `Constants.cs`, mirroring the framework's internal keys —
-  there are no id/date extractor lambdas to configure).
-- Ack mapping (framework-owned): success, an idempotent duplicate, and a
-  routed business incident all ack Success (redelivering a validation failure
-  would loop forever); technical failures and interrupted messages ack Retry
-  and the sidecar redelivers.
-- Redelivery detection: the sidecar marks redeliveries (`retrycount`), which
-  reach the pipeline context as `IsRetry` — a successful redelivery resolves
-  the business incident an earlier delivery routed.
-- Additional extraction steps go into the builder chain in
-  `src/Composition/Composition.cs` (the `AddLoader` builder chain) via `.WithExtractor(...)` —
-  the loader pipeline supports any number of them, executed in order after
-  deserialization.
-{{- if .empty }}
-- The step bodies are scaffolded empty (`NotImplementedException`). The
-  idempotency and business-incident wiring stays in place — `LoaderBuilder`
-  requires both. There are no idempotency lambdas to stub; instead, stamp
-  the `cloudevent.subject` / `cloudevent.time` context keys from a stable
-  business identifier and business timestamp in your `Deserializer` — a
-  per-delivery value (fresh GUID, wall-clock time, or the `dapr publish`
-  envelope's delivery-time `time`) makes the check pass everything.
-- The test suite is real and fails out of the box by design — `task test` is
-  red until the steps land (only `CompositionTests` and the boot smoke test
-  start green). The pinned behaviors flip green one by one as the
-  implementation progresses; no test edits are needed to get there. Two
-  delivery tests from the full sample suite are deliberately not scaffolded:
-  business-failure incident routing (which input fails validation is the
-  Validator's to define; scaffolded now its assertions would hold vacuously),
-  and duplicate-ack (the duplicate simulation relies on the idempotency
-  commit the implemented pipeline records). Add them as the corresponding
-  implementation lands, copying the full sample suite's versions.
+{{ if .empty }}
+- The step bodies throw `NotImplementedException`; `task test` is red until
+  they are implemented. The duplicate-ack and business-incident delivery tests
+  are not scaffolded; add them with the implementation.
+- Stamp the `Constants.ContextKeyCloudEventSubject` / `ContextKeyCloudEventTime`
+  context keys from a stable business id and timestamp in the `Deserializer`;
+  idempotency keys off them.
 {{- else }}
-- The `Deserializer` stamps the `cloudevent.subject` / `cloudevent.time`
-  context keys from the order's `OrderId` / `OrderDate` — for
-  extractor-published events these equal the envelope values, and a
-  `dapr publish` envelope carries no subject and a wall-clock time. Keep the
-  stamping pointed at *business* fields — a per-delivery value (fresh GUID,
-  wall-clock time) makes the idempotency check pass everything.
-- Business failures (validation errors) are routed to the Business Incident
-  Service, keyed on the order id (falling back to the envelope subject).
+- The `Deserializer` stamps the CloudEvent subject / time context keys from
+  the order's `OrderId` / `OrderDate`; idempotency keys off them.
+- The `Sender` writes `{orderId}.json` to the destination port.
+- The `Validator` fails with `Retriable: false`: invalid data routes a
+  business incident and the message is consumed.
 {{- end }}
 
 ## Framework guidance
