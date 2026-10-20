@@ -31,7 +31,8 @@
 - `test/{{ .name }}.Test.Integration/`: composition, and one run under the
   real `JobRunner` with the sidecar and platform clients faked (`CreateServices`
   in `RunnerTests.cs`).
-- `Dockerfile`: image build (`docker build -t {{ .appId }} .`).
+- `Dockerfile`, `Dockerfile.dockerignore`: image build. The build context is
+  the system folder: `docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .`
 
 ## Build and test
 

@@ -32,7 +32,8 @@ queued file through a send pipeline that writes to its destination port.
 - `test/{{ .name }}.Test.Unit/`: step unit tests.
 - `test/{{ .name }}.Test.Integration/`: receive-side, send-pipeline and
   composition tests on `Intropy.Framework.Testing` fakes (fakes in `FakeEdges.cs`).
-- `Dockerfile`: image build (`docker build -t {{ .appId }} .`).
+- `Dockerfile`, `Dockerfile.dockerignore`: image build. The build context is
+  the system folder: `docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .`
 
 ## Build and test
 

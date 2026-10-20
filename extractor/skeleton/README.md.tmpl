@@ -52,8 +52,10 @@ from the system host (`task run` there), which runs it once at startup.
 
 ## Container image
 
+From the system folder (the parent of this one):
+
 ```bash
-docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .
+docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .
 ```
 
 See `AGENTS.md` for the component's names, ports and key files, and

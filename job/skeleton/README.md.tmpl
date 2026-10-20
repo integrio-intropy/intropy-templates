@@ -32,8 +32,10 @@ task test
 
 ## Container image
 
+From the system folder (the parent of this one):
+
 ```bash
-docker build -t {{ .appId }} .
+docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .
 ```
 
 See `AGENTS.md` for the component's names and key files, and
