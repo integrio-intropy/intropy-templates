@@ -34,7 +34,8 @@ sweeps its source port once per run and publishes each file as the
 - `test/{{ .name }}.Test.Unit/`: step unit tests.
 - `test/{{ .name }}.Test.Integration/`: sweep, publish and composition tests
   on `Intropy.Framework.Testing` fakes (fakes in `FakeEdges.cs`).
-- `Dockerfile`: image build (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .`).
+- `Dockerfile`, `Dockerfile.dockerignore`: image build. The build context is
+  the system folder: `docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .`
 
 ## Build and test
 

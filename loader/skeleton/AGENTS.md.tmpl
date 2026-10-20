@@ -31,7 +31,8 @@ each one through its destination port.
 - `test/{{ .name }}.Test.Unit/`: step unit tests.
 - `test/{{ .name }}.Test.Integration/`: delivery, boot and composition tests
   on `Intropy.Framework.Testing` fakes (`LoaderSut` hosts them).
-- `Dockerfile`: image build (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .`).
+- `Dockerfile`, `Dockerfile.dockerignore`: image build. The build context is
+  the system folder: `docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .`
 
 ## Build and test
 
