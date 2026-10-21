@@ -44,6 +44,11 @@ spec:
         title: Route
         description: Path callers POST items to. Defaults to /<publishes>.
         pattern: "^/[A-Za-z0-9/._-]*$"
+      localPort:
+        type: integer
+        title: Local port
+        description: Port the system host serves the gateway on locally, so the sample requests always find it. Give each gateway in a system its own.
+        default: 5080
       topic:
         type: string
         title: Topic

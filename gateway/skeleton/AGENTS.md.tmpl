@@ -20,7 +20,8 @@ mechanism — the status code tells it whether to resend.
   against `port` and `routePath`.
 - App id: `{{ .appId }}`
 - Endpoint: `{{ .port }}` at `POST {{ .routePath }}`, on HTTP port 8080 (ASP.NET Core
-  `http_ports` / `urls` override it). Declared in `{{ .componentClass }}.Endpoints`;
+  `http_ports` / `urls` override it). The system host serves it locally on
+  `http://localhost:{{ .localPort }}`, from `src/Properties/launchSettings.json`. Declared in `{{ .componentClass }}.Endpoints`;
   the port is stamped on every published event and scopes the idempotency records.
   The scaffold record names the same endpoint (`port`, `routePath`) for the system
   host and the ingress, and startup fails if code and record disagree — change both.
@@ -55,6 +56,8 @@ mechanism — the status code tells it whether to resend.
   (`MaxRequestBodyBytes`, `RetryAfter`).
 - `src/{{ .name }}.http` - {{ if .empty }}a published, a not-JSON and the probe requests{{ else }}one sample request per response{{ end }}, for a running
   gateway; `src/http-client.env.json` holds the host per environment.
+- `src/Properties/launchSettings.json` - the local port ({{ .localPort }}) the system
+  host serves the gateway on; `local` in `src/http-client.env.json` must match it.
 - `Dockerfile` - multi-stage build on the chiseled ASP.NET Core runtime
   (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .`).
 - `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (`task test:unit`).

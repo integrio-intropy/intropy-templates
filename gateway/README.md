@@ -20,6 +20,7 @@ the build embeds in the assembly.
 | `organization` | yes | — | Telemetry service namespace and incident source URN |
 | `publishes` | yes | — | The message published; the CloudEvents type |
 | `route` | no | `/<publishes>` | Path callers `POST` items to |
+| `localPort` | no | `5080` | Port the system host serves the gateway on locally (`src/Properties/launchSettings.json`, and `local` in `src/http-client.env.json`); unique per gateway in a system |
 | `topic` | no | the message | Declared channel, recorded for `intropy sys create` |
 | `idempotencyAppId` | no | `idempotency-service.services` | Dapr app-id of the Idempotency Service |
 | `businessIncidentsAppId` | no | `business-incident-service.services` | Dapr app-id of the Business Incident Service |
