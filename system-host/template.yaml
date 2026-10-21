@@ -60,6 +60,14 @@ spec:
         items:
           type: object
           additionalProperties: true
+      # Gateways' HTTP endpoints, {name, path} each: listed apart from
+      # `ports`, which the host resolves to file bindings. Optional, since a
+      # system without a gateway has none.
+      endpoints:
+        type: array
+        items:
+          type: object
+          additionalProperties: true
       components:
         type: array
         items:
@@ -79,6 +87,9 @@ spec:
     # render with a re-scaffold instruction rather than render from topics.
     - path: Messages.cs.tmpl
       when: '{{ and (hasKey . "messages") (gt (len .messages) 0) }}'
+    # Endpoints exist only where a gateway serves one.
+    - path: Endpoints.cs.tmpl
+      when: '{{ and (hasKey . "endpoints") (gt (len .endpoints) 0) }}'
   dependencies:
     # The system's contract types. Skipped when the workspace already has a
     # shared-library scaffold (the CLI passes it as sharedContracts) or when
