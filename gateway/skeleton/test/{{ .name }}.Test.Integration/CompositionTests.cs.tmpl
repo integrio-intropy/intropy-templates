@@ -1,0 +1,21 @@
+using System.Net;
+using Intropy.Framework.Hosting.Gateway;
+using Intropy.Framework.Testing.Components;
+
+namespace {{ .name }}.Test.Integration;
+
+public class CompositionTests
+{
+    // Startup composes the pipeline, so a missing step, a wrong payload type or a
+    // scaffold record without the gateway's values fails here, not on the first request.
+    [Fact]
+    public async Task Gateway_StartsAndReportsReady()
+    {
+        await using var host = new GatewayTestHost<{{ .componentClass }}>();
+        var client = await host.StartAsync();
+
+        using var ready = await client.GetAsync(new Uri(GatewayServiceCollectionExtensions.ReadinessPath, UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+    }
+}

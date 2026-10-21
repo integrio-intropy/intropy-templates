@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Wires the gateway from .intropy/scaffold.json, which its build targets embed. -->
+    <PackageReference Include="Intropy.Framework.Components" Version="2.0.0-gateway-local.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The HTTP client's environments: an editor file, never published. -->
+    <Content Remove="http-client.env.json" />
+    <None Include="http-client.env.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The shared contracts sibling is scaffolded by this template's
+         spec.dependencies entry, so it exists whenever this project does. -->
+    <ProjectReference Include="../../{{ .contracts }}/{{ .contracts }}.csproj" />
+  </ItemGroup>
+
+</Project>

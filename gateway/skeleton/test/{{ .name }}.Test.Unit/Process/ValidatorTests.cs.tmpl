@@ -1,0 +1,50 @@
+using {{ .name }}.Model;
+using {{ .name }}.Process;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Unit.Process;
+
+public class ValidatorTests
+{
+    [Fact]
+    public async Task ExecuteAsync_WithAValidOrder_ReturnsSuccess()
+    {
+        var (result, _) = await Validate(SampleOrders.Valid());
+
+        Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutAnOrderId_ReturnsFailure() =>
+        await AssertFails(SampleOrders.Valid() with { OrderId = "" }, "OrderId is required");
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutACustomerId_ReturnsFailure() =>
+        await AssertFails(SampleOrders.Valid() with { CustomerId = " " }, "CustomerId is required");
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutLines_ReturnsFailure() =>
+        await AssertFails(SampleOrders.Valid() with { Lines = [] }, "Order must contain at least one line");
+
+    [Fact]
+    public async Task ExecuteAsync_WithAFutureOrderDate_ReturnsFailure()
+    {
+        var (result, _) = await Validate(SampleOrders.Valid() with { OrderDate = DateTimeOffset.UtcNow.AddDays(1) });
+
+        var failure = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Failure>(result);
+        Assert.StartsWith("OrderDate", failure.Value.Description, StringComparison.Ordinal);
+    }
+
+    private static async Task AssertFails(Source{{ .payloadType }} order, string description)
+    {
+        var (result, _) = await Validate(order);
+
+        var failure = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Failure>(result);
+        Assert.Equal(description, failure.Value.Description);
+    }
+
+    private static Task<(BusinessStepResult<Source{{ .payloadType }}> Result, Context Context)> Validate(
+        Source{{ .payloadType }} order) =>
+        new Validator().ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
+}

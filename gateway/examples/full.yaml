@@ -1,0 +1,7 @@
+name: Int1055.OrderGateway
+organization: Acme
+publishes: order-placed
+route: /api/orders
+idempotencyAppId: idempotency-service.services
+businessIncidentsAppId: business-incident-service.services
+eventSource: urn:acme:webshop-orders

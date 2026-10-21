@@ -1,0 +1,59 @@
+# Sample requests for {{ .appId }}, one per response the gateway gives. Pick the
+# environment (and so {{ "{{" }}host}}) from http-client.env.json: "local" is the port the
+# system host gives the gateway; add one per deployed environment's ingress.
+
+### Published: 202 with { requestId, eventId }
+POST {{ "{{" }}host}}{{ .routePath }}
+Content-Type: application/json
+X-Request-Id: sample-published
+
+{
+  "orderId": "ORD-1001",
+  "customerId": "CUST-42",
+  "status": "Placed",
+  "orderDate": "2026-01-15T09:30:00+00:00",
+  "lines": [
+    { "sku": "SKU-1", "quantity": 2, "unitPrice": 19.90 }
+  ]
+}
+
+### Duplicate: send the same order again — 200, nothing published
+POST {{ "{{" }}host}}{{ .routePath }}
+Content-Type: application/json
+X-Request-Id: sample-duplicate
+
+{
+  "orderId": "ORD-1001",
+  "customerId": "CUST-42",
+  "status": "Placed",
+  "orderDate": "2026-01-15T09:30:00+00:00",
+  "lines": [
+    { "sku": "SKU-1", "quantity": 2, "unitPrice": 19.90 }
+  ]
+}
+
+### Rejected by the Validator: 422, routed as a business incident named ORD-1002
+POST {{ "{{" }}host}}{{ .routePath }}
+Content-Type: application/json
+X-Request-Id: sample-rejected
+
+{
+  "orderId": "ORD-1002",
+  "customerId": "CUST-42",
+  "status": "Placed",
+  "orderDate": "2026-01-15T09:30:00+00:00",
+  "lines": []
+}
+
+### Not JSON: 422, the incident is named after the request id
+POST {{ "{{" }}host}}{{ .routePath }}
+Content-Type: application/json
+X-Request-Id: sample-not-json
+
+not json
+
+### Readiness: 200 once the sidecar answers, 503 before (requests then get 503 + Retry-After)
+GET {{ "{{" }}host}}/readyz
+
+### Liveness: 200 while the process serves requests
+GET {{ "{{" }}host}}/healthz

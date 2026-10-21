@@ -1,0 +1,6 @@
+using {{ .name }};
+using Intropy.Framework.Components;
+
+// Serve until stopped: the framework wires the gateway's endpoints and routes into a web
+// host, with /healthz and /readyz, telemetry and the publisher.
+return await ComponentHost.RunAsync<{{ .componentClass }}>(args);

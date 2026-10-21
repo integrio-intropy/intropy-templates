@@ -1,0 +1,32 @@
+using System.Text.Json;
+using {{ .name }}.Model;
+using {{ .name }}.Process;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Unit.Process;
+
+public class DeserializerTests
+{
+    [Fact]
+    public async Task ExecuteAsync_WithValidJson_ReturnsTheOrderAndNamesItOnTheContext()
+    {
+        var context = new Context(new Dictionary<string, string>());
+        const string body = """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Placed","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":19.90}]}""";
+
+        var (result, ctx) = await new Deserializer().ExecuteAsync(body, context, CancellationToken.None);
+
+        var success = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
+        Assert.Equal("ORD-1001", success.Value.OrderId);
+        Assert.Single(success.Value.Lines);
+        Assert.Equal("ORD-1001", ctx.Metadata[{{ .componentClass }}.ContextKeyOrderId]);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithABodyThatIsNotJson_Throws()
+    {
+        // The framework turns the exception into a business incident (the caller's 422).
+        await Assert.ThrowsAnyAsync<JsonException>(() =>
+            new Deserializer().ExecuteAsync("not json", new Context(new Dictionary<string, string>()), CancellationToken.None));
+    }
+}
