@@ -1,0 +1,27 @@
+using {{ .contracts }};
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+public class Transformer : TransformStep<Source{{ .payloadType }}, {{ .payloadType }}, Context>
+{
+    public override Task<(TechnicalStepResult<{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
+        Source{{ .payloadType }} input, Context context, CancellationToken ct)
+    {
+        // {{ .payloadType }} is the canonical contract from the shared contracts
+        // project; the consuming loader deserializes exactly this. Reshape here
+        // when the callers' format diverges from the canonical one.
+        var output = new {{ .payloadType }}(
+            OrderId: input.OrderId,
+            CustomerId: input.CustomerId,
+            Status: input.Status,
+            OrderDate: input.OrderDate,
+            Lines: input.Lines);
+
+        return Task.FromResult<(TechnicalStepResult<{{ .payloadType }}>, Context)>(
+            (new TechnicalStepResult<{{ .payloadType }}>.Success(output), context));
+    }
+}

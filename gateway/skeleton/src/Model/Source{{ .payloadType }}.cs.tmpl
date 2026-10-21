@@ -1,0 +1,12 @@
+using {{ .contracts }};
+
+namespace {{ .name }}.Model;
+
+// The body callers POST: the source system's shape, kept local. The published
+// {{ .payloadType }} is the canonical contract in ../{{ .contracts }}.
+public record Source{{ .payloadType }}(
+    string OrderId,
+    string CustomerId,
+    string Status,
+    DateTimeOffset OrderDate,
+    IReadOnlyList<OrderLine> Lines);

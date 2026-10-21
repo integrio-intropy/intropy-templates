@@ -1,0 +1,47 @@
+using {{ .name }}.Model;
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+// A failure here is a business incident and the caller's 422: its description is
+// what the caller reads in the problem details.
+public class Validator : ValidateStep<Source{{ .payloadType }}, Context>
+{
+    public override Task<(BusinessStepResult<Source{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
+        Source{{ .payloadType }} input, Context context, CancellationToken ct)
+    {
+        var error = Validate(input);
+        if (error is not null)
+        {
+            var incident = new BusinessIncidentData
+            {
+                Description = error,
+                Context = new Dictionary<string, string>
+                {
+                    { "orderId", input.OrderId ?? "" }
+                }
+            };
+            return Task.FromResult<(BusinessStepResult<Source{{ .payloadType }}>, Context)>(
+                (new BusinessStepResult<Source{{ .payloadType }}>.Failure(incident), context));
+        }
+
+        return Task.FromResult<(BusinessStepResult<Source{{ .payloadType }}>, Context)>(
+            (new BusinessStepResult<Source{{ .payloadType }}>.Success(input), context));
+    }
+
+    private static string? Validate(Source{{ .payloadType }} order)
+    {
+        if (string.IsNullOrWhiteSpace(order.OrderId))
+            return "OrderId is required";
+        if (string.IsNullOrWhiteSpace(order.CustomerId))
+            return "CustomerId is required";
+        if (order.OrderDate > DateTimeOffset.UtcNow)
+            return $"OrderDate {order.OrderDate:O} is in the future";
+        if (order.Lines is null || order.Lines.Count == 0)
+            return "Order must contain at least one line";
+        return null;
+    }
+}

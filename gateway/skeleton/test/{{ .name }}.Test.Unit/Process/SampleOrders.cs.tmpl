@@ -1,0 +1,16 @@
+using {{ .contracts }};
+using {{ .name }}.Model;
+
+namespace {{ .name }}.Test.Unit.Process;
+
+internal static class SampleOrders
+{
+    public static readonly DateTimeOffset OrderDate = new(2026, 1, 15, 9, 30, 0, TimeSpan.Zero);
+
+    public static Source{{ .payloadType }} Valid() => new(
+        OrderId: "ORD-1001",
+        CustomerId: "CUST-42",
+        Status: "Placed",
+        OrderDate: OrderDate,
+        Lines: [new OrderLine("SKU-1", 2, 19.90m)]);
+}

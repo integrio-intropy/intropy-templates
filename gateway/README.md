@@ -1,0 +1,55 @@
+# gateway
+
+A .NET gateway integration: a resident HTTP service that accepts items pushed
+to it, runs each request body through the Intropy extractor pipeline, and
+publishes the result as a CloudEvent. It is an extractor whose source is its
+callers — the same steps and rules, with the caller as the retry mechanism.
+
+Built on `Intropy.Framework.Components`: the component class declares only its
+rules, the steps live in `src/Process/`, and the framework wires the web host,
+the endpoint, the probes, telemetry, the platform clients and the publisher. The
+framework takes the component's identity (component name, organization,
+message, port, route path, event source) from `.intropy/scaffold.json`, which
+the build embeds in the assembly.
+
+## Parameters
+
+| Parameter | Required | Default | Meaning |
+|---|---|---|---|
+| `name` | yes | — | PascalCase project name and root namespace |
+| `organization` | yes | — | Telemetry service namespace and incident source URN |
+| `publishes` | yes | — | The message published; the CloudEvents type |
+| `route` | no | `/<publishes>` | Path callers `POST` items to |
+| `topic` | no | the message | Declared channel, recorded for `intropy sys create` |
+| `idempotencyAppId` | no | `idempotency-service.services` | Dapr app-id of the Idempotency Service |
+| `businessIncidentsAppId` | no | `business-incident-service.services` | Dapr app-id of the Business Incident Service |
+| `eventSource` | no | `urn:<organization>:<app-id>` | CloudEvent `source` override |
+
+## The response contract
+
+| Outcome | Status |
+|---|---|
+| Published | `202` with `{ requestId, eventId }` |
+| Duplicate (idempotency check) | `200` |
+| Business failure (routed to the Business Incident Service) | `422` problem details |
+| Body larger than `Gateway:MaxRequestBodyBytes` | `413` |
+| Not ready, technical failure, or a dependency down | `503` + `Retry-After` |
+
+Only `503` asks the caller to resend. Every response carries `X-Request-Id`.
+
+## Environment
+
+In production a gateway is a Kubernetes Deployment (it stays resident) behind
+a Service and an environment-owned ingress, which owns authentication. The
+system host runs it locally under Aspire. Its readiness probe is `/readyz`,
+liveness `/healthz`.
+
+`intropy sys create` does not assemble `gateway` blocks yet: the CLI skips the
+record with a warning until it knows the kind.
+
+## Render locally
+
+```bash
+intropy int create gateway -o /tmp/order-gateway \
+  -f gateway/examples/minimal.yaml --template-version main
+```

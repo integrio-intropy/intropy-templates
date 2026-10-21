@@ -1,0 +1,18 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning"
+    }
+  },
+
+  "PlatformServices": {
+    "IdempotencyServiceAppId": "{{ .idempotencyAppId }}",
+    "BusinessIncidentServiceAppId": "{{ .businessIncidentsAppId }}"
+  },
+
+  "Gateway": {
+    "MaxRequestBodyBytes": 1048576,
+    "RetryAfter": "00:00:05"
+  }
+}

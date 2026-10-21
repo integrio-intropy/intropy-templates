@@ -1,0 +1,45 @@
+using {{ .contracts }};
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Components;
+using Intropy.Framework.Components.Gateway;
+using Intropy.Framework.Hosting.Gateway;
+
+namespace {{ .name }};
+
+/// <summary>
+/// The gateway: its endpoints, and the route each endpoint's items take through the pipeline
+/// steps in <c>Process/</c>. The framework takes the rest from .intropy/scaffold.json (component
+/// name, organization, message, event source) and from the deployment (pub/sub and topic).
+/// </summary>
+public sealed class {{ .componentClass }} : GatewayComponent
+{
+    /// <summary>The endpoint's port, as the system's topology names it: stamped on every event its
+    /// orders publish, and the scope of their idempotency records.</summary>
+    public const string Endpoint = "{{ .port }}";
+
+    /// <summary>The path callers POST orders to. The scaffold record names this endpoint at this
+    /// path for the system host and the ingress; startup fails if the two disagree.</summary>
+    public const string Path = "{{ .routePath }}";
+
+    /// <summary>Set by the <see cref="Process.Deserializer"/> so an incident names the order.</summary>
+    public const string ContextKeyOrderId = "order_id";
+
+    // A second endpoint carrying other data is a second Endpoint(...) here and a second
+    // On<TInput, {{ .payloadType }}>(...) below, with steps of its own for its input type.
+    protected override void Endpoints(GatewayEndpoints endpoints) =>
+        endpoints.Endpoint(Endpoint, Path);
+
+    protected override void Routes(GatewayRoutes routes) =>
+        routes.On<Source{{ .payloadType }}, {{ .payloadType }}>([Endpoint], route => route
+            // A stable business identity and source version: per-delivery values (a fresh
+            // GUID, the wall-clock time) would let every duplicate through.
+            .Idempotency(key: (order, _) => order.OrderId, at: (order, _) => order.OrderDate)
+            .OutputEvent(subject: order => order.OrderId, at: order => order.OrderDate)
+            // An incident names the order once it has deserialized, and the request before.
+            .Incidents(new IncidentRule(Identity: OrderOrRequest, Subject: OrderOrRequest)));
+
+    private static string OrderOrRequest(Context context) =>
+        context.Metadata.GetValueOrDefault(ContextKeyOrderId,
+            context.Metadata.GetValueOrDefault(SourceContextKeys.RequestId, "unknown"));
+}

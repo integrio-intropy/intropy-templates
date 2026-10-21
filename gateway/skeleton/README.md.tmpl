@@ -1,0 +1,17 @@
+# {{ .name }}
+
+A gateway integration for {{ .organization }}: callers `POST` orders to
+`{{ .routePath }}`, and each one is validated, de-duplicated, transformed to the
+canonical `{{ .payloadType }}` contract and published as a `{{ .publishes }}`
+CloudEvent.
+
+| Response | Meaning |
+|---|---|
+| `202 Accepted` | Published; the body carries the event id |
+| `200 OK` | Already published (duplicate); nothing sent again |
+| `422 Unprocessable Entity` | Rejected by a business rule; raised as a business incident |
+| `413 Payload Too Large` | Body over `Gateway:MaxRequestBodyBytes` |
+| `503 Service Unavailable` | Try again after `Retry-After` |
+
+The gateway runs via its system host. Build and test it with `task build` and
+`task test`; `src/{{ .name }}.http` holds a sample request for each response.

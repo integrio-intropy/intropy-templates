@@ -1,0 +1,108 @@
+apiVersion: intropy.io/v1
+kind: Template
+metadata:
+  name: gateway
+  title: Gateway Integration
+  description: Resident .NET service that accepts items pushed to it over HTTP, runs each through the Intropy extractor pipeline, and publishes it as a CloudEvent.
+  tags:
+    - example
+    - dotnet
+    - dapr
+    - gateway
+    - http
+  labels:
+    intropy.io/template-level: example
+    intropy.io/block-kind: gateway
+    intropy.io/data-flow: "in"
+    intropy.io/message-params: publishes
+
+spec:
+  parameters:
+    type: object
+    required:
+      - name
+      - organization
+      - publishes
+    properties:
+      name:
+        type: string
+        title: Project name
+        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed for nested namespaces (e.g. OrderGateway or Int1055.OrderGateway).
+        pattern: "^[A-Z][A-Za-z0-9]*(\\.[A-Z][A-Za-z0-9]*)*$"
+      organization:
+        type: string
+        title: Organization
+        description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
+        pattern: "^[A-Z][A-Za-z0-9]*$"
+      publishes:
+        type: string
+        title: Publishes
+        description: Logical name of the message this gateway publishes. The CloudEvents type is the same value; the payload type derives from it.
+        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      route:
+        type: string
+        title: Route
+        description: Path callers POST items to. Defaults to /<publishes>.
+        pattern: "^/[A-Za-z0-9/._-]*$"
+      topic:
+        type: string
+        title: Topic
+        description: The topic the gateway publishes on. Defaults to the message name; set it to share one topic between several messages, so one loader can route them all.
+        pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      idempotencyAppId:
+        type: string
+        title: Idempotency service app-id
+        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment.
+        default: "idempotency-service.services"
+      businessIncidentsAppId:
+        type: string
+        title: Business incident service app-id
+        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment.
+        default: "business-incident-service.services"
+      eventSource:
+        type: string
+        title: CloudEvent source
+        description: Envelope `source` (URI) for published events. The default derives as urn:<organization>:<app-id>; set it to preserve an existing event identity during a migration.
+        default: ""
+  values:
+    appId: '{{ .name | kebabcase | replace "." "-" }}'
+    # The component's identity: the telemetry service name and the prefix of its
+    # idempotency and incident records. Intropy.Framework.Components reads it from
+    # .intropy/scaffold.json, which the build embeds in the assembly.
+    componentName: '{{ .name | kebabcase }}'
+    # The component class: the last segment of the name, so a dotted name
+    # (Int1055.OrderGateway) still yields a valid type name.
+    componentClass: '{{ .name | splitList "." | last }}Component'
+    # The component's .NET project name, recorded in .intropy/scaffold.json
+    # for workspace-level tooling (e.g. solution file assembly).
+    projectName: '{{ .name }}'
+    # Name of the sibling shared-contracts project; also drives the dependency
+    # output below and the ProjectReference in the skeleton csproj. Plain
+    # "Contracts": the project is scoped to the system directory it lives in.
+    contracts: 'Contracts'
+    # The payload type the message projects to: PascalCase of the message
+    # identity, and the generated record in the shared-contracts sibling is
+    # named after it. The framework checks the published type against it.
+    payloadType: '{{ pascal .publishes }}'
+    # The gateway's port — the endpoint it exposes to the outside world.
+    # Derived like appId so it stays unique per component. The framework stamps
+    # it on every event and scopes the idempotency records by it.
+    port: '{{ .name | kebabcase | replace "." "-" }}-endpoint'
+    # The path callers POST items to: the route parameter, else /<publishes>.
+    # The framework reads it from the scaffold record, so it must be resolved here.
+    routePath: '{{ get . "route" | default (printf "/%s" .publishes) }}'
+    # The CloudEvent source the framework stamps on every event: the
+    # eventSource parameter, else urn:<organization>:<component>. The event
+    # type is the message itself, with no derivation and no override.
+    eventSourceValue: '{{ .eventSource | default (printf "urn:%s:%s" .organization (.name | kebabcase)) }}'
+    # The channel the message is declared on: the topic parameter, else the
+    # message name. Recorded in .intropy/scaffold.json, where `intropy sys create`
+    # reads it into the system host's declaration; the code takes the topic the
+    # topology settles from INTROPY_TOPIC_NAME, never this value.
+    channel: '{{ get . "topic" | default .publishes }}'
+  dependencies:
+    - template: shared-contracts
+      output: '{{ .contracts }}'
+      values:
+        name: '{{ .contracts }}'
+        contract: '{{ .payloadType }}'
