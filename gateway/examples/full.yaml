@@ -6,3 +6,4 @@ idempotencyAppId: idempotency-service.services
 businessIncidentsAppId: business-incident-service.services
 eventSource: urn:acme:webshop-orders
 empty: false
+localPort: 5081
