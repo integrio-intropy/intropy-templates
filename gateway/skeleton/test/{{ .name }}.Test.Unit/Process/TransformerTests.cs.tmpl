@@ -7,6 +7,20 @@ namespace {{ .name }}.Test.Unit.Process;
 
 public class TransformerTests
 {
+{{- if .empty }}
+    // Fails from the start: the Transformer body throws NotImplementedException.
+    // The assertion pins the step's contract — map the request body to the
+    // shared contract and return Success — and flips green once the step is
+    // implemented. Add field-fidelity tests with the real shape.
+    [Fact]
+    public async Task ExecuteAsync_WithInput_ReturnsSuccess()
+    {
+        var (result, _) = await new Transformer().ExecuteAsync(SampleOrders.Valid(),
+            new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        Assert.IsType<TechnicalStepResult<{{ .payloadType }}>.Success>(result);
+    }
+{{- else }}
     [Fact]
     public async Task ExecuteAsync_MapsTheOrderToTheCanonicalContract()
     {
@@ -22,4 +36,5 @@ public class TransformerTests
         Assert.Equal(source.OrderDate, output.OrderDate);
         Assert.Equal(source.Lines, output.Lines);
     }
+{{- end }}
 }

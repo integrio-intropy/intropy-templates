@@ -14,4 +14,10 @@ CloudEvent.
 | `503 Service Unavailable` | Try again after `Retry-After` |
 
 The gateway runs via its system host. Build and test it with `task build` and
-`task test`; `src/{{ .name }}.http` holds a sample request for each response.
+`task test`; `src/{{ .name }}.http` holds {{ if .empty }}sample requests{{ else }}a sample request for each response{{ end }}.
+{{- if .empty }}
+
+The pipeline steps are scaffolded empty (`NotImplementedException`) for a
+migration agent to fill in, and the test suite fails until they land. See
+`AGENTS.md`.
+{{- end }}

@@ -1,7 +1,23 @@
-# Sample requests for {{ .appId }}, one per response the gateway gives. Pick the
+# Sample requests for {{ .appId }}{{ if not .empty }}, one per response the gateway gives{{ end }}. Pick the
 # environment (and so {{ "{{" }}host}}) from http-client.env.json: "local" is the port the
 # system host gives the gateway; add one per deployed environment's ingress.
 
+{{ if .empty -}}
+### Published: 202 with { requestId, eventId } once the steps are implemented.
+### Replace the body with a real one as the source shape lands.
+POST {{ "{{" }}host}}{{ .routePath }}
+Content-Type: application/json
+X-Request-Id: sample-published
+
+{
+  "sourceRecordId": "REC-1",
+  "occurredAt": "2026-01-15T09:30:00+00:00",
+  "lines": [
+    { "sku": "SKU-1", "quantity": 2, "unitPrice": 10.0 }
+  ]
+}
+
+{{ else -}}
 ### Published: 202 with { requestId, eventId }
 POST {{ "{{" }}host}}{{ .routePath }}
 Content-Type: application/json
@@ -45,6 +61,7 @@ X-Request-Id: sample-rejected
   "lines": []
 }
 
+{{ end -}}
 ### Not JSON: 422, the incident is named after the request id
 POST {{ "{{" }}host}}{{ .routePath }}
 Content-Type: application/json

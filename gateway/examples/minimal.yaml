@@ -1,3 +1,8 @@
+# Render fixture: full sample (business logic + service wiring).
+#   intropy int create gateway -o /tmp/gateway-out -f gateway/examples/minimal.yaml --template-version main --no-input
 name: OrderGateway
-organization: Acme
-publishes: order-placed
+organization: Fluxia
+publishes: orders
+# The channel and payload type are projections of the publishes value:
+# topic 'orders', payload type 'Orders'.
+empty: false

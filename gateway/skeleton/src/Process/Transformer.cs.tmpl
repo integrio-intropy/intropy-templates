@@ -11,6 +11,9 @@ public class Transformer : TransformStep<Source{{ .payloadType }}, {{ .payloadTy
     public override Task<(TechnicalStepResult<{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
         Source{{ .payloadType }} input, Context context, CancellationToken ct)
     {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
         // {{ .payloadType }} is the canonical contract from the shared contracts
         // project; the consuming loader deserializes exactly this. Reshape here
         // when the callers' format diverges from the canonical one.
@@ -23,5 +26,6 @@ public class Transformer : TransformStep<Source{{ .payloadType }}, {{ .payloadTy
 
         return Task.FromResult<(TechnicalStepResult<{{ .payloadType }}>, Context)>(
             (new TechnicalStepResult<{{ .payloadType }}>.Success(output), context));
+{{- end }}
     }
 }

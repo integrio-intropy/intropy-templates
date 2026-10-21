@@ -64,6 +64,11 @@ spec:
         title: CloudEvent source
         description: Envelope `source` (URI) for published events. The default derives as urn:<organization>:<app-id>; set it to preserve an existing event identity during a migration.
         default: ""
+      empty:
+        type: boolean
+        title: Empty bodies
+        description: When true, strip sample business logic from pipeline step bodies. The project compiles and serves its endpoint, but every step throws NotImplementedException so a migration agent can fill them in. The idempotency and output-event rules stay, with throwing lambdas to replace.
+        default: true
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
     # The component's identity: the telemetry service name and the prefix of its
@@ -106,3 +111,4 @@ spec:
       values:
         name: '{{ .contracts }}'
         contract: '{{ .payloadType }}'
+        empty: '{{ .empty }}'

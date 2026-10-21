@@ -34,8 +34,15 @@ public sealed class {{ .componentClass }} : GatewayComponent
         routes.On<Source{{ .payloadType }}, {{ .payloadType }}>([Endpoint], route => route
             // A stable business identity and source version: per-delivery values (a fresh
             // GUID, the wall-clock time) would let every duplicate through.
+{{- if .empty }}
+            .Idempotency(key: (_, _) => throw new NotImplementedException(),
+                at: (_, _) => throw new NotImplementedException())
+            .OutputEvent(subject: _ => throw new NotImplementedException(),
+                at: _ => throw new NotImplementedException())
+{{- else }}
             .Idempotency(key: (order, _) => order.OrderId, at: (order, _) => order.OrderDate)
             .OutputEvent(subject: order => order.OrderId, at: order => order.OrderDate)
+{{- end }}
             // An incident names the order once it has deserialized, and the request before.
             .Incidents(new IncidentRule(Identity: OrderOrRequest, Subject: OrderOrRequest)));
 

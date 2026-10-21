@@ -1,0 +1,10 @@
+# Render fixture: empty bodies (steps throw NotImplementedException; the
+# idempotency and output-event rules stay with throwing lambdas) — the
+# migration-agent starting point.
+#   intropy int create gateway -o /tmp/gateway-empty -f gateway/examples/empty.yaml --template-version main --no-input
+name: OrderGateway
+organization: Fluxia
+publishes: orders
+# The channel and payload type are projections of the publishes value:
+# topic 'orders', payload type 'Orders'.
+empty: true

@@ -1,4 +1,7 @@
+using System.Text;
+{{- if not .empty }}
 using System.Text.Json;
+{{- end }}
 using {{ .name }}.Model;
 using {{ .name }}.Process;
 using Intropy.Framework.Blocks.Shared;
@@ -8,13 +11,30 @@ namespace {{ .name }}.Test.Unit.Process;
 
 public class DeserializerTests
 {
+{{- if .empty }}
+    // Fails from the start: the Deserializer body throws NotImplementedException.
+    // The assertions pin the step's contract — parse the body and name the item
+    // on the context for incidents — and flip green once the step is
+    // implemented. Add branch tests (a body that is not JSON, missing fields)
+    // with the real shape.
+    [Fact]
+    public async Task ExecuteAsync_WithValidJson_ReturnsSuccessAndNamesTheItemOnTheContext()
+    {
+        var context = new Context(new Dictionary<string, string>());
+
+        var (result, ctx) = await new Deserializer().ExecuteAsync(Encoding.UTF8.GetBytes(SampleOrders.ValidJson), context, CancellationToken.None);
+
+        Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
+        Assert.False(string.IsNullOrWhiteSpace(ctx.Metadata[{{ .componentClass }}.ContextKeyOrderId]));
+    }
+{{- else }}
     [Fact]
     public async Task ExecuteAsync_WithValidJson_ReturnsTheOrderAndNamesItOnTheContext()
     {
         var context = new Context(new Dictionary<string, string>());
         const string body = """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Placed","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":19.90}]}""";
 
-        var (result, ctx) = await new Deserializer().ExecuteAsync(body, context, CancellationToken.None);
+        var (result, ctx) = await new Deserializer().ExecuteAsync(Encoding.UTF8.GetBytes(body), context, CancellationToken.None);
 
         var success = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
@@ -27,6 +47,7 @@ public class DeserializerTests
     {
         // The framework turns the exception into a business incident (the caller's 422).
         await Assert.ThrowsAnyAsync<JsonException>(() =>
-            new Deserializer().ExecuteAsync("not json", new Context(new Dictionary<string, string>()), CancellationToken.None));
+            new Deserializer().ExecuteAsync("not json"u8.ToArray(), new Context(new Dictionary<string, string>()), CancellationToken.None));
     }
+{{- end }}
 }
