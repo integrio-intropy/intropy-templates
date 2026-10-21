@@ -14,12 +14,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- Intropy.Topology pinned to the message-first topology release
-             (MessageRef<T>, no TopicRef). A template release and its pin are
+        <!-- Intropy.Topology pinned to the release that declares gateways
+             (AddGateway, EndpointRef). A template release and its pin are
              one atomic unit; bumping the pin is a template change first. -->
         <PackageReference Include="Aspire.Hosting.AppHost" Version="13.5.3" />
-        <PackageReference Include="Intropy.Topology.Aspire" Version="2.0.1" />
-        <PackageReference Include="Intropy.Topology.Generation" Version="2.0.1" />
+        <PackageReference Include="Intropy.Topology.Aspire" Version="2.1.0-gateway-local.1" />
+        <PackageReference Include="Intropy.Topology.Generation" Version="2.1.0-gateway-local.1" />
     </ItemGroup>
 
 {{- if hasKey . "sharedContracts" }}

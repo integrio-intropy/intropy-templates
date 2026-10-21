@@ -23,6 +23,7 @@ unit.
 |---|---|
 | `Messages.cs` | `messages` — one `MessageRef<T>` field per internal message, channel resolved from `topics` by name (the topic name defaults to the message name) |
 | `Ports.cs` | `ports` — one `PortRef` per port (the name is the whole identity; the deployed binding type is environment-owned deployment configuration) |
+| `Endpoints.cs` | `endpoints` — one `EndpointRef` per gateway endpoint (name and path); rendered only when the payload lists endpoints |
 | `<Project>Development.cs` | `ports` — one `development.Files(...).RootPath("./test/<name>")` resolution per port, plus OpenAPI-backed mocks for both platform services and one `development.Rerun(...).Every(...)` rerun per run-to-completion component — extractors and transactional integrations (the skeleton's `Services.cs` + `mocks/` exist regardless of payload) |
 | `<Project>System.cs` | `components` — one `builder.Add<Kind>(...)` chain per component, wired `.Publishes(...)`/`.Subscribes(...)` through `Messages.*` |
 | `<Project>.SystemHost.csproj` | `sharedContracts.include` — the `ProjectReference` to the workspace's shared contracts project |
@@ -74,7 +75,8 @@ identifiers and the joins from components to them.
 | `topics` | list of `{pubsub, name, contract}` | Derived transport list retained for deploy consumers. Sorted by (pubsub, name). |
 | `messages` | list of `{name, type, contract, publisher}` — optional | The message-first view, primary input for `Messages.cs`: one entry per produced message (`type` repeats the name). |
 | `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
-| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. Extractors carry scalar `publishes`, loaders carry scalar `subscribes`, and transactional integrations carry `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
+| `endpoints` | list of `{name, path}` — optional | The gateways' HTTP endpoints, kept apart from `ports` (the host resolves every port to a file binding). The skeleton derives the PascalCase `Endpoints` identifier. |
+| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, `transactional-integration`, or `gateway`. Extractors carry scalar `publishes`, loaders carry scalar `subscribes`, transactional integrations carry `fromPort`/`toPort`, and gateways carry `publishes` and `endpoint`. All are raw names; the skeleton joins them to the `Messages`/`Ports`/`Endpoints` fields. |
 | `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Messages.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A message-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
 
 Derived `projectName`/`systemClass` (`order-flow` → `OrderFlow` /

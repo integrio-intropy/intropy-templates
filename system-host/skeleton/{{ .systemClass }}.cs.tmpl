@@ -1,5 +1,5 @@
 {{- /* Join each component's wiring names to the fields Messages.cs and
-Ports.cs declare, keyed by the raw names so the derivation matches the
+Ports.cs and Endpoints.cs declare, keyed by the raw names so the derivation matches the
 declaration templates exactly. The message field is keyed by message name;
 the `messages` payload section is the only source. Each kind owns its own
 wiring checks, so an unknown kind reports the kind, not a message deficit. */ -}}
@@ -7,6 +7,12 @@ wiring checks, so an unknown kind reports the kind, not a message deficit. */ -}
 {{- if hasKey . "messages" }}
 {{- range $m := .messages }}
 {{- $_ := set $msgField $m.name (regexReplaceAll "[-._]" $m.name " " | title | replace " " "") }}
+{{- end }}
+{{- end }}
+{{- $endpointField := dict -}}
+{{- if hasKey . "endpoints" }}
+{{- range $e := .endpoints }}
+{{- $_ := set $endpointField $e.name (regexReplaceAll "[-._]" $e.name " " | title | replace " " "") }}
 {{- end }}
 {{- end }}
 {{- $portField := dict -}}
@@ -80,8 +86,18 @@ public sealed class {{ .systemClass }} : ISystemDefinition
             .To(Ports.{{ index $portField .toPort }})
             .Calls(Services.Idempotency)
             .Calls(Services.BusinessIncidents);
+{{- else if eq .kind "gateway" }}
+{{- if not (hasKey . "publishes") }}{{- fail (printf "component %q declares no publishes message" .appId) }}{{- end }}
+{{- if not (hasKey $msgField .publishes) }}{{- fail (printf "component %q wires message %q, but the system payload carries no contract for it" .appId .publishes) }}{{- end }}
+{{- if not (hasKey . "endpoint") }}{{- fail (printf "gateway %q declares no endpoint" .appId) }}{{- end }}
+{{- if not (hasKey $endpointField .endpoint) }}{{- fail (printf "gateway %q exposes endpoint %q, but the system payload lists no such endpoint" .appId .endpoint) }}{{- end }}
+        builder.AddGateway("{{ .appId }}")
+            .Exposes(Endpoints.{{ index $endpointField .endpoint }})
+            .Publishes(Messages.{{ index $msgField .publishes }})
+            .Calls(Services.Idempotency)
+            .Calls(Services.BusinessIncidents);
 {{- else }}
-{{- fail (printf "component %q has kind %q — the host declares extractor, loader, and transactional-integration components; add a branch for new kinds when their blocks exist" .appId .kind) }}
+{{- fail (printf "component %q has kind %q — the host declares extractor, loader, transactional-integration, and gateway components; add a branch for new kinds when their blocks exist" .appId .kind) }}
 {{- end }}
 {{- end }}
     }
