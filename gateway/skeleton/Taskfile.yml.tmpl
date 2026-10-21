@@ -19,7 +19,7 @@ tasks:
       - dotnet test ./test/{{ .name }}.Test.Unit
 
   test:integration:
-    desc: Run the integration tests (HTTP contract against the in-memory gateway — Intropy.Framework.Testing fakes)
+    desc: Run the integration tests (the component's rules against the in-memory gateway — Intropy.Framework.Testing fakes)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
     cmds:
       - dotnet test ./test/{{ .name }}.Test.Integration

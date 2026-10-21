@@ -21,10 +21,10 @@ mechanism — the status code tells it whether to resend.
 - App id: `{{ .appId }}`
 - Endpoint: `{{ .port }}` at `POST {{ .routePath }}`, on HTTP port 8080 (ASP.NET Core
   `http_ports` / `urls` override it). The system host serves it locally on
-  `http://localhost:{{ .localPort }}`, from `src/Properties/launchSettings.json`. Declared in `{{ .componentClass }}.Endpoints`;
-  the port is stamped on every published event and scopes the idempotency records.
-  The scaffold record names the same endpoint (`port`, `routePath`) for the system
-  host and the ingress, and startup fails if code and record disagree — change both.
+  `http://localhost:{{ .localPort }}`, from `src/Properties/launchSettings.json`. The
+  framework declares it from the scaffold record (`port`, `routePath`), which also
+  names it for the system host and the ingress; the port is stamped on every
+  published event and scopes the idempotency records.
 - Message: `{{ .publishes }}` — what the gateway publishes; the message name is the
   CloudEvents type.
 - Channel: `{{ .channel }}` declared in the scaffold record. The code takes the
@@ -43,10 +43,13 @@ mechanism — the status code tells it whether to resend.
 
 ## Important files
 
-- `src/{{ .componentClass }}.cs` - the component: its endpoint (`Endpoints`) and
-  the route the endpoint's orders take (`Routes`), with the route's idempotency
-  rule ({{ if .empty }}throwing lambdas to implement{{ else }}`OrderId`/`OrderDate`{{ end }}), output event rule (subject and time) and incident
-  rule (order id once deserialized, else the request id).
+- `src/{{ .componentClass }}.cs` - the component: its endpoint and what it accepts
+  (`Endpoints`: `Endpoint(...)` then `Accepts<Source{{ .payloadType }}, {{ .payloadType }}>(...)`),
+  with the route's idempotency
+  rule ({{ if .empty }}throwing lambdas to implement{{ else }}`OrderId`/`OrderDate`{{ end }}) and output event rule (subject and time).
+  Incidents take the framework's default name: the business id the `Deserializer`
+  sets in `BusinessIncidentContextKeys.BusinessId`, else the request id
+  (`request:<id>`).
 - `src/Program.cs` - entrypoint: `ComponentHost.RunAsync<{{ .componentClass }}>(args)`.
 - `src/Process/` - the route's pipeline steps: `Deserializer`, `Validator`,
   `Transformer`. The framework finds exactly one of each for the route's input
@@ -61,9 +64,12 @@ mechanism — the status code tells it whether to resend.
 - `Dockerfile` - multi-stage build on the chiseled ASP.NET Core runtime
   (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .`).
 - `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (`task test:unit`).
-- `test/{{ .name }}.Test.Integration/` - the HTTP contract against
-  `GatewayTestHost`, which serves the production graph in memory with the topic
-  and the platform clients faked (`task test:integration`).
+- `test/{{ .name }}.Test.Integration/` - the component's rules end to end (the
+  event it publishes, the idempotency key it records, the incident a rejected
+  order raises) and its startup composition, against `GatewayTestHost`, which
+  serves the production graph in memory with the topic and the platform clients
+  faked (`task test:integration`). The HTTP contract itself is the framework's,
+  and is not retested here.
 
 ## Build and test
 
@@ -79,12 +85,12 @@ task test
 ## Development notes
 
 - A second endpoint carrying other data — another source system's format of the
-  order — is a second `Endpoint(...)` and a second `On<TInput, {{ .payloadType }}>(...)`
-  in `{{ .componentClass }}`, with its own input model and steps; every route
-  publishes `{{ .payloadType }}`. The scaffold record names only the first endpoint,
-  so add the second to the system host by hand.
+  order — is a second `.Endpoint(port, path, endpoint => endpoint.Accepts<TInput, {{ .payloadType }}>(...))`
+  in `{{ .componentClass }}.Endpoints`, with its own input model and steps; every
+  endpoint publishes `{{ .payloadType }}`. The scaffold record names only the first
+  endpoint, so add the second to the system host by hand.
 - Authentication is not in the component: the environment's ingress owns it.
-  Override `ConfigureEndpoint` (e.g. `RequireAuthorization()`) and
+  Override `ConfigureEndpoints` (e.g. `RequireAuthorization()`) and
   `ConfigureApplication` in `{{ .componentClass }}` to add it in the app.
 - A technical failure (pub/sub, idempotency or incident service down, or a step
   throwing in `Transformer`) answers `503`; the caller resends. A business
@@ -92,16 +98,16 @@ task test
 {{- if .empty }}
 - The step bodies are scaffolded empty (`NotImplementedException`), and
   `Source{{ .payloadType }}` is an empty record. The idempotency and output-event
-  rules stay in `{{ .componentClass }}.Routes` with throwing lambdas: point them at a
+  rules stay in `{{ .componentClass }}.Endpoints` with throwing lambdas: point them at a
   stable business identifier and business timestamp — a per-delivery value
   (fresh GUID, wall-clock time) lets every duplicate through.
 - The test suite is real and fails out of the box by design — `task test` is
   red until the steps and the lambdas land. Until then every request answers
-  `422`, since the throwing `Deserializer` is routed as a business incident. The
-  endpoint, readiness and not-JSON tests start green. Two integration tests from
-  the full sample are deliberately not scaffolded: a rejected order (which input
-  fails validation is the Validator's to define) and a duplicate (it needs the
-  idempotency lambdas). Add them as the implementation lands.
+  `422`, since the throwing `Deserializer` is routed as a business incident. Only
+  the composition test starts green. The full sample's rule tests (event subject
+  and time, idempotency key and version, a rejected order's incident) are
+  deliberately not scaffolded, since their values are the implementation's to
+  define. Add them as the rules land.
 {{- end }}
 
 ## Framework guidance

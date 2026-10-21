@@ -1,20 +1,12 @@
-using System.Net;
-using System.Net.Http.Json;
-{{- if not .empty }}
-using Intropy.Contracts.IdempotencyService;
-{{- end }}
-using Intropy.Framework.Hosting.Gateway;
 using Intropy.Framework.Testing.Components;
-{{- if not .empty }}
-using Action = Intropy.Contracts.IdempotencyService.Action;
-{{- end }}
 
 namespace {{ .name }}.Test.Integration;
 
 /// <summary>
-/// The gateway's HTTP contract, against its production composition served in memory with only
-/// the externals faked: what a caller gets back for each outcome, and what reaches the topic
-/// and the Business Incident Service.
+/// The component's own choices, observed through its production composition served in memory with
+/// only the externals faked: what it publishes, what it records for idempotency, and how it names
+/// an incident. The HTTP contract (status codes, retry hints, probes) is the framework's, and
+/// tested there.
 /// </summary>
 public class GatewayTests
 {
@@ -26,28 +18,25 @@ public class GatewayTests
     private const string Order =
         """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
-    // The tests that publish fail from the start: the throwing Deserializer is
-    // routed as a business incident, so every request answers 422 with nothing
-    // published. They flip green as the steps and the idempotency and
-    // output-event lambdas land, with no test edits. Two tests from the full
-    // sample suite are deliberately not scaffolded: a rejected order (which
-    // input fails validation is the Validator's to define) and a duplicate (the
-    // duplicate simulation takes effect only once the idempotency lambdas in
-    // {{ .componentClass }}.Routes are implemented). Add them as that lands.
-
+    // Fails from the start: the throwing Deserializer is routed as a business
+    // incident, so nothing is published. It flips green as the steps and the
+    // idempotency and output-event lambdas land, with no test edits. Add a test
+    // per rule as the rules land: the event's subject and time (OutputEvent), the
+    // recorded idempotency key and version (Idempotency), and the incident a
+    // rejected item raises (the Validator, named by the business id the
+    // Deserializer sets).
     [Fact]
-    public async Task Post_PublishesAndAnswersAccepted()
+    public async Task Post_PublishesTheItem()
     {
         await using var host = new GatewayTestHost<{{ .componentClass }}>();
 
-        using var response = await host.PostAsync(Order);
+        using var _ = await host.PostAsync(Order);
 
-        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-        var published = Assert.Single(host.Topic.Events);
-        var body = await response.Content.ReadFromJsonAsync<GatewayResponses.PublishedBody>();
-        Assert.Equal(published.Id, body!.EventId);
+        Assert.Single(host.Topic.Events);
     }
 {{- else }}
+    private static readonly DateTimeOffset OrderDate = new(2026, 1, 15, 9, 30, 0, TimeSpan.Zero);
+
     private const string Order =
         """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Placed","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":19.90}]}""";
 
@@ -55,78 +44,38 @@ public class GatewayTests
         """{"orderId":"ORD-1002","customerId":"CUST-42","status":"Placed","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
 
     [Fact]
-    public async Task Post_PublishesTheOrderAndAnswersAccepted()
+    public async Task Post_PublishesAnEventAboutTheOrder()
     {
         await using var host = new GatewayTestHost<{{ .componentClass }}>();
 
-        using var response = await host.PostAsync(Order);
+        using var _ = await host.PostAsync(Order);
 
-        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         var published = Assert.Single(host.Topic.Events);
         Assert.Equal("ORD-1001", published.Subject);
-        var body = await response.Content.ReadFromJsonAsync<GatewayResponses.PublishedBody>();
-        Assert.Equal(published.Id, body!.EventId);
-    }
-{{- end }}
-
-    [Fact]
-    public async Task Gateway_ExposesTheEndpointTheScaffoldRecordNames()
-    {
-        await using var host = new GatewayTestHost<{{ .componentClass }}>();
-
-        var endpoint = Assert.Single(host.Endpoints);
-        Assert.Equal(host.Manifest.Port, endpoint.Port);
-        Assert.Equal(host.Manifest.RoutePath, endpoint.Path);
-    }
-{{- if not .empty }}
-
-    [Fact]
-    public async Task Post_WithADuplicate_AnswersOkWithoutPublishing()
-    {
-        await using var host = new GatewayTestHost<{{ .componentClass }}>();
-        host.Idempotency.NextStatus = new StatusResponse(Action.Ignore, Reason.SameData);
-
-        using var response = await host.PostAsync(Order);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(0, host.Topic.Count);
+        Assert.Equal(OrderDate, published.Time);
     }
 
     [Fact]
-    public async Task Post_WithAnInvalidOrder_RejectsAndNamesTheIncidentAfterTheOrder()
+    public async Task Post_RecordsTheOrderForIdempotency()
     {
         await using var host = new GatewayTestHost<{{ .componentClass }}>();
 
-        using var response = await host.PostAsync(OrderWithoutLines);
+        using var _ = await host.PostAsync(Order);
 
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-        Assert.Contains("at least one line", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        var committed = Assert.Single(host.Idempotency.Committed);
+        Assert.EndsWith(":ORD-1001", committed.Id, StringComparison.Ordinal);
+        Assert.Equal(OrderDate, committed.Timestamp);
+    }
+
+    [Fact]
+    public async Task Post_WithAnInvalidOrder_RaisesAnIncidentNamedAfterTheOrder()
+    {
+        await using var host = new GatewayTestHost<{{ .componentClass }}>();
+
+        using var _ = await host.PostAsync(OrderWithoutLines);
+
         Assert.Equal(0, host.Topic.Count);
         Assert.Equal("ORD-1002", Assert.Single(host.Incidents.Incidents).Id);
     }
 {{- end }}
-
-    [Fact]
-    public async Task Post_WithABodyThatIsNotJson_RejectsAndNamesTheIncidentAfterTheRequest()
-    {
-        await using var host = new GatewayTestHost<{{ .componentClass }}>();
-
-        using var response = await host.PostAsync("not json", requestId: "req-1");
-
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-        Assert.Equal("req-1", Assert.Single(host.Incidents.Incidents).Id);
-    }
-
-    [Fact]
-    public async Task Post_WhenThePubSubIsDown_AsksTheCallerToRetry()
-    {
-        await using var host = new GatewayTestHost<{{ .componentClass }}>();
-        host.Topic.SendException = new HttpRequestException("pub/sub unavailable");
-
-        using var response = await host.PostAsync(Order);
-
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        Assert.NotNull(response.Headers.RetryAfter);
-        Assert.Empty(host.Idempotency.Committed);
-    }
 }
