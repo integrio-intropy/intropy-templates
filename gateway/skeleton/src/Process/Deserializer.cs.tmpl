@@ -1,4 +1,6 @@
+{{- if not .empty }}
 using System.Text.Json;
+{{- end }}
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Extractor.Steps;
 using Intropy.Framework.Blocks.Shared;
@@ -8,19 +10,25 @@ namespace {{ .name }}.Process;
 
 public class Deserializer : DeserializeStep<Source{{ .payloadType }}, Context>
 {
+{{- if not .empty }}
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
+{{- end }}
 
     // A body that is not JSON throws, and the framework routes it as a business
     // incident: the caller gets 422, since resending it unchanged fails again.
     public override Task<(BusinessStepResult<Source{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
-        string input, Context context, CancellationToken ct)
+        ReadOnlyMemory<byte> input, Context context, CancellationToken ct)
     {
-        var order = JsonSerializer.Deserialize<Source{{ .payloadType }}>(input, Options)
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        var order = JsonSerializer.Deserialize<Source{{ .payloadType }}>(input.Span, Options)
                     ?? throw new JsonException("The request body is null.");
 
         context.Metadata[{{ .componentClass }}.ContextKeyOrderId] = order.OrderId;
 
         return Task.FromResult<(BusinessStepResult<Source{{ .payloadType }}>, Context)>(
             (new BusinessStepResult<Source{{ .payloadType }}>.Success(order), context));
+{{- end }}
     }
 }

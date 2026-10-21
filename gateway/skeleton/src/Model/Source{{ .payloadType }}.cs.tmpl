@@ -1,3 +1,10 @@
+{{- if .empty -}}
+namespace {{ .name }}.Model;
+
+// The body callers POST: the source system's shape, kept local. Fill in its
+// fields; the published {{ .payloadType }} is the canonical contract in ../{{ .contracts }}.
+public record Source{{ .payloadType }}();
+{{- else -}}
 using {{ .contracts }};
 
 namespace {{ .name }}.Model;
@@ -10,3 +17,4 @@ public record Source{{ .payloadType }}(
     string Status,
     DateTimeOffset OrderDate,
     IReadOnlyList<OrderLine> Lines);
+{{- end }}

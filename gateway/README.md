@@ -24,6 +24,7 @@ the build embeds in the assembly.
 | `idempotencyAppId` | no | `idempotency-service.services` | Dapr app-id of the Idempotency Service |
 | `businessIncidentsAppId` | no | `business-incident-service.services` | Dapr app-id of the Business Incident Service |
 | `eventSource` | no | `urn:<organization>:<app-id>` | CloudEvent `source` override |
+| `empty` | no | `true` | Strip sample step bodies for a migration agent to fill in (idempotency and output-event lambdas throw) |
 
 ## The response contract
 
@@ -44,8 +45,9 @@ a Service and an environment-owned ingress, which owns authentication. The
 system host runs it locally under Aspire. Its readiness probe is `/readyz`,
 liveness `/healthz`.
 
-`intropy sys create` does not assemble `gateway` blocks yet: the CLI skips the
-record with a warning until it knows the kind.
+`intropy sys create` declares the gateway in the system host with
+`AddGateway(...).Exposes(...).Publishes(...)`; its endpoint (`port`, `routePath`)
+becomes an `EndpointRef` in the host's `Endpoints.cs`.
 
 ## Render locally
 
@@ -53,3 +55,6 @@ record with a warning until it knows the kind.
 intropy int create gateway -o /tmp/order-gateway \
   -f gateway/examples/minimal.yaml --template-version main
 ```
+
+See `examples/empty.yaml` for the empty-bodies fixture and `examples/full.yaml`
+for a dotted name, a custom route and a preserved CloudEvent identity.

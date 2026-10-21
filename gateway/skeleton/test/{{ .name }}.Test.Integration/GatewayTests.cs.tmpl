@@ -1,9 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
+{{- if not .empty }}
 using Intropy.Contracts.IdempotencyService;
+{{- end }}
 using Intropy.Framework.Hosting.Gateway;
 using Intropy.Framework.Testing.Components;
+{{- if not .empty }}
 using Action = Intropy.Contracts.IdempotencyService.Action;
+{{- end }}
 
 namespace {{ .name }}.Test.Integration;
 
@@ -14,6 +18,36 @@ namespace {{ .name }}.Test.Integration;
 /// </summary>
 public class GatewayTests
 {
+{{- if .empty }}
+    // Test-owned valid input: the source shape is an empty record shell until the
+    // real contract is defined, so this deliberately uses its own field names
+    // instead of guessing the eventual shape. Replace it with a real request body
+    // as the steps land.
+    private const string Order =
+        """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    // The tests that publish fail from the start: the throwing Deserializer is
+    // routed as a business incident, so every request answers 422 with nothing
+    // published. They flip green as the steps and the idempotency and
+    // output-event lambdas land, with no test edits. Two tests from the full
+    // sample suite are deliberately not scaffolded: a rejected order (which
+    // input fails validation is the Validator's to define) and a duplicate (the
+    // duplicate simulation takes effect only once the idempotency lambdas in
+    // {{ .componentClass }}.Routes are implemented). Add them as that lands.
+
+    [Fact]
+    public async Task Post_PublishesAndAnswersAccepted()
+    {
+        await using var host = new GatewayTestHost<{{ .componentClass }}>();
+
+        using var response = await host.PostAsync(Order);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var published = Assert.Single(host.Topic.Events);
+        var body = await response.Content.ReadFromJsonAsync<GatewayResponses.PublishedBody>();
+        Assert.Equal(published.Id, body!.EventId);
+    }
+{{- else }}
     private const string Order =
         """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Placed","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":19.90}]}""";
 
@@ -33,6 +67,7 @@ public class GatewayTests
         var body = await response.Content.ReadFromJsonAsync<GatewayResponses.PublishedBody>();
         Assert.Equal(published.Id, body!.EventId);
     }
+{{- end }}
 
     [Fact]
     public async Task Gateway_ExposesTheEndpointTheScaffoldRecordNames()
@@ -43,6 +78,7 @@ public class GatewayTests
         Assert.Equal(host.Manifest.Port, endpoint.Port);
         Assert.Equal(host.Manifest.RoutePath, endpoint.Path);
     }
+{{- if not .empty }}
 
     [Fact]
     public async Task Post_WithADuplicate_AnswersOkWithoutPublishing()
@@ -68,6 +104,7 @@ public class GatewayTests
         Assert.Equal(0, host.Topic.Count);
         Assert.Equal("ORD-1002", Assert.Single(host.Incidents.Incidents).Id);
     }
+{{- end }}
 
     [Fact]
     public async Task Post_WithABodyThatIsNotJson_RejectsAndNamesTheIncidentAfterTheRequest()

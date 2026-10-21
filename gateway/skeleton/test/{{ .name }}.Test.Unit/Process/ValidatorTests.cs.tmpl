@@ -7,6 +7,19 @@ namespace {{ .name }}.Test.Unit.Process;
 
 public class ValidatorTests
 {
+{{- if .empty }}
+    // Fails from the start: the Validator body throws NotImplementedException.
+    // The assertion pins only the step's contract — return a BusinessStepResult —
+    // since the rules themselves are defined with the implementation. Add one
+    // test per rule as the rules land.
+    [Fact]
+    public async Task ExecuteAsync_WithInput_ReturnsBusinessStepResult()
+    {
+        var (result, _) = await Validate(SampleOrders.Valid());
+
+        Assert.IsAssignableFrom<BusinessStepResult<Source{{ .payloadType }}>>(result);
+    }
+{{- else }}
     [Fact]
     public async Task ExecuteAsync_WithAValidOrder_ReturnsSuccess()
     {
@@ -43,6 +56,7 @@ public class ValidatorTests
         var failure = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Failure>(result);
         Assert.Equal(description, failure.Value.Description);
     }
+{{- end }}
 
     private static Task<(BusinessStepResult<Source{{ .payloadType }}> Result, Context Context)> Validate(
         Source{{ .payloadType }} order) =>

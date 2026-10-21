@@ -1,3 +1,20 @@
+{{- if .empty -}}
+using {{ .name }}.Model;
+
+namespace {{ .name }}.Test.Unit.Process;
+
+internal static class SampleOrders
+{
+    // Test-owned valid input: the source shape is an empty record shell until the
+    // real contract is defined, so this deliberately uses its own field names
+    // instead of guessing the eventual shape. Replace it with a real request body
+    // as the steps land.
+    public const string ValidJson =
+        """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    public static Source{{ .payloadType }} Valid() => new();
+}
+{{- else -}}
 using {{ .contracts }};
 using {{ .name }}.Model;
 
@@ -14,3 +31,4 @@ internal static class SampleOrders
         OrderDate: OrderDate,
         Lines: [new OrderLine("SKU-1", 2, 19.90m)]);
 }
+{{- end }}

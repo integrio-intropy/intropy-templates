@@ -1,5 +1,7 @@
 using {{ .name }}.Model;
+{{- if not .empty }}
 using Intropy.Contracts.BusinessIncidentService;
+{{- end }}
 using Intropy.Framework.Blocks.Extractor.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
@@ -13,6 +15,9 @@ public class Validator : ValidateStep<Source{{ .payloadType }}, Context>
     public override Task<(BusinessStepResult<Source{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
         Source{{ .payloadType }} input, Context context, CancellationToken ct)
     {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
         var error = Validate(input);
         if (error is not null)
         {
@@ -30,7 +35,9 @@ public class Validator : ValidateStep<Source{{ .payloadType }}, Context>
 
         return Task.FromResult<(BusinessStepResult<Source{{ .payloadType }}>, Context)>(
             (new BusinessStepResult<Source{{ .payloadType }}>.Success(input), context));
+{{- end }}
     }
+{{- if not .empty }}
 
     private static string? Validate(Source{{ .payloadType }} order)
     {
@@ -44,4 +51,5 @@ public class Validator : ValidateStep<Source{{ .payloadType }}, Context>
             return "Order must contain at least one line";
         return null;
     }
+{{- end }}
 }

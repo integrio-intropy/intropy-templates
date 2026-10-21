@@ -44,7 +44,7 @@ mechanism — the status code tells it whether to resend.
 
 - `src/{{ .componentClass }}.cs` - the component: its endpoint (`Endpoints`) and
   the route the endpoint's orders take (`Routes`), with the route's idempotency
-  rule (`OrderId`/`OrderDate`), output event rule (subject and time) and incident
+  rule ({{ if .empty }}throwing lambdas to implement{{ else }}`OrderId`/`OrderDate`{{ end }}), output event rule (subject and time) and incident
   rule (order id once deserialized, else the request id).
 - `src/Program.cs` - entrypoint: `ComponentHost.RunAsync<{{ .componentClass }}>(args)`.
 - `src/Process/` - the route's pipeline steps: `Deserializer`, `Validator`,
@@ -53,7 +53,7 @@ mechanism — the status code tells it whether to resend.
 - `src/Model/Source{{ .payloadType }}.cs` - the request body's shape.
 - `src/appsettings.json` - platform-service app ids and the `Gateway` options
   (`MaxRequestBodyBytes`, `RetryAfter`).
-- `src/{{ .name }}.http` - one sample request per response, for a running
+- `src/{{ .name }}.http` - {{ if .empty }}a published, a not-JSON and the probe requests{{ else }}one sample request per response{{ end }}, for a running
   gateway; `src/http-client.env.json` holds the host per environment.
 - `Dockerfile` - multi-stage build on the chiseled ASP.NET Core runtime
   (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .`).
@@ -86,7 +86,20 @@ task test
 - A technical failure (pub/sub, idempotency or incident service down, or a step
   throwing in `Transformer`) answers `503`; the caller resends. A business
   failure answers `422` and is not worth resending unchanged.
-- `intropy sys create` does not assemble `gateway` blocks yet.
+{{- if .empty }}
+- The step bodies are scaffolded empty (`NotImplementedException`), and
+  `Source{{ .payloadType }}` is an empty record. The idempotency and output-event
+  rules stay in `{{ .componentClass }}.Routes` with throwing lambdas: point them at a
+  stable business identifier and business timestamp — a per-delivery value
+  (fresh GUID, wall-clock time) lets every duplicate through.
+- The test suite is real and fails out of the box by design — `task test` is
+  red until the steps and the lambdas land. Until then every request answers
+  `422`, since the throwing `Deserializer` is routed as a business incident. The
+  endpoint, readiness and not-JSON tests start green. Two integration tests from
+  the full sample are deliberately not scaffolded: a rejected order (which input
+  fails validation is the Validator's to define) and a duplicate (it needs the
+  idempotency lambdas). Add them as the implementation lands.
+{{- end }}
 
 ## Framework guidance
 
