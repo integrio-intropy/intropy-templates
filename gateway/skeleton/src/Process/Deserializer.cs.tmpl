@@ -25,7 +25,7 @@ public class Deserializer : DeserializeStep<Source{{ .payloadType }}, Context>
         var order = JsonSerializer.Deserialize<Source{{ .payloadType }}>(input.Span, Options)
                     ?? throw new JsonException("The request body is null.");
 
-        context.Metadata[{{ .componentClass }}.ContextKeyOrderId] = order.OrderId;
+        context.Metadata[BusinessIncidentContextKeys.BusinessId] = order.OrderId;
 
         return Task.FromResult<(BusinessStepResult<Source{{ .payloadType }}>, Context)>(
             (new BusinessStepResult<Source{{ .payloadType }}>.Success(order), context));
