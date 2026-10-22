@@ -1,7 +1,7 @@
 # {{ .name }}
 
 A gateway integration for {{ .organization }}: callers `POST` orders to
-`{{ .routePath }}`, and each one is validated, de-duplicated, transformed to the
+`{{ .endpointPath }}`, and each one is validated, de-duplicated, transformed to the
 canonical `{{ .payloadType }}` contract and published as a `{{ .publishes }}`
 CloudEvent.
 

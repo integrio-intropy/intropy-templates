@@ -5,7 +5,7 @@
 {{ if .empty -}}
 ### Published: 202 with { requestId, eventId } once the steps are implemented.
 ### Replace the body with a real one as the source shape lands.
-POST {{ "{{" }}host}}{{ .routePath }}
+POST {{ "{{" }}host}}{{ .endpointPath }}
 Content-Type: application/json
 X-Request-Id: sample-published
 
@@ -19,7 +19,7 @@ X-Request-Id: sample-published
 
 {{ else -}}
 ### Published: 202 with { requestId, eventId }
-POST {{ "{{" }}host}}{{ .routePath }}
+POST {{ "{{" }}host}}{{ .endpointPath }}
 Content-Type: application/json
 X-Request-Id: sample-published
 
@@ -34,7 +34,7 @@ X-Request-Id: sample-published
 }
 
 ### Duplicate: send the same order again — 200, nothing published
-POST {{ "{{" }}host}}{{ .routePath }}
+POST {{ "{{" }}host}}{{ .endpointPath }}
 Content-Type: application/json
 X-Request-Id: sample-duplicate
 
@@ -49,7 +49,7 @@ X-Request-Id: sample-duplicate
 }
 
 ### Rejected by the Validator: 422, routed as a business incident named ORD-1002
-POST {{ "{{" }}host}}{{ .routePath }}
+POST {{ "{{" }}host}}{{ .endpointPath }}
 Content-Type: application/json
 X-Request-Id: sample-rejected
 
@@ -63,7 +63,7 @@ X-Request-Id: sample-rejected
 
 {{ end -}}
 ### Not JSON: 422, the incident is named after the request id
-POST {{ "{{" }}host}}{{ .routePath }}
+POST {{ "{{" }}host}}{{ .endpointPath }}
 Content-Type: application/json
 X-Request-Id: sample-not-json
 

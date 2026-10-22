@@ -39,9 +39,9 @@ spec:
         title: Publishes
         description: Logical name of the message this gateway publishes. The CloudEvents type is the same value; the payload type derives from it.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
-      route:
+      path:
         type: string
-        title: Route
+        title: Endpoint path
         description: Path callers POST items to. Defaults to /<publishes>.
         pattern: "^/[A-Za-z0-9/._-]*$"
       localPort:
@@ -98,9 +98,9 @@ spec:
     # Derived like appId so it stays unique per component. The framework stamps
     # it on every event and scopes the idempotency records by it.
     port: '{{ .name | kebabcase | replace "." "-" }}-endpoint'
-    # The path callers POST items to: the route parameter, else /<publishes>.
+    # The path callers POST items to: the path parameter, else /<publishes>.
     # The framework reads it from the scaffold record, so it must be resolved here.
-    routePath: '{{ get . "route" | default (printf "/%s" .publishes) }}'
+    endpointPath: '{{ get . "path" | default (printf "/%s" .publishes) }}'
     # The CloudEvent source the framework stamps on every event: the
     # eventSource parameter, else urn:<organization>:<component>. The event
     # type is the message itself, with no derivation and no override.
