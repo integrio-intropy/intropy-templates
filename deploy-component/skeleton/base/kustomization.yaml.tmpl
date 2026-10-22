@@ -7,6 +7,9 @@ resources:
 {{- else }}
   - deployment.yaml
 {{- end }}
+{{- if eq (lower (replace "-" "" .kind)) "gateway" }}
+  - service.yaml
+{{- end }}
 {{- if or (eq .kind "loader") (eq (lower (replace "-" "" .kind)) "transactionalintegration") }}
   - resiliency.yaml
 {{- end }}
