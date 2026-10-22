@@ -36,7 +36,8 @@ stays committed.
 | Duplicate (idempotency check) | `200` |
 | Business failure (routed to the Business Incident Service) | `422` problem details |
 | Body larger than `Gateway:MaxRequestBodyBytes` | `413` |
-| Not ready, technical failure, or a dependency down | `503` + `Retry-After` |
+| Not ready, or the sidecar, pub/sub or a platform service down | `503` + `Retry-After` |
+| A technical failure a resend cannot cure (e.g. a step throwing on the item) | `500` |
 
 Only `503` asks the caller to resend. Every response carries `X-Request-Id`.
 

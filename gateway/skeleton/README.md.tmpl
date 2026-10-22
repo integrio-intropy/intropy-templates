@@ -12,6 +12,7 @@ CloudEvent.
 | `422 Unprocessable Entity` | Rejected by a business rule; raised as a business incident |
 | `413 Payload Too Large` | Body over `Gateway:MaxRequestBodyBytes` |
 | `503 Service Unavailable` | Try again after `Retry-After` |
+| `500 Internal Server Error` | The gateway failed in a way a resend cannot cure; do not resend unchanged |
 
 The gateway runs via its system host. Build and test it with `task build` and
 `task test`; `src/{{ .name }}.http` holds {{ if .empty }}sample requests{{ else }}a sample request for each response{{ end }}.
