@@ -1,7 +1,7 @@
 # Agent Instructions
 
 This project is a .NET gateway integration built on the Intropy framework: a
-resident HTTP service that accepts orders pushed to `POST {{ .routePath }}`, runs
+resident HTTP service that accepts orders pushed to `POST {{ .endpointPath }}`, runs
 each request body through the Intropy extractor pipeline, and publishes the
 result as a CloudEvent to the system's pub/sub. The caller is the retry
 mechanism — the status code tells it whether to resend.
@@ -17,12 +17,12 @@ mechanism — the status code tells it whether to resend.
   package's build targets. The framework reads `componentName`
   (`{{ .componentName }}`), `organization` (`{{ .organization }}`), `publishes`,
   `payloadType` and `eventSourceValue` from it, and checks the declared endpoint
-  against `port` and `routePath`.
+  against `port` and `endpointPath`.
 - App id: `{{ .appId }}`
-- Endpoint: `{{ .port }}` at `POST {{ .routePath }}`, on HTTP port 8080 (ASP.NET Core
+- Endpoint: `{{ .port }}` at `POST {{ .endpointPath }}`, on HTTP port 8080 (ASP.NET Core
   `http_ports` / `urls` override it). The system host serves it locally on
   `http://localhost:{{ .localPort }}`, from `src/Properties/launchSettings.json`. The
-  framework declares it from the scaffold record (`port`, `routePath`), which also
+  framework declares it from the scaffold record (`port`, `endpointPath`), which also
   names it for the system host and the ingress; the port is stamped on every
   published event and scopes the idempotency records.
 - Message: `{{ .publishes }}` — what the gateway publishes; the message name is the

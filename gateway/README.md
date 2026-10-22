@@ -9,7 +9,7 @@ Built on `Intropy.Framework.Components`: the component class declares only its
 rules, the steps live in `src/Process/`, and the framework wires the web host,
 the endpoint, the probes, telemetry, the platform clients and the publisher. The
 framework takes the component's identity (component name, organization,
-message, port, route path, event source) from `.intropy/scaffold.json`, which
+message, port, endpoint path, event source) from `.intropy/scaffold.json`, which
 the build embeds in the assembly.
 
 ## Parameters
@@ -19,7 +19,7 @@ the build embeds in the assembly.
 | `name` | yes | — | PascalCase project name and root namespace |
 | `organization` | yes | — | Telemetry service namespace and incident source URN |
 | `publishes` | yes | — | The message published; the CloudEvents type |
-| `route` | no | `/<publishes>` | Path callers `POST` items to |
+| `path` | no | `/<publishes>` | Path callers `POST` items to |
 | `localPort` | no | `5080` | Port the system host serves the gateway on locally (`src/Properties/launchSettings.json`, and `local` in `src/http-client.env.json`); unique per gateway in a system |
 | `topic` | no | the message | Declared channel, recorded for `intropy sys create` |
 | `idempotencyAppId` | no | `idempotency-service.services` | Dapr app-id of the Idempotency Service |
@@ -47,7 +47,7 @@ system host runs it locally under Aspire. Its readiness probe is `/readyz`,
 liveness `/healthz`.
 
 `intropy sys create` declares the gateway in the system host with
-`AddGateway(...).Exposes(...).Publishes(...)`; its endpoint (`port`, `routePath`)
+`AddGateway(...).Exposes(...).Publishes(...)`; its endpoint (`port`, `endpointPath`)
 becomes an `EndpointRef` in the host's `Endpoints.cs`.
 
 ## Render locally
@@ -58,4 +58,4 @@ intropy int create gateway -o /tmp/order-gateway \
 ```
 
 See `examples/empty.yaml` for the empty-bodies fixture and `examples/full.yaml`
-for a dotted name, a custom route and a preserved CloudEvent identity.
+for a dotted name, a custom path and a preserved CloudEvent identity.

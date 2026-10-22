@@ -13,7 +13,7 @@ namespace {{ .name }};
 /// </summary>
 public sealed class {{ .componentClass }} : GatewayComponent
 {
-    protected override void Endpoints(GatewayComponentEndpoints endpoints) =>
+    protected override void Endpoints(GatewayEndpoints endpoints) =>
         endpoints.Endpoint(endpoint => endpoint
             .Accepts<Source{{ .payloadType }}, {{ .payloadType }}>(route => route
                 // A stable business identity and source version: per-delivery values (a fresh
