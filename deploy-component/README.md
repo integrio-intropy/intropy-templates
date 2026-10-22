@@ -177,3 +177,54 @@ There is no path segment in the generator to match on.
 `.scaffold` (its `.intropy/scaffold.json` values, or `{}`) and — local
 renders only — `.local`, the ephemeral bindings for this render:
 `.local.bindings` maps port name to fixture name.
+
+## Gateways: private Service and environment-owned ingress
+
+A gateway renders a resident Deployment and a ClusterIP Service named after the
+component. The Service exposes `http` on port 80, targeting the container's
+`http` port (8080); its selector is the Deployment's `app` label. The sidecar
+uses HTTP, not the subscribing blocks' gRPC callback. Startup and liveness
+probe `/healthz`; readiness probes `/readyz`, keeping a gateway that is waiting
+for Dapr out of the Service's ready backends.
+
+The topology's `component.endpoints` is carried through the CLI and recorded as
+JSON in the Service annotation `intropy.io/endpoints`. Each entry contains the
+endpoint's name and its path. A gateway with missing endpoints, pub/sub or topic
+fails rendering instead of deploying an unreachable or misconfigured service.
+Endpoints are HTTP routes, not file ports; they need no fixture bindings.
+
+Public exposure is an explicit environment decision. Add an Ingress in the
+appropriate GitOps overlay and include it in that overlay's `resources`:
+
+- Route each declared endpoint path **unchanged**, without stripping a prefix,
+  to the component's Service, port name `http`, in the same namespace.
+- Set the environment's host name and ingress class, configure TLS, and attach
+  the ingress controller's authentication/authorization policy before merging.
+  The gateway's default application has no authentication middleware.
+- Do not expose `/healthz` or `/readyz` as public routes. They are Pod probes.
+- Keep the Service private: do not change it to a NodePort or LoadBalancer to
+  bypass the authenticated ingress.
+
+For example, the routing portion for `order-gateway` exposing `/api/orders`
+looks like this inside the environment's authenticated, TLS-enabled Ingress:
+
+```yaml
+rules:
+  - host: orders.example.com
+    http:
+      paths:
+        - path: /api/orders
+          pathType: Exact
+          backend:
+            service:
+              name: order-gateway
+              port:
+                name: http
+```
+
+No public Ingress is generated automatically: host names, certificates and
+controller-specific authentication policy cannot be inferred from topology.
+Make those changes in Git and review them before the GitOps controller syncs.
+See the Kubernetes [Service](https://kubernetes.io/docs/concepts/services-networking/service/)
+and [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/)
+contracts for the resource fields.

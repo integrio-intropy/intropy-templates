@@ -99,6 +99,10 @@ spec:
       when: '{{ eq .workload "cronjob" }}'
     - path: base/deployment.yaml.tmpl
       when: '{{ eq .workload "deployment" }}'
+    # A gateway serves HTTP; its Service is the private backend an environment's
+    # authenticated ingress routes to, never a file-port binding.
+    - path: base/service.yaml.tmpl
+      when: '{{ eq (lower (replace "-" "" .kind)) "gateway" }}'
     # A loader's or transactional integration's sidecar retries what the block
     # leaves for redelivery before the broker dead-letters it; no other block
     # kind answers RETRY to a subscription. The kind is folded the way the CLI

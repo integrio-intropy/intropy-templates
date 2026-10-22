@@ -1,15 +1,17 @@
-{{- /* A block's framework reads its pub/sub, and an extractor's or a
-     transactional integration's its topic, from the environment and derives
-     neither: a workload rendered without them would only fail at startup, so
-     the render fails instead. */ -}}
+{{- /* The framework takes the block's pub/sub and a producer's topic from the
+     environment. Neither name is derived: refusing incomplete topology here
+     prevents a workload that can only fail at startup. */ -}}
 {{- $kind := lower (replace "-" "" .kind) -}}
 {{- $pubsub := dig "pubsub" "" .component -}}
 {{- $topic := dig "topic" "" .component -}}
-{{- if and (not $pubsub) (has $kind (list "extractor" "loader" "transactionalintegration")) -}}
+{{- if and (not $pubsub) (has $kind (list "extractor" "loader" "transactionalintegration" "gateway")) -}}
 {{- fail (printf "component %s: the topology record names no pub/sub for it to run on; regenerate the record with Intropy.Topology 2.0.1 or later, and keep its channels on one pub/sub" .name) -}}
 {{- end -}}
-{{- if and (not $topic) (has $kind (list "extractor" "transactionalintegration")) -}}
+{{- if and (not $topic) (has $kind (list "extractor" "transactionalintegration" "gateway")) -}}
 {{- fail (printf "component %s: the topology record names no topic for it to run on; regenerate the record with Intropy.Topology 2.0.1 or later, and keep its messages on one topic" .name) -}}
+{{- end -}}
+{{- if and (eq $kind "gateway") (not (dig "endpoints" (list) .component)) -}}
+{{- fail (printf "gateway %s: the topology record names no endpoints; regenerate it with a gateway-aware Intropy.Topology release" .name) -}}
 {{- end -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -28,9 +30,13 @@ spec:
         dapr.io/enabled: "true"
         dapr.io/app-id: {{ .appId }}
         dapr.io/app-port: "8080"
-        # A subscribing block receives its messages pushed over the sidecar's
-        # gRPC app callback (the framework's callback server speaks HTTP/2 only).
+{{- if eq $kind "gateway" }}
+        # Gateways serve HTTP requests, not the subscribing blocks' gRPC callback.
+        dapr.io/app-protocol: http
+{{- else }}
+        # A subscribing block's app callback speaks HTTP/2 only.
         dapr.io/app-protocol: grpc
+{{- end }}
         dapr.io/enable-api-logging: "false"
     spec:
       containers:
@@ -52,6 +58,27 @@ spec:
 {{- end }}
           ports:
             - containerPort: 8080
+{{- if eq $kind "gateway" }}
+              name: http
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+{{- end }}
           env:
 {{- if $pubsub }}
             # The one pub/sub this workload runs on, as the topology named it: the
@@ -64,7 +91,7 @@ spec:
 {{- if $topic }}
             # The one topic this workload runs on, as the topology named it: a
             # transactional integration's internal queue topic, or the single topic an
-            # extractor's or a loader's messages share. Unset for a loader taking
+            # extractor's, gateway's or loader's messages share. Unset for a loader taking
             # several topics. The framework derives no topic, and the environment wins
             # over a name set in code.
             - name: INTROPY_TOPIC_NAME

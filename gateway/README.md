@@ -45,7 +45,12 @@ Only `503` asks the caller to resend. Every response carries `X-Request-Id`.
 In production a gateway is a Kubernetes Deployment (it stays resident) behind
 a Service and an environment-owned ingress, which owns authentication. The
 system host runs it locally under Aspire. Its readiness probe is `/readyz`,
-liveness `/healthz`.
+liveness `/healthz`. `deploy-component` renders the private Service, configures HTTP
+for the Dapr app protocol, and wires those probes. The Service's
+`intropy.io/endpoints` annotation records the endpoint paths; the environment's
+TLS-enabled, authenticated ingress routes them unchanged to its `http` port.
+No public ingress is enabled automatically. See
+[the deployment contract](../deploy-component/README.md#gateways-private-service-and-environment-owned-ingress).
 
 `intropy sys create` declares the gateway in the system host with
 `AddGateway(...).Exposes(...).Publishes(...)`; its endpoint (`port`, `endpointPath`)
