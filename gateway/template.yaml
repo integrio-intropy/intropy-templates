@@ -77,8 +77,9 @@ spec:
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
     # The component's identity: the telemetry service name and the prefix of its
-    # idempotency and incident records. Intropy.Framework.Components reads it from
-    # .intropy/scaffold.json, which the build embeds in the assembly.
+    # idempotency and incident records. Mirrored into the component's
+    # [IntropyComponent] attribute; the build regenerates the record from the
+    # attribute, and the record's provenance travels with it.
     componentName: '{{ .name | kebabcase }}'
     # The component class: the last segment of the name, so a dotted name
     # (Int1055.OrderGateway) still yields a valid type name.
@@ -99,7 +100,8 @@ spec:
     # it on every event and scopes the idempotency records by it.
     port: '{{ .name | kebabcase | replace "." "-" }}-endpoint'
     # The path callers POST items to: the path parameter, else /<publishes>.
-    # The framework reads it from the scaffold record, so it must be resolved here.
+    # Mirrored into the component's [IntropyComponent] attribute, so the record
+    # the build writes matches what int create wrote.
     endpointPath: '{{ get . "path" | default (printf "/%s" .publishes) }}'
     # The CloudEvent source the framework stamps on every event: the
     # eventSource parameter, else urn:<organization>:<component>. The event

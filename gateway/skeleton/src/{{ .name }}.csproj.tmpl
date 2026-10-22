@@ -7,8 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Wires the gateway from .intropy/scaffold.json, which its build targets embed. -->
-    <PackageReference Include="Intropy.Framework.Components" Version="2.0.0-gateway-local.7" />
+    <!-- declarative component: its [IntropyComponent] attribute names the gateway, a source
+         generator in the package checks it at compile time and writes the scaffold record it
+         declares (.intropy/scaffold.json) -->
+    <PackageReference Include="Intropy.Framework.Components" Version="2.0.0-gateway-local.8" />
   </ItemGroup>
 
   <ItemGroup>

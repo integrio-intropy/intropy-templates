@@ -6,8 +6,9 @@ namespace {{ .name }}.Test.Integration;
 
 public class CompositionTests
 {
-    // Startup composes the pipeline, so a missing step, a wrong payload type or a
-    // scaffold record without the gateway's values fails here, not on the first request.
+    // Startup composes the pipeline, so a missing step, a wrong payload type or an
+    // IntropyComponent attribute naming the gateway's endpoint wrong fails here, not on the
+    // first request.
     [Fact]
     public async Task Gateway_StartsAndReportsReady()
     {
