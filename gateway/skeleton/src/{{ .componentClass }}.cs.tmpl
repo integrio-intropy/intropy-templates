@@ -1,5 +1,6 @@
 using {{ .contracts }};
 using {{ .name }}.Model;
+using {{ .name }}.Process;
 using Intropy.Framework.Components;
 using Intropy.Framework.Components.Gateway;
 
@@ -7,15 +8,23 @@ namespace {{ .name }};
 
 /// <summary>
 /// The gateway: its endpoint, and what the endpoint accepts — the orders callers post and the
-/// rules of their way through the pipeline steps in <c>Process/</c>. The framework takes the rest
-/// from .intropy/scaffold.json (component name, organization, message, event source, and the
-/// endpoint's port and path) and from the deployment (pub/sub and topic).
+/// rules of their way through the pipeline steps in <c>Process/</c>. The component's identity is
+/// the [IntropyComponent] attribute on this class (component name, organization, message, payload,
+/// event source, and the endpoint's port and path); the framework wires everything else from it
+/// and from the deployment (pub/sub and topic).
 /// </summary>
+[IntropyComponent("{{ .componentName }}", Organization = "{{ .organization }}",
+    Publishes = "{{ .publishes }}", Payload = typeof({{ .payloadType }}),
+    Port = "{{ .port }}", EndpointPath = "{{ .endpointPath }}",
+    EventSource = "{{ .eventSourceValue }}")]
 public sealed class {{ .componentClass }} : GatewayComponent
 {
     protected override void Endpoints(GatewayEndpoints endpoints) =>
         endpoints.Endpoint(endpoint => endpoint
             .Accepts<Source{{ .payloadType }}, {{ .payloadType }}>(route => route
+                // The route's steps: the one deserializer, validator and transformer this
+                // route's items go through, in Process/.
+                .Steps<Deserializer, Validator, Transformer>()
                 // A stable business identity and source version: per-delivery values (a fresh
                 // GUID, the wall-clock time) would let every duplicate through.
 {{- if .empty }}

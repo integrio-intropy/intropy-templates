@@ -5,12 +5,13 @@ to it, runs each request body through the Intropy extractor pipeline, and
 publishes the result as a CloudEvent. It is an extractor whose source is its
 callers — the same steps and rules, with the caller as the retry mechanism.
 
-Built on `Intropy.Framework.Components`: the component class declares only its
-rules, the steps live in `src/Process/`, and the framework wires the web host,
-the endpoint, the probes, telemetry, the platform clients and the publisher. The
-framework takes the component's identity (component name, organization,
-message, port, endpoint path, event source) from `.intropy/scaffold.json`, which
-the build embeds in the assembly.
+Built on `Intropy.Framework.Components`: the component class declares its identity in code —
+an `[IntropyComponent]` attribute on the class, mirroring the manifest's computed values —
+declares only its rules, the steps live in `src/Process/`, and the framework wires the web host,
+the endpoint, the probes, telemetry, the platform clients and the publisher from the attribute.
+The package's source generator writes the attribute into `.intropy/scaffold.json` at build
+time; the record's provenance (template, version, owner) comes from `int create` and the file
+stays committed.
 
 ## Parameters
 

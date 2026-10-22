@@ -13,21 +13,23 @@ mechanism — the status code tells it whether to resend.
   (`ComponentHost.RunAsync<{{ .componentClass }}>`). The framework wires the web host,
   the endpoint, `/healthz` and `/readyz`, telemetry, the Dapr client, the
   platform-service clients and the publisher.
-- Identity: `.intropy/scaffold.json`, embedded in the assembly by the
-  package's build targets. The framework reads `componentName`
-  (`{{ .componentName }}`), `organization` (`{{ .organization }}`), `publishes`,
-  `payloadType` and `eventSourceValue` from it, and checks the declared endpoint
-  against `port` and `endpointPath`.
+- Identity: the `[IntropyComponent]` attribute on `{{ .componentClass }}`. The framework reads
+  the component name (`{{ .componentName }}`), the organization (`{{ .organization }}`),
+  `publishes`, `payloadType` and `eventSourceValue` from it, and checks the declared endpoint
+  against its `Port` (`{{ .port }}`) and `EndpointPath` (`{{ .endpointPath }}`). The package's
+  source generator writes the attribute into `.intropy/scaffold.json` at build time — a
+  generated but committed record; the template, version and provenance fields in it come from
+  `int create` and survive every build.
 - App id: `{{ .appId }}`
 - Endpoint: `{{ .port }}` at `POST {{ .endpointPath }}`, on HTTP port 8080 (ASP.NET Core
   `http_ports` / `urls` override it). The system host serves it locally on
   `http://localhost:{{ .localPort }}`, from `src/Properties/launchSettings.json`. The
-  framework declares it from the scaffold record (`port`, `endpointPath`), which also
-  names it for the system host and the ingress; the port is stamped on every
-  published event and scopes the idempotency records.
+  attribute's `Port` and `EndpointPath` declare the endpoint the system names for the system
+  host and the ingress; the port is stamped on every published event and scopes the
+  idempotency records.
 - Message: `{{ .publishes }}` — what the gateway publishes; the message name is the
   CloudEvents type.
-- Channel: `{{ .channel }}` declared in the scaffold record. The code takes the
+- Channel: `{{ .channel }}` at scaffold time. The code takes the
   pub/sub and topic from `INTROPY_PUBSUB_NAME` and `INTROPY_TOPIC_NAME`, which the
   system host and the deployment set; without them startup fails.
 - CloudEvent envelope: source `{{ .eventSourceValue }}`, type `{{ .publishes }}`.
@@ -87,7 +89,7 @@ task test
 - A second endpoint carrying other data — another source system's format of the
   order — is a second `.Endpoint(port, path, endpoint => endpoint.Accepts<TInput, {{ .payloadType }}>(...))`
   in `{{ .componentClass }}.Endpoints`, with its own input model and steps; every
-  endpoint publishes `{{ .payloadType }}`. The scaffold record names only the first
+  endpoint publishes `{{ .payloadType }}`. The attribute names only the first
   endpoint, so add the second to the system host by hand.
 - Authentication is not in the component: the environment's ingress owns it.
   Override `ConfigureEndpoints` (e.g. `RequireAuthorization()`) and
