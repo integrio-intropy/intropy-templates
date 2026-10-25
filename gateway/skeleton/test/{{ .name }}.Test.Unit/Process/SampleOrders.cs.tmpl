@@ -12,7 +12,7 @@ internal static class SampleOrders
     public const string ValidJson =
         """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
-    public static Source{{ .payloadType }} Valid() => new();
+    public static {{ .payloadType }}Request Valid() => new();
 }
 {{- else -}}
 using {{ .contracts }};
@@ -24,7 +24,7 @@ internal static class SampleOrders
 {
     public static readonly DateTimeOffset OrderDate = new(2026, 1, 15, 9, 30, 0, TimeSpan.Zero);
 
-    public static Source{{ .payloadType }} Valid() => new(
+    public static {{ .payloadType }}Request Valid() => new(
         OrderId: "ORD-1001",
         CustomerId: "CUST-42",
         Status: "Placed",

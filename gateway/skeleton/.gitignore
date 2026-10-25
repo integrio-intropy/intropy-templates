@@ -3,9 +3,8 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
-# .intropy/scaffold.json is a generated but committed artifact: the component's
-# [IntropyComponent] attribute is the source of truth, every build regenerates
-# the record from it, and `intropy sys create` reads it from the checkout.
+# .intropy/scaffold.json is committed: `intropy sys create` reads it from the
+# checkout. Its identity values mirror the component's Manifest.
 
 # dotenv files
 .env

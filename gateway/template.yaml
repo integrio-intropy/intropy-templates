@@ -78,8 +78,7 @@ spec:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
     # The component's identity: the telemetry service name and the prefix of its
     # idempotency and incident records. Mirrored into the component's
-    # [IntropyComponent] attribute; the build regenerates the record from the
-    # attribute, and the record's provenance travels with it.
+    # Manifest; an identity change edits both the manifest and the record.
     componentName: '{{ .name | kebabcase }}'
     # The component class: the last segment of the name, so a dotted name
     # (Int1055.OrderGateway) still yields a valid type name.
@@ -93,15 +92,14 @@ spec:
     contracts: 'Contracts'
     # The payload type the message projects to: PascalCase of the message
     # identity, and the generated record in the shared-contracts sibling is
-    # named after it. The framework checks the published type against it.
+    # named after it. The component publishes it: Publishes<PayloadType>(...).
     payloadType: '{{ pascal .publishes }}'
     # The gateway's port — the endpoint it exposes to the outside world.
     # Derived like appId so it stays unique per component. The framework stamps
     # it on every event and scopes the idempotency records by it.
     port: '{{ .name | kebabcase | replace "." "-" }}-endpoint'
     # The path callers POST items to: the path parameter, else /<publishes>.
-    # Mirrored into the component's [IntropyComponent] attribute, so the record
-    # the build writes matches what int create wrote.
+    # Mirrored into the component's Manifest.
     endpointPath: '{{ get . "path" | default (printf "/%s" .publishes) }}'
     # The CloudEvent source the framework stamps on every event: the
     # eventSource parameter, else urn:<organization>:<component>. The event
