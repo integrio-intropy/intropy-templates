@@ -6,12 +6,12 @@ publishes the result as a CloudEvent. It is an extractor whose source is its
 callers — the same steps and rules, with the caller as the retry mechanism.
 
 Built on `Intropy.Framework.Components`: the component class declares its identity in code —
-an `[IntropyComponent]` attribute on the class, mirroring the manifest's computed values —
-declares only its rules, the steps live in `src/Process/`, and the framework wires the web host,
-the endpoint, the probes, telemetry, the platform clients and the publisher from the attribute.
-The package's source generator writes the attribute into `.intropy/scaffold.json` at build
-time; the record's provenance (template, version, owner) comes from `int create` and the file
-stays committed.
+a `Manifest` property, mirroring the template manifest's computed values, with the payload as
+the base class's type parameter — declares only its rules, the steps live in `src/Process/`, and
+the framework wires the web host, the endpoint, the probes, telemetry, the platform clients and
+the publisher from the manifest.
+`int create` writes the same identity into `.intropy/scaffold.json`, which `intropy sys create`
+reads; the build never touches the record. An identity change edits both.
 
 ## Parameters
 

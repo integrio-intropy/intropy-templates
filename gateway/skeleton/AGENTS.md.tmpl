@@ -13,18 +13,19 @@ mechanism — the status code tells it whether to resend.
   (`ComponentHost.RunAsync<{{ .componentClass }}>`). The framework wires the web host,
   the endpoint, `/healthz` and `/readyz`, telemetry, the Dapr client, the
   platform-service clients and the publisher.
-- Identity: the `[IntropyComponent]` attribute on `{{ .componentClass }}`. The framework reads
-  the component name (`{{ .componentName }}`), the organization (`{{ .organization }}`),
-  `publishes`, `payloadType` and `eventSourceValue` from it, and checks the declared endpoint
-  against its `Port` (`{{ .port }}`) and `EndpointPath` (`{{ .endpointPath }}`). The package's
-  source generator writes the attribute into `.intropy/scaffold.json` at build time — a
-  generated but committed record; the template, version and provenance fields in it come from
-  `int create` and survive every build.
+- Identity: the `Manifest` property of `{{ .componentClass }}`. The framework reads the
+  component name (`{{ .componentName }}`), the organization (`{{ .organization }}`), the
+  message and the event source from it, and checks the declared endpoint against its `Port`
+  (`{{ .port }}`) and `EndpointPath` (`{{ .endpointPath }}`). The payload is named where it
+  is published (`Publishes<{{ .payloadType }}>(...)`), the same type on every endpoint. The same
+  identity is recorded in `.intropy/scaffold.json` (written by `int create`, read by
+  `intropy sys create`); changing it means editing the manifest and the record's matching
+  `values` keys together.
 - App id: `{{ .appId }}`
 - Endpoint: `{{ .port }}` at `POST {{ .endpointPath }}`, on HTTP port 8080 (ASP.NET Core
   `http_ports` / `urls` override it). The system host serves it locally on
   `http://localhost:{{ .localPort }}`, from `src/Properties/launchSettings.json`. The
-  attribute's `Port` and `EndpointPath` declare the endpoint the system names for the system
+  manifest's `Port` and `EndpointPath` declare the endpoint the system names for the system
   host and the ingress; the port is stamped on every published event and scopes the
   idempotency records.
 - Message: `{{ .publishes }}` — what the gateway publishes; the message name is the
@@ -41,23 +42,24 @@ mechanism — the status code tells it whether to resend.
 - Idempotency Service: Dapr app id `{{ .idempotencyAppId }}`; Business Incident
   Service: `{{ .businessIncidentsAppId }}` (`src/appsettings.json`, `PlatformServices:*`).
 - Shared contracts: the published payload type (`{{ .payloadType }}`) lives in the
-  sibling project `../{{ .contracts }}`. `Source{{ .payloadType }}` — the body callers
+  sibling project `../{{ .contracts }}`. `{{ .payloadType }}Request` — the body callers
   send — stays local in `src/Model/`.
 
 ## Important files
 
-- `src/{{ .componentClass }}.cs` - the component: its endpoint and what it accepts
-  (`Endpoints`: `Endpoint(...)` then `Accepts<Source{{ .payloadType }}, {{ .payloadType }}>(...)`),
-  with the route's idempotency
+- `src/{{ .componentClass }}.cs` - the component: what it accepts on its endpoint and what it
+  publishes (`Inputs`: `Accepts<{{ .payloadType }}Request>()` then `Publishes<{{ .payloadType }}>(...)`),
+  with its pipeline's idempotency
   rule ({{ if .empty }}throwing lambdas to implement{{ else }}`OrderId`/`OrderDate`{{ end }}) and output event rule (subject and time).
   Incidents take the framework's default name: the business id the `Deserializer`
   sets in `BusinessIncidentContextKeys.BusinessId`, else the request id
   (`request:<id>`).
 - `src/Program.cs` - entrypoint: `ComponentHost.RunAsync<{{ .componentClass }}>(args)`.
-- `src/Process/` - the route's pipeline steps: `Deserializer`, `Validator`,
-  `Transformer`. The framework finds exactly one of each for the route's input
-  type in the assembly.
-- `src/Model/Source{{ .payloadType }}.cs` - the request body's shape.
+- `src/Process/` - the pipeline's steps: `Deserializer`, `Validator`,
+  `Transformer`, named in `Steps(steps => steps.Deserialize<...>().Validate<...>().Transform<...>())`
+  on the endpoint's pipeline, in the order they run; enrichment steps go between `Validate` and
+  `Transform` as `.Extract<T>()`.
+- `src/Model/{{ .payloadType }}Request.cs` - the request body's shape.
 - `src/appsettings.json` - platform-service app ids and the `Gateway` options
   (`MaxRequestBodyBytes`, `RetryAfter`).
 - `src/{{ .name }}.http` - {{ if .empty }}a published, a not-JSON and the probe requests{{ else }}one sample request per response{{ end }}, for a running
@@ -88,10 +90,14 @@ task test
 ## Development notes
 
 - A second endpoint carrying other data — another source system's format of the
-  order — is a second `.Endpoint(port, path, endpoint => endpoint.Accepts<TInput, {{ .payloadType }}>(...))`
-  in `{{ .componentClass }}.Endpoints`, with its own input model and steps; every
-  endpoint publishes `{{ .payloadType }}`. The attribute names only the first
+  order — is a second `.On(port, path).Accepts<TInput>().Publishes<{{ .payloadType }}>(...)`
+  in `{{ .componentClass }}.Inputs`, with its own input model and steps; every
+  endpoint publishes `{{ .payloadType }}`. The manifest names only the first
   endpoint, so add the second to the system host by hand.
+- Steps that share data beyond the context's metadata (a looked-up customer, say) get a
+  context of the component's own: a record deriving from `Context`, created with
+  `.Accepts<{{ .payloadType }}Request>().WithContext((metadata, isRetry) => new MyContext(metadata, isRetry))`.
+  Every step of that pipeline is then typed on it (`DeserializeStep<{{ .payloadType }}Request, MyContext>`, ...).
 - Authentication is not in the component: the environment's ingress owns it.
   Override `ConfigureEndpoints` (e.g. `RequireAuthorization()`) and
   `ConfigureApplication` in `{{ .componentClass }}` to add it in the app.
@@ -102,8 +108,8 @@ task test
   `422` and is not worth resending unchanged.
 {{- if .empty }}
 - The step bodies are scaffolded empty (`NotImplementedException`), and
-  `Source{{ .payloadType }}` is an empty record. The idempotency and output-event
-  rules stay in `{{ .componentClass }}.Endpoints` with throwing lambdas: point them at a
+  `{{ .payloadType }}Request` is an empty record. The idempotency and output-event
+  rules stay in `{{ .componentClass }}.Inputs` with throwing lambdas: point them at a
   stable business identifier and business timestamp — a per-delivery value
   (fresh GUID, wall-clock time) lets every duplicate through.
 - The test suite is real and fails out of the box by design — `task test` is

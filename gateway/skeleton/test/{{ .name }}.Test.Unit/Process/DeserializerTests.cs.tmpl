@@ -24,7 +24,7 @@ public class DeserializerTests
 
         var (result, ctx) = await new Deserializer().ExecuteAsync(Encoding.UTF8.GetBytes(SampleOrders.ValidJson), context, CancellationToken.None);
 
-        Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
+        Assert.IsType<BusinessStepResult<{{ .payloadType }}Request>.Success>(result);
         Assert.False(string.IsNullOrWhiteSpace(ctx.Metadata[BusinessIncidentContextKeys.BusinessId]));
     }
 {{- else }}
@@ -36,7 +36,7 @@ public class DeserializerTests
 
         var (result, ctx) = await new Deserializer().ExecuteAsync(Encoding.UTF8.GetBytes(body), context, CancellationToken.None);
 
-        var success = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
+        var success = Assert.IsType<BusinessStepResult<{{ .payloadType }}Request>.Success>(result);
         Assert.Equal("ORD-1001", success.Value.OrderId);
         Assert.Single(success.Value.Lines);
         Assert.Equal("ORD-1001", ctx.Metadata[BusinessIncidentContextKeys.BusinessId]);
