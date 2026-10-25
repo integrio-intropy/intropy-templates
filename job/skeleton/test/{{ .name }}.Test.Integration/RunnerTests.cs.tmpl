@@ -1,0 +1,60 @@
+using Dapr.Client;
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Contracts.IdempotencyService;
+using Intropy.Framework.Hosting.Jobs;
+using Intropy.Framework.Testing.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using NSubstitute;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// One run under the real <see cref="JobRunner"/>, on the production DI graph with only
+/// the edges faked: the Dapr sidecar the runner waits on and shuts down, and the two
+/// platform-service clients. Pins the exit-code contract the scheduler acts on.
+/// </summary>
+public class RunnerTests
+{
+    private readonly DaprClient _dapr = Substitute.For<DaprClient>();
+
+    public FakeIdempotencyServiceClient Idempotency { get; } = new();
+    public FakeBusinessIncidentServiceClient Incidents { get; } = new();
+
+    [Fact]
+    public async Task RunAsync_WithNothingToDo_ExitsWithSuccess()
+    {
+        var runner = CreateServices().BuildServiceProvider().GetRequiredService<JobRunner>();
+
+        var exitCode = await runner.RunAsync(CancellationToken.None);
+
+        Assert.Equal(JobExitCodes.Success, exitCode);
+    }
+
+    [Fact]
+    public async Task RunAsync_ShutsTheSidecarDownAfterTheRun()
+    {
+        var runner = CreateServices().BuildServiceProvider().GetRequiredService<JobRunner>();
+
+        await runner.RunAsync(CancellationToken.None);
+
+        await _dapr.Received(1).ShutdownSidecarAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// The production service collection with the edges swapped for fakes. Removes the
+    /// production registrations and adds the fakes, so the override never depends on
+    /// registration order (last-wins). A service the job gains joins the swap here.
+    /// </summary>
+    private IServiceCollection CreateServices()
+    {
+        var services = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development");
+        services.RemoveAll<DaprClient>();
+        services.AddSingleton(_dapr);
+        services.RemoveAll<IIdempotencyServiceClient>();
+        services.AddSingleton<IIdempotencyServiceClient>(Idempotency);
+        services.RemoveAll<IBusinessIncidentServiceClient>();
+        services.AddSingleton<IBusinessIncidentServiceClient>(Incidents);
+        return services;
+    }
+}

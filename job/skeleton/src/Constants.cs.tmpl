@@ -1,0 +1,12 @@
+namespace {{ .name }};
+
+public static class Constants
+{
+    // The component name: the telemetry service name, the job's span name, and the
+    // prefix of the component's idempotency and incident records.
+    public const string ComponentName = "{{ .name | kebabcase }}";
+    public const string Organization = "{{ .organization }}";
+
+    // The source of the business incidents the job routes, as an absolute URI.
+    public const string IncidentSource = "urn:{{ .organization }}:{{ .name | kebabcase }}";
+}

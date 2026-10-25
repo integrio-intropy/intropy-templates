@@ -12,7 +12,7 @@ public sealed class {{ .projectName }}Development : IDevelopmentDefinition
         development.Files(Ports.{{ regexReplaceAll "[-._]" $c.name " " | title | replace " " "" }}).RootPath("./test/{{ $c.name }}");
 {{- end }}
 {{- range $c := .components }}
-{{- if or (eq $c.kind "extractor") (eq $c.kind "transactional-integration") }}
+{{- if or (eq $c.kind "extractor") (eq $c.kind "transactional-integration") (eq $c.kind "job") }}
         development.Rerun("{{ $c.appId }}").AfterEachRun(TimeSpan.FromSeconds(30));
 {{- end }}
 {{- end }}

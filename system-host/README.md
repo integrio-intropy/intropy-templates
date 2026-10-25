@@ -74,7 +74,7 @@ identifiers and the joins from components to them.
 | `topics` | list of `{pubsub, name, contract}` | Derived transport list retained for deploy consumers. Sorted by (pubsub, name). |
 | `messages` | list of `{name, type, contract, publisher}` — optional | The message-first view, primary input for `Messages.cs`: one entry per produced message (`type` repeats the name). |
 | `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
-| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. Extractors carry scalar `publishes`, loaders carry scalar `subscribes`, and transactional integrations carry `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
+| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, `transactional-integration`, or `job`. Extractors carry scalar `publishes`, loaders carry scalar `subscribes`, transactional integrations carry `fromPort`/`toPort`, and jobs carry nothing more. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
 | `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Messages.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A message-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
 
 Derived `projectName`/`systemClass` (`order-flow` → `OrderFlow` /

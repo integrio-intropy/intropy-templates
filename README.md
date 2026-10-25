@@ -13,6 +13,8 @@ One manifest format. One skeleton tree per template.
 - **`hello-world/`** — minimal example template that exercises the manifest
   and skeleton conventions.
 - **`transactional/`** — a transactional integration component template.
+- **`job/`** — a run-to-completion job with one `IJob` to implement: the
+  catch-all for scheduled work that is no other block.
 
 Rendered by `intropy manifests create` rather than `intropy int create`, into
 a GitOps repository rather than a working project:

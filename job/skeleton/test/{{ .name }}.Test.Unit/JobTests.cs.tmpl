@@ -1,0 +1,21 @@
+using Intropy.Framework.Hosting.Jobs;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace {{ .name }}.Test.Unit;
+
+/// <summary>
+/// The job's own contract, without a host or a sidecar: what one run does and reports.
+/// Construct the job with fakes for what it takes in its constructor.
+/// </summary>
+public class JobTests
+{
+    [Fact]
+    public async Task ExecuteAsync_WithNothingToDo_ReportsAnEmptyRun()
+    {
+        var job = new Job(NullLogger<Job>.Instance);
+
+        var summary = await job.ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(RunSummary.Empty, summary);
+    }
+}

@@ -1,0 +1,99 @@
+using Dapr.Client;
+using Intropy.BusinessIncidentService.Client;
+using Intropy.Framework.Core.Common;
+using Intropy.Framework.Core.Configuration;
+using Intropy.Framework.Hosting.Jobs;
+using Intropy.IdempotencyService.Client;
+using Intropy.Telemetry;
+using Intropy.Telemetry.ConsoleApp;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }}.Composition;
+
+/// <summary>
+/// The component's service registrations, shared by the entrypoint
+/// (<c>Program.cs</c>) and the composition smoke test. Everything the runner
+/// needs — telemetry, the Dapr client, the platform-service clients, the job —
+/// is registered here so the test can prove the whole graph builds without a
+/// sidecar.
+/// </summary>
+public static class Composition
+{
+    /// <summary>Registers every service the job needs.</summary>
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="environment">The environment whose appsettings overlay applies. Defaults to
+    /// DOTNET_ENVIRONMENT, or Production; tests pass Development.</param>
+    public static IServiceCollection ConfigureServices(IServiceCollection services, string? environment = null)
+    {
+        environment ??= Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+
+        // Configuration: appsettings.json + environment overlay + env vars. Based on the
+        // binary directory, not the CWD — a host (or `dapr run`) may launch the app from a
+        // different working directory. Registered so options binding and tests resolve the
+        // same instance.
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
+            .AddEnvironmentVariables()
+            .Build();
+        services.AddSingleton<IConfiguration>(configuration);
+
+        // Register host-level platform plumbing first: diagnostics, Dapr, framework
+        // services, and shared platform clients. Keeping these together makes the
+        // ordering-sensitive DaprClient registrations obvious.
+        services.AddLogging(builder => builder.AddConsole());
+
+        // The service name is the component name, so traces identify the component through
+        // the resource's service.name. Strict mode exports only the framework's Intropy.* spans
+        // and the component's own (an ActivitySource named Constants.ComponentName): the Dapr
+        // gRPC and HttpClient spans around them are dropped, while trace context still
+        // propagates. Tracing:Mode in configuration overrides it. Intropy.Telemetry subscribes
+        // to no meters: add the framework's.
+        services.AddOpenTelemetry(conf =>
+        {
+            conf.ServiceNamespace = Constants.Organization;
+            conf.ServiceName = Constants.ComponentName;
+            conf.Environment = environment;
+            conf.Mode = TracingMode.Strict;
+            conf.ConfigureMetrics = metrics => metrics.AddMeter(IntropyTelemetry.Meters);
+        });
+
+        // The runner waits for the sidecar through this client and shuts it down after the run.
+        services.AddSingleton(_ => new DaprClientBuilder().Build());
+
+        // Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
+        // contributes its own DaprClient registration (camelCase JSON + string enums),
+        // and the last registration wins for GetRequiredService<DaprClient>().
+        // Both clients resolve lazily: a job that never takes them never calls the services.
+        services.AddIdempotencyServiceClient(c =>
+        {
+            c.AppId = configuration["PlatformServices:IdempotencyServiceAppId"]
+                      ?? "idempotency-service.services";
+        });
+
+        services.AddBusinessIncidentServiceClient(c =>
+        {
+            c.AppId = configuration["PlatformServices:BusinessIncidentServiceAppId"]
+                      ?? "business-incident-service.services";
+        });
+
+        services.AddIntropyFramework(x =>
+        {
+            x.ComponentName = Constants.ComponentName;
+            x.ServiceNamespace = Constants.Organization;
+        });
+
+        // The services the job takes in its constructor go here, before AddJob: clients,
+        // repositories, options bound from configuration.
+
+        // Register the job last. The run-to-completion host owns the Dapr sidecar lifecycle,
+        // tracing (one span per run, named after the component), and the exit codes. One
+        // process is one job: a second AddJob, or an extractor on the same provider, fails.
+        services.AddJob<Job>();
+
+        return services;
+    }
+}
