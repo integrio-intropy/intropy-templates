@@ -74,7 +74,7 @@ identifiers and the joins from components to them.
 | `topics` | list of `{pubsub, name, contract}` | Derived transport list retained for deploy consumers. Sorted by (pubsub, name). |
 | `messages` | list of `{name, type, contract, publisher}` — optional | The message-first view, primary input for `Messages.cs`: one entry per produced message (`type` repeats the name). |
 | `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
-| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, or `transactional-integration`. Extractors carry scalar `publishes`, loaders carry scalar `subscribes`, and transactional integrations carry `fromPort`/`toPort`. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
+| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, `transactional-integration`, or `job`. Extractors carry scalar `publishes`, loaders carry scalar `subscribes`, transactional integrations carry `fromPort`/`toPort`, and jobs carry nothing more. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
 | `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Messages.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A message-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
 
 Derived `projectName`/`systemClass` (`order-flow` → `OrderFlow` /
@@ -96,12 +96,15 @@ intropy int create system-host -o /tmp/system-host-out \
 requires the `Intropy.Topology.Aspire` / `Intropy.Topology.Generation`
 packages to be resolvable from the configured NuGet feeds.
 
-The Intropy.Topology / .Aspire / .Generation pins sit at **2.0.1** — the
-message-first topology release (`MessageRef<T>` replaces `TopicRef`; one
-declaration carries identity + channel + contract), which also passes each
+The Intropy.Topology / .Aspire / .Generation pins sit at **2.2.0**. On top of
+the message-first topology (`MessageRef<T>` replaces `TopicRef`; one
+declaration carries identity + channel + contract), which passes each
 component its pub/sub and topic in `INTROPY_PUBSUB_NAME` and
-`INTROPY_TOPIC_NAME` and records them as the graph's `channel`. Do not lower
-any pin: the declaration shape and the run semantics require it
-(message-first refs, transactional `From`/`To` ports, run-to-completion
-terminal state, the channel variables the framework reads). A
+`INTROPY_TOPIC_NAME` and records them as the graph's `channel`, 2.1.0 adds the
+gateway kind and 2.2.0 the job kind (`AddJob`) and port mocks
+(`development.Mock(port).FromOpenApi(...)`, an HTTP API behind a port served
+from Microcks locally). Do not lower any pin: the declaration shape and the
+run semantics require it (message-first refs, transactional `From`/`To`
+ports, run-to-completion terminal state, the channel variables the framework
+reads, the job kind the job template's records name). A
 template release and its pin are one atomic unit.

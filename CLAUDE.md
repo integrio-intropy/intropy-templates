@@ -52,7 +52,7 @@ metadata:
   tags: [example, go, http]
   labels:                      # two intropy.io/* keys are load-bearing (see below)
     intropy.io/template-level: example
-    intropy.io/block-kind: extractor   # extractor | loader | aggregator | transactional-integration
+    intropy.io/block-kind: extractor   # extractor | loader | aggregator | transactional-integration | job
     intropy.io/data-flow: "in"         # in | out | both | internal
 spec:
   parameters:                  # raw JSON Schema; type must be "object"
@@ -90,7 +90,7 @@ Notes:
   Output is always a string. Don't chain entries — map iteration order
   is non-deterministic.
 - **Two labels are load-bearing.** The CLI reads `intropy.io/block-kind`
-  (`extractor` | `loader` | `aggregator` | `transactional-integration`) and
+  (`extractor` | `loader` | `aggregator` | `transactional-integration` | `job`) and
   `intropy.io/data-flow` (`in` | `out` | `both` | `internal`) at render time
   and records them in the scaffolded project's `.intropy/scaffold.json`, which
   `intropy sys create` later assembles into the system declaration. Templates

@@ -80,8 +80,12 @@ public sealed class {{ .systemClass }} : ISystemDefinition
             .To(Ports.{{ index $portField .toPort }})
             .Calls(Services.Idempotency)
             .Calls(Services.BusinessIncidents);
+{{- else if eq .kind "job" }}
+        builder.AddJob("{{ .appId }}")
+            .Calls(Services.Idempotency)
+            .Calls(Services.BusinessIncidents);
 {{- else }}
-{{- fail (printf "component %q has kind %q — the host declares extractor, loader, and transactional-integration components; add a branch for new kinds when their blocks exist" .appId .kind) }}
+{{- fail (printf "component %q has kind %q — the host declares extractor, loader, transactional-integration, and job components; add a branch for new kinds when their blocks exist" .appId .kind) }}
 {{- end }}
 {{- end }}
     }

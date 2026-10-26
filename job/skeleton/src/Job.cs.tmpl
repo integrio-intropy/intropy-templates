@@ -1,0 +1,41 @@
+using System.Diagnostics;
+using Intropy.Framework.Hosting.Jobs;
+using Microsoft.Extensions.Logging;
+
+namespace {{ .name }};
+
+/// <summary>
+/// One run of the job: the work the component does each time its schedule fires.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The <see cref="JobRunner"/> hosts it: it waits for the Dapr sidecar, runs
+/// <see cref="ExecuteAsync"/> inside the run's span, shuts the sidecar down, and maps the
+/// result to the exit code — <c>0</c> success, nothing to do or cancelled; <c>1</c> the job
+/// threw or reported <see cref="RunSummary.Failed"/> greater than zero; <c>2</c> the sidecar
+/// never came up.
+/// </para>
+/// <para>
+/// A run must be safe to repeat: the scheduler re-runs a failed job, and a cancelled run
+/// (SIGTERM) leaves its remaining work for the next one. Count what the run did per item —
+/// processed, failed, skipped — rather than failing the whole run on one bad item, and let
+/// a failure that no retry can cure become a business incident instead of a failed item.
+/// </para>
+/// </remarks>
+public sealed class Job(ILogger<Job> logger) : IJob
+{
+    // The component's own spans. Strict tracing exports a source named after the component,
+    // so a span started here nests under the run's span in the same trace.
+    private static readonly ActivitySource Activities = new(Constants.ComponentName);
+
+    /// <inheritdoc />
+    public Task<RunSummary> ExecuteAsync(CancellationToken ct)
+    {
+        using var activity = Activities.StartActivity("run");
+
+        // Replace with the job's work. Take what it needs — clients, repositories,
+        // options — in the constructor and register them in Composition.
+        logger.LogInformation("{Component} has nothing to do yet", Constants.ComponentName);
+        return Task.FromResult(RunSummary.Empty);
+    }
+}

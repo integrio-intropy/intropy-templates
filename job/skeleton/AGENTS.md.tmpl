@@ -1,0 +1,77 @@
+# Agent Instructions
+
+This project is a run-to-completion .NET job built on the Intropy job host.
+One run = one call of `Job.ExecuteAsync`, then exit. Scheduling lives outside
+the job — the cadence is deployment configuration (a Kubernetes CronJob).
+
+## Project overview
+
+- Framework: .NET 10
+- App type: Run-to-completion console job (no web endpoints, no topic). Hosted
+  by the framework's `JobRunner` (in `Intropy.Framework.Hosting`), which waits
+  for the Dapr sidecar, runs the job inside the run's span, shuts the sidecar
+  down, and owns the exit-code contract: `0` success / nothing to do /
+  cancelled, `1` job failure (the job threw, or reported `Failed` > 0), `2`
+  infrastructure failure (sidecar unavailable).
+- Component name: `{{ .name | kebabcase }}` — the telemetry service name, the
+  run's span name, and the prefix of the component's idempotency and incident
+  records
+- App id: `{{ .appId }}`
+- Messaging: none. The job publishes and subscribes to nothing; it declares no
+  ports and reads no `INTROPY_PUBSUB_NAME` / `INTROPY_TOPIC_NAME`.
+- Idempotency Service: reached via Dapr service invocation, app id
+  `{{ .idempotencyAppId }}` (from `src/appsettings.json`, overridable per environment)
+- Business Incident Service: reached via Dapr service invocation, app id
+  `{{ .businessIncidentsAppId }}` (from `src/appsettings.json`, overridable per
+  environment); incident source `urn:{{ .organization }}:{{ .name | kebabcase }}`
+  (`Constants.IncidentSource`)
+
+## Important files
+
+- `src/Job.cs` - **the job: implement `ExecuteAsync` and its collaborators.**
+  It returns a `RunSummary` (processed / failed / skipped) for the run.
+- `src/Composition/Composition.cs` - every service registration. Register what
+  the job takes in its constructor before `AddJob<Job>()`. Note the
+  namespace/type collision: `{{ .name }}.Composition` is both namespace and
+  class, so call sites inside nested namespaces use `Composition.Composition`.
+- `src/Constants.cs` - component name, organization, incident source.
+- `src/Program.cs` - entrypoint: builds the service provider via
+  `Composition`, maps SIGTERM and Ctrl+C to cancellation, runs `JobRunner`.
+- `src/appsettings.json` - settings, overridden by
+  `appsettings.{Environment}.json` and environment variables.
+- `Taskfile.yml` - `task build`, `task test` (`task test:unit` /
+  `task test:integration`), `task coverage`.
+- `Dockerfile` - multi-stage image on the .NET chiseled runtime; the Dapr
+  sidecar and components come from the deployment environment.
+- `test/{{ .name }}.Test.Unit/` - the job's own logic, without a host.
+- `test/{{ .name }}.Test.Integration/` - the composition smoke test, and one
+  run under the real `JobRunner` on the production DI graph with the sidecar
+  (`DaprClient`) and the platform clients faked.
+
+## Build and test
+
+```bash
+task build
+task test
+```
+
+## Development notes
+
+- Leave `Program.cs`, the telemetry, Dapr and platform-client registrations in
+  `Composition.cs`, and the runner as they are: the job's work goes in
+  `Job.cs` and the services it takes.
+- One process is one job: a second `AddJob`, or a framework block on the same
+  provider, fails at startup.
+- A run must be safe to repeat — the scheduler re-runs a failed job, and a
+  cancelled run leaves its remaining work for the next one. Count per item
+  rather than failing the whole run on one bad item.
+- The job's own spans come from the `ActivitySource` in `Job.cs`, named after
+  the component: strict tracing exports that source and the framework's, so
+  they nest under the run's span.
+- A service the job takes that reaches outside the process (HTTP, a database,
+  Dapr) is an edge: fake it in the integration tests' `CreateServices` the way
+  the platform clients are.
+
+## Framework guidance
+
+Framework how-to (pipelines, blocks, endpoints, Dapr components, testing) lives in the Intropy documentation at <https://docs.intropy.io>. For CLI facts, read `intropy template show` and `intropy <command> --help` at the moment you need them; template releases change.

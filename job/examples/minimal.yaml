@@ -1,0 +1,4 @@
+# Render fixture: the job stub (logs and reports an empty run).
+#   intropy int create job -o /tmp/job-out -f job/examples/minimal.yaml --version main --no-input
+name: NightlyCleanup
+organization: Fluxia

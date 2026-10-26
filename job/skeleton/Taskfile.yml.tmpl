@@ -1,0 +1,38 @@
+version: "3"
+
+# Build and test tasks for {{ .name }} — a run-to-completion .NET job.
+# The schedule lives in deployment configuration (a Kubernetes CronJob);
+# these tasks are the component-level loop.
+
+tasks:
+  # ── .NET build ────────────────────────────────────────────────────
+  build:
+    desc: Build the application
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet build
+
+  # ── Tests ─────────────────────────────────────────────────────────
+  test:unit:
+    desc: Run the unit tests (the job's own logic; no Dapr)
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet test ./test/{{ .name }}.Test.Unit
+
+  test:integration:
+    desc: Run the integration tests (composition and the job runner — Intropy.Framework.Testing fakes)
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet test ./test/{{ .name }}.Test.Integration
+
+  test:
+    desc: Run all tests (unit + integration)
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    deps: [test:unit, test:integration]
+
+  coverage:
+    desc: Run the integration suite with branch coverage (Cobertura report in test/{{ .name }}.Test.Integration/TestResults)
+    dir: "{{ "{{" }}.TASKFILE_DIR}}"
+    cmds:
+      - dotnet test ./test/{{ .name }}.Test.Integration --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+

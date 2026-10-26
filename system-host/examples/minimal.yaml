@@ -1,6 +1,6 @@
 # Render fixture: the full value payload, as `intropy sys create` assembles it
 # from the tutorial's order-flow workspace (one extractor, one loader, one
-# transactional integration, the shared Contracts project). The payload is
+# transactional integration, one job, the shared Contracts project). The payload is
 # facts-only: each component carries the raw message/port names it touches,
 # and the skeleton derives the Messages/Ports field identifiers and the joins.
 # `messages` is the message-first view; `components` carry scalar
@@ -36,6 +36,10 @@ components:
     kind: transactional-integration
     fromPort: erp-source
     toPort: erp-destination
+  # A job: scheduled work with no message, port or endpoint. Its entry
+  # carries only appId and kind.
+  - appId: nightly-cleanup
+    kind: job
 sharedContracts:
   name: Contracts
   include: ../Contracts/Contracts.csproj

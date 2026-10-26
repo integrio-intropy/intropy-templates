@@ -1,0 +1,50 @@
+apiVersion: intropy.io/v1
+kind: Template
+metadata:
+  name: job
+  title: Job
+  description: Run-to-completion .NET job on the Intropy job host, with one IJob to implement. The catch-all for scheduled work that is not an extractor, loader or transactional integration.
+  tags:
+    - example
+    - dotnet
+    - dapr
+    - job
+  labels:
+    intropy.io/template-level: example
+    # A job is scheduled and talks with no topic: run to completion, no
+    # message parameters.
+    intropy.io/block-kind: job
+    intropy.io/data-flow: "internal"
+
+spec:
+  parameters:
+    type: object
+    required:
+      - name
+      - organization
+    properties:
+      name:
+        type: string
+        title: Project name
+        description: PascalCase identifier used for the .NET project, root namespace, and assembly. Dot-separated segments are allowed for nested namespaces (e.g. NightlyCleanup or Int1055.NightlyCleanup).
+        pattern: "^[A-Z][A-Za-z0-9]*(\\.[A-Z][A-Za-z0-9]*)*$"
+      organization:
+        type: string
+        title: Organization
+        description: PascalCase name of the organization the job runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
+        pattern: "^[A-Z][A-Za-z0-9]*$"
+      idempotencyAppId:
+        type: string
+        title: Idempotency service app-id
+        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment.
+        default: "idempotency-service.services"
+      businessIncidentsAppId:
+        type: string
+        title: Business incident service app-id
+        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment.
+        default: "business-incident-service.services"
+  values:
+    appId: '{{ .name | kebabcase | replace "." "-" }}'
+    # The component's .NET project name, recorded in .intropy/scaffold.json
+    # for workspace-level tooling (e.g. solution file assembly).
+    projectName: '{{ .name }}'

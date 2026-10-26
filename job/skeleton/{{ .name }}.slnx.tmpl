@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/{{ .name }}.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/{{ .name }}.Test.Unit/{{ .name }}.Test.Unit.csproj" />
+    <Project Path="test/{{ .name }}.Test.Integration/{{ .name }}.Test.Integration.csproj" />
+  </Folder>
+</Solution>
