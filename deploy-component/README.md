@@ -19,10 +19,23 @@ repositories already run their extractors as CronJobs, and the Aspire host
 derives the same split from the same kinds. The topology's block kind is what
 lets the CLI derive it.
 
-The CronJob's schedule defaults to `* * * * *` — a once-a-minute dev cadence
-— and is its one and only home. Activation cadence is deployment
-configuration, so the topology carries no schedule to copy from; change it
-here per environment.
+The CronJob's schedule is its one and only home. Activation cadence is
+deployment configuration, so the topology carries no schedule to copy from: a
+GitOps render writes the placeholder `REPLACE-ME-CRON-SCHEDULE`, and the local
+cluster sweeps once a minute (`* * * * *`). Patch it in an overlay when
+environments need different cadences.
+
+## Telemetry and probes
+
+Every workload exports traces over OTLP/gRPC to `OTEL_EXPORTER_OTLP_ENDPOINT`:
+the `otelEndpoint` parameter, which the CLI seeds from deploy.yaml
+`platform.otelEndpoint`, or the placeholder `REPLACE-ME-OTEL-ENDPOINT` when it
+is unset. The local overlay always points at the local cluster's Tempo.
+
+A Deployment gets a TCP readiness and liveness probe on port 8080. The
+framework's callback server speaks HTTP/2 only, which an `httpGet` probe
+cannot reach, so the probes check that the port accepts connections. A CronJob
+has no probes: its run ends when the work does.
 
 ## The image tracks the dev tag
 

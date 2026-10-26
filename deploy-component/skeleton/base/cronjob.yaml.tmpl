@@ -17,10 +17,15 @@ metadata:
   name: {{ .name }}
 spec:
   # The schedule's one and only home: activation cadence is deployment
-  # configuration, so the topology carries no schedule to copy from.
-  # The default is a once-a-minute dev cadence; change it here per
-  # environment.
+  # configuration, so the topology carries no schedule to copy from. The local
+  # cluster sweeps once a minute; a GitOps render leaves a placeholder, because
+  # a once-a-minute default would deploy unnoticed. Patch it in an overlay when
+  # environments need different cadences.
+{{- if eq .env "local" }}
   schedule: "* * * * *"
+{{- else }}
+  schedule: "REPLACE-ME-CRON-SCHEDULE"
+{{- end }}
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
@@ -90,11 +95,16 @@ spec:
                 - name: INTROPY_TOPIC_NAME
                   value: {{ $topic }}
 {{- end }}
-                # The in-cluster collector in every environment, local
-                # included: Tempo in the monitoring namespace, OTLP/gRPC on
-                # 4317.
+                # The OTLP/gRPC collector: the local cluster's Tempo, or
+                # deploy.yaml platform.otelEndpoint, or a placeholder.
                 - name: OTEL_EXPORTER_OTLP_ENDPOINT
+{{- if eq .env "local" }}
                   value: http://tempo.monitoring.svc.cluster.local:4317
+{{- else if .otelEndpoint }}
+                  value: {{ .otelEndpoint }}
+{{- else }}
+                  value: REPLACE-ME-OTEL-ENDPOINT
+{{- end }}
                 - name: OTEL_EXPORTER_OTLP_PROTOCOL
                   value: grpc
               resources:
