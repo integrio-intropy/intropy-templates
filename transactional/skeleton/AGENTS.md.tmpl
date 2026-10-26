@@ -119,8 +119,15 @@ with branch coverage (Cobertura report under the integration project's
   port (`SourceContextKeys.SourcePort` in the context) when two routes can
   produce the same id.
 - The send pipeline's `SendStep` is a `BusinessStep`, so a fault at the
-  destination adapter surfaces as a business failure with an incident routed —
-  not a technical failure the broker retries. The integration suite pins it.
+  destination adapter surfaces as a business failure with an incident routed.
+  The failure is retriable (`BusinessStepResult.Failure`'s `Retriable` defaults
+  to true): the message is redelivered once the destination is back, and
+  nothing is committed meanwhile. A step that fails on the data itself — the
+  Validator — returns `Retriable: false`, so the incident is the handling and
+  the message is consumed. The integration suite pins both.
+- The pipeline works on bytes at both ends: the Deserializer receives the
+  source file's raw bytes (it owns the encoding), and the Serializer returns
+  the bytes the Sender writes as they are.
 - A source file that cannot be read or published stays in the source and fails
   the run; the next run picks it up again. The framework sets the file name on
   each file's context under `Constants.ContextKeyFileName`; the context metadata

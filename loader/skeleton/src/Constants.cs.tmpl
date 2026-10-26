@@ -1,3 +1,5 @@
+using Intropy.Framework.Blocks.Shared;
+
 namespace {{ .name }};
 
 public static class Constants
@@ -14,11 +16,10 @@ public static class Constants
     public const string DestinationPort = "{{ .port }}";
 
     // Context keys the loader pipeline's idempotency step reads CloudEvent
-    // Subject (id) and Time (date) from. The values mirror the framework's
-    // internal CloudEventContextKeys (Intropy.Framework.Blocks) — they must
-    // match exactly.
-    public const string ContextKeyCloudEventSubject = "cloudevent.subject";
-    public const string ContextKeyCloudEventTime = "cloudevent.time";
+    // Subject (id) and Time (date) from: the framework's own keys, which the
+    // host fills from the envelope before any step runs.
+    public const string ContextKeyCloudEventSubject = CloudEventContextKeys.Subject;
+    public const string ContextKeyCloudEventTime = CloudEventContextKeys.Time;
 
     public const string ContextKeyOrderId = "order_id";
 }

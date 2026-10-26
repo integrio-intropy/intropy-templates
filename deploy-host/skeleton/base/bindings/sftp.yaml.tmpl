@@ -39,17 +39,19 @@ spec:
       secretKeyRef:
         name: {{ $.secretName }}
         key: {{ .name }}-sftp-username
-    # Password authentication (authentication profile 1): keep password,
-    # delete the privateKey entry below. Private-key authentication (profile
-    # 2): keep privateKey, delete password. Exactly one profile applies.
+    # Exactly one authentication profile applies. Password authentication
+    # (profile 1) is active; for private-key authentication (profile 2),
+    # delete password and uncomment privateKey. A secretKeyRef to a key the
+    # Secret lacks keeps the component from starting, so only the active
+    # profile's key may be referenced.
     - name: password
       secretKeyRef:
         name: {{ $.secretName }}
         key: {{ .name }}-sftp-password
-    - name: privateKey
-      secretKeyRef:
-        name: {{ $.secretName }}
-        key: {{ .name }}-sftp-private-key
+    # - name: privateKey
+    #   secretKeyRef:
+    #     name: {{ $.secretName }}
+    #     key: {{ .name }}-sftp-private-key
     # Mandatory host validation: pin the server's SSH host public key
     # (OpenSSH format). Do not replace with insecureIgnoreHostKey.
     - name: hostPublicKey

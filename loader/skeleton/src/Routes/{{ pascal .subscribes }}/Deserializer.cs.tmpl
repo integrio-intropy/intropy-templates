@@ -1,5 +1,4 @@
 using System.Text.Json;
-using CloudNative.CloudEvents;
 using {{ .contracts }};
 using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Framework.Blocks.Loader.Steps;
@@ -11,31 +10,34 @@ namespace {{ .name }}.Routes.{{ pascal .subscribes }};
 
 public class Deserializer : DeserializeStep<Payload, Context>
 {
-    protected override Task<(BusinessStepResult<Payload> Result, Context Context)> DeserializeAsync(
-        CloudEvent cloudEvent, Context context)
+    public override Task<(BusinessStepResult<Payload> Result, Context Context)> ExecuteAsync(
+        ReadOnlyMemory<byte> input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();
 {{- else }}
-        var json = cloudEvent.Data?.ToString();
-        if (string.IsNullOrEmpty(json))
+        // The CloudEvent's data member, verbatim: an extractor publishes the
+        // payload as a JSON object, so these are that object's UTF-8 bytes. The
+        // envelope's attributes are already on the context.
+        if (input.IsEmpty)
         {
             var incident = new BusinessIncidentData
             {
-                Description = "CloudEvent data is null or empty",
+                Description = "CloudEvent data is empty",
                 Context = new Dictionary<string, string>()
             };
+            // Not retriable: redelivering the same empty message cannot succeed.
             return Task.FromResult<(BusinessStepResult<Payload>, Context)>(
-                (new BusinessStepResult<Payload>.Failure(incident), context));
+                (new BusinessStepResult<Payload>.Failure(incident, Retriable: false), context));
         }
 
-        var order = JsonSerializer.Deserialize<Payload>(json,
+        var order = JsonSerializer.Deserialize<Payload>(input.Span,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
         context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;
 
         // The idempotency check keys off the CloudEvent Subject/Time context
-        // keys the base step extracted from the envelope. Stamp both from the
+        // keys the host projected from the envelope. Stamp both from the
         // order's business identity: for extractor-published events these equal
         // the envelope values, and a `dapr publish` envelope carries no Subject
         // and a wall-clock Time — a per-delivery value that would make the

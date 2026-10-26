@@ -13,7 +13,7 @@ public class OrderSendPipeline(
     OrderSerializeStep serializer,
     OrderSendStep sender) : ISendPipeline<Context>
 {
-    public async Task<(StepResult<string> Result, Context Context)> Execute(
+    public async Task<(StepResult<byte[]> Result, Context Context)> Execute(
         ReadOnlyMemory<byte> input, Context context, CancellationToken ct = default)
     {
         var (result, ctx, _) = await Pipeline.Start(input, context, ct)

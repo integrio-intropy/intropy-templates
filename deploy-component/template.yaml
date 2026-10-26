@@ -51,8 +51,18 @@ spec:
       imageNamespace:
         type: string
         title: Image namespace
-        description: The path segment between the registry and the image name. Must match what CI pushes.
+        description: The path segment between the registry and the image name, from deploy.yaml imageNamespace. Must match what CI pushes.
         default: integrations
+      imagePullSecret:
+        type: string
+        title: Image pull secret
+        description: The Secret the workload pulls its image with, from deploy.yaml imagePullSecret. Empty renders no imagePullSecrets (the namespace's service account pulls). Never applied to the local overlay.
+        default: ""
+      nativeSidecar:
+        type: boolean
+        title: Native sidecar
+        description: Run daprd in a scheduled block's pod as a Kubernetes native sidecar, so a run that dies before shutting its sidecar down still completes the Job. Needs Kubernetes 1.29 or later.
+        default: true
       replicas:
         type: integer
         title: Replicas

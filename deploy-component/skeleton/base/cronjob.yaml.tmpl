@@ -46,8 +46,20 @@ spec:
             # completes and the CronJob piles up.
             dapr.io/enable-app-health-check: "false"
             dapr.io/graceful-shutdown-seconds: "10"
+{{- if .nativeSidecar }}
+            # Run daprd as a Kubernetes native sidecar (a restartable init
+            # container): the pod completes when the app exits even if the app
+            # dies before it shuts the sidecar down. Otherwise one crashed run
+            # leaves the Job running forever, and concurrencyPolicy: Forbid
+            # then blocks every later run.
+            dapr.io/enable-native-sidecar: "true"
+{{- end }}
         spec:
           restartPolicy: Never
+{{- if and .imagePullSecret (ne .env "local") }}
+          imagePullSecrets:
+            - name: {{ .imagePullSecret }}
+{{- end }}
           containers:
             - name: {{ .name }}
 {{- if eq .env "local" }}

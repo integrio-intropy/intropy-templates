@@ -3,9 +3,10 @@ kind: Kustomization
 
 # Thin on purpose. The Dapr components are identical in every environment; what
 # differs is the credential, and a Component reaches that through secretKeyRef.
-# The namespace is a fixture of the platform, not a parameter: one integration
-# namespace per cluster, shared by every system and environment.
-namespace: integration
+# The namespace is this environment's `namespace` in deploy.yaml, or the
+# platform default when it names none: one integration namespace per cluster,
+# shared by every system and environment.
+namespace: {{ default "integration" (dig "gitops" "namespace" "" .) }}
 
 resources:
   - ../../base

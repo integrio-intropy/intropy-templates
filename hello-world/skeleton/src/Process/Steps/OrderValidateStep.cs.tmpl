@@ -15,8 +15,10 @@ public class OrderValidateStep : ValidateStep<OrderIn, Context>
         if (error is not null)
         {
             var incident = new BusinessIncidentData{Description = "test",Context = new Dictionary<string, string>()};
+            // The data is wrong, so redelivering it cannot succeed: route the
+            // incident and consume the item.
             return Task.FromResult<(BusinessStepResult<OrderIn>, Context)>(
-                (new BusinessStepResult<OrderIn>.Failure(incident), context));
+                (new BusinessStepResult<OrderIn>.Failure(incident, Retriable: false), context));
         }
 
         return Task.FromResult<(BusinessStepResult<OrderIn>, Context)>(
