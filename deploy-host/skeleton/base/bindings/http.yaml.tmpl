@@ -25,6 +25,14 @@ spec:
   metadata:
     - name: url
       value: REPLACE-ME-HTTP-BASE-URL
+    # Every other metadata entry is sent as a request header. For an API that
+    # authenticates with a header, uncomment and keep its value in the
+    # system's Secret; a secretKeyRef to a missing key keeps the component
+    # from starting.
+    # - name: Authorization
+    #   secretKeyRef:
+    #     name: {{ $.secretName }}
+    #     key: {{ .name }}-http-authorization
 scopes:
 {{- range .appIds }}
   - {{ . }}

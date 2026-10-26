@@ -33,6 +33,10 @@ spec:
         dapr.io/app-protocol: grpc
         dapr.io/enable-api-logging: "false"
     spec:
+{{- if and .imagePullSecret (ne .env "local") }}
+      imagePullSecrets:
+        - name: {{ .imagePullSecret }}
+{{- end }}
       containers:
         - name: {{ .name }}
 {{- if eq .env "local" }}

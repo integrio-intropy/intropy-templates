@@ -26,12 +26,32 @@ spec:
   type: bindings.localstorage
   version: v1
   metadata:
-    # Mount suitable storage at this path in the component's workload.
+    # Each component using the port mounts the claim below into its sidecar
+    # at this path (the patch in its environment overlay).
     - name: rootPath
       value: /data/{{ .name }}
 scopes:
 {{- range .appIds }}
   - {{ . }}
 {{- end }}
+---
+# The storage behind the port: typically a network share, through a
+# StorageClass that provisions it (an SMB or NFS CSI driver) or a
+# PersistentVolume pre-provisioned for it (then set volumeName and an empty
+# storageClassName). ReadWriteMany, because every pod of every component
+# using the port mounts it, on whichever node it lands.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .name }}-file
+  labels:
+    intropy.io/port: {{ .name }}
+spec:
+  storageClassName: REPLACE-ME-STORAGE-CLASS
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
 {{- end }}
 {{- end }}

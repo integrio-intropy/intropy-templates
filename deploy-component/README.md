@@ -105,9 +105,31 @@ backoff, must fit inside the broker's own lock or processing timeout.
 ## imageNamespace must match CI
 
 Customers disagree on the path segment between the registry and the image name —
-one uses the customer slug, another uses `integrations`. The template defaults
-to `integrations`. If CI pushes elsewhere, edit the created GitOps source before
-merge so the workload and `component.yaml` name the same image repository.
+one uses the customer slug, another uses `integrations`. The CLI fills
+`imageNamespace` from `deploy.yaml`, so the workload and `component.yaml` name the
+repository CI pushes to; without it the template defaults to `integrations`.
+
+## Pull secret, namespace and native sidecar
+
+- `imagePullSecret`, from `deploy.yaml`, renders `imagePullSecrets` on the
+  CronJob or Deployment, for a private registry project the namespace's service
+  account cannot pull from. Empty renders none. The local overlay never gets it.
+- The environment overlay's `namespace` is that environment's `namespace` in
+  `deploy.yaml`, or `integration` when it names none.
+- `nativeSidecar` (default true) runs a CronJob's daprd as a Kubernetes native
+  sidecar, so a run that dies before shutting its sidecar down still completes
+  the Job instead of blocking every later run under `concurrencyPolicy: Forbid`.
+  It needs Kubernetes 1.29 or later; set it false for an older cluster.
+
+## A file port mounts its claim into the sidecar
+
+A `file` port's binding is `bindings.localstorage`, which runs in daprd, so its
+directory must be mounted into the sidecar, not the app container. The
+environment overlay of every component using the port mounts the port's claim,
+`<port>-file`, at `/data/<port>` (`dapr.io/volume-mounts-rw` plus a pod volume).
+deploy-host renders the claim next to the binding, with
+`REPLACE-ME-STORAGE-CLASS` for the share behind it. The local overlay does the
+same with its own fixture claims.
 
 ## The local overlay
 

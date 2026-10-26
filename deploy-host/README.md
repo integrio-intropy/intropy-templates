@@ -112,9 +112,14 @@ local side renders dev-valued fixtures.
 
 The catalog names do not all match the Dapr type: there is no
 `bindings.file` (the file adapter is `bindings.localstorage`) and no
-`bindings.blob` (the blob adapter is `bindings.aws.s3`). A Kubernetes
-deployment using the file adapter must mount suitable storage at `rootPath`
-on every pod that resolves the binding. The blob adapter declares no
+`bindings.blob` (the blob adapter is `bindings.aws.s3`). The file adapter
+renders a `PersistentVolumeClaim`, `<port>-file`, next to each binding:
+`ReadWriteMany` with `REPLACE-ME-STORAGE-CLASS` for the share behind it (or set
+`volumeName` for a pre-provisioned volume). Every component using the port
+mounts it into its sidecar at `rootPath` (see deploy-component). The HTTP
+adapter sends every metadata entry other than `url` as a request header, and
+renders a commented `Authorization` header from the Secret for an API that
+needs one. The blob adapter declares no
 `endpoint`: it is optional, and setting one is wrong for ordinary AWS S3 —
 an S3-compatible store is the reviewer's per-environment addition.
 
@@ -131,6 +136,7 @@ the port-specific keys the platform must provide:
 | `<port>-sftp-password` | `sftp` (password profile) |
 | `<port>-sftp-private-key` | `sftp` (private-key profile) |
 | `<port>-sftp-host-public-key` | `sftp` |
+| `<port>-http-authorization` | `http` (only when its `Authorization` header is uncommented) |
 | `<port>-s3-access-key` | `blob` |
 | `<port>-s3-secret-key` | `blob` |
 
@@ -140,8 +146,10 @@ Endpoints (`address`, `url`, `bucket`, `region`, `rootPath`) remain
 SFTP host validation is mandatory in GitOps output: the adapter pins the
 server's SSH host public key via `hostPublicKey`, and never renders
 `insecureIgnoreHostKey`. The private-key profile may add
-`privateKeyPassphrase`; the reviewer deletes whichever authentication
-profile is not in use. The local SFTP *fixture* is the deliberate opposite
+`privateKeyPassphrase`. Only one profile may reference the Secret, since a
+`secretKeyRef` to a missing key keeps the component from starting: the
+password profile renders active and the private-key profile commented out,
+and the reviewer swaps them for a key-based server. The local SFTP *fixture* is the deliberate opposite
 — a disposable dev server whose host key is not worth pinning — and that
 bypass may never travel into GitOps output.
 
