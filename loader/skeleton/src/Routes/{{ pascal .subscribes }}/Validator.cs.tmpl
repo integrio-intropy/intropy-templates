@@ -26,8 +26,10 @@ public class Validator : ValidateStep<Payload, Context>
                     { "orderId", input.OrderId }
                 }
             };
+            // The data is wrong, so redelivering it cannot succeed: route the
+            // incident and consume the item.
             return Task.FromResult<(BusinessStepResult<Payload>, Context)>(
-                (new BusinessStepResult<Payload>.Failure(incident), context));
+                (new BusinessStepResult<Payload>.Failure(incident, Retriable: false), context));
         }
 
         return Task.FromResult<(BusinessStepResult<Payload>, Context)>(

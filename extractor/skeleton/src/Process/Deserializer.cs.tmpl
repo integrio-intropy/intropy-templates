@@ -9,12 +9,14 @@ namespace {{ .name }}.Process;
 public class Deserializer : DeserializeStep<Source{{ .payloadType }}, Context>
 {
     public override Task<(BusinessStepResult<Source{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
-        string input, Context context, CancellationToken ct)
+        ReadOnlyMemory<byte> input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
         throw new NotImplementedException();
 {{- else }}
-        var order = JsonSerializer.Deserialize<Source{{ .payloadType }}>(input,
+        // The source file's bytes, undecoded: the deserializer owns the encoding.
+        // JsonSerializer reads UTF-8 directly.
+        var order = JsonSerializer.Deserialize<Source{{ .payloadType }}>(input.Span,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
         context.Metadata[Constants.ContextKeyOrderId] = order.OrderId;

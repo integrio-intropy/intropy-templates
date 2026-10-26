@@ -28,7 +28,7 @@ public class SerializerTests
             output, new Context(new Dictionary<string, string>()), CancellationToken.None);
 
         // Assert
-        var success = Assert.IsType<TechnicalStepResult<string>.Success>(result);
+        var success = Assert.IsType<TechnicalStepResult<byte[]>.Success>(result);
         Assert.Equal(output, JsonSerializer.Deserialize<Out>(success.Value));
     }
 {{- end }}
