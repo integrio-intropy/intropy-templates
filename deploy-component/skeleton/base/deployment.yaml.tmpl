@@ -74,12 +74,30 @@ spec:
             - name: INTROPY_TOPIC_NAME
               value: {{ $topic }}
 {{- end }}
-            # The in-cluster collector in every environment, local included:
-            # Tempo in the monitoring namespace, OTLP/gRPC on 4317.
+            # The OTLP/gRPC collector: the local cluster's Tempo, or
+            # deploy.yaml platform.otelEndpoint, or a placeholder.
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
+{{- if eq .env "local" }}
               value: http://tempo.monitoring.svc.cluster.local:4317
+{{- else if .otelEndpoint }}
+              value: {{ .otelEndpoint }}
+{{- else }}
+              value: REPLACE-ME-OTEL-ENDPOINT
+{{- end }}
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: grpc
+          # The callback server speaks HTTP/2 only, which an httpGet probe
+          # (HTTP/1.1) cannot reach, so the probes check that the port accepts
+          # connections: ready once the app listens, restarted if it stops.
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
           resources:
             requests:
               cpu: 50m

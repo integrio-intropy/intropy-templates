@@ -63,6 +63,11 @@ spec:
         title: Native sidecar
         description: Run daprd in a scheduled block's pod as a Kubernetes native sidecar, so a run that dies before shutting its sidecar down still completes the Job. Needs Kubernetes 1.29 or later.
         default: true
+      otelEndpoint:
+        type: string
+        title: OpenTelemetry endpoint
+        description: The OTLP/gRPC collector every workload exports to, from deploy.yaml platform.otelEndpoint. Empty renders a REPLACE-ME placeholder. The local overlay always uses the local cluster's Tempo.
+        default: ""
       replicas:
         type: integer
         title: Replicas
@@ -114,9 +119,9 @@ spec:
     imageTag: "dev"
 
   files:
-    # One CronJob file: the schedule is deployment configuration with a
-    # once-a-minute default, and the local image reference is an .env
-    # conditional inside the file, same as deployment.yaml.
+    # One CronJob file: the schedule is deployment configuration, a
+    # placeholder outside the local cluster, and the local image reference is
+    # an .env conditional inside the file, same as deployment.yaml.
     - path: base/cronjob.yaml.tmpl
       when: '{{ eq .workload "cronjob" }}'
     - path: base/deployment.yaml.tmpl
