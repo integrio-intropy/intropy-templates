@@ -14,13 +14,13 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- Intropy.Topology pinned to a local build with the job kind
-             (AddJob), served from the intropy-local NuGet feed. Replace with
-             the published release before this template ships. Aspire matches
-             the version that build depends on. -->
+        <!-- Intropy.Topology pinned to 2.2.0: the job kind (AddJob) and port
+             mocks (development.Mock(PortRef)). Aspire matches the version that
+             release depends on. A template release and its pin are one atomic
+             unit; bumping the pin is a template change first. -->
         <PackageReference Include="Aspire.Hosting.AppHost" Version="13.6.3" />
-        <PackageReference Include="Intropy.Topology.Aspire" Version="2.1.0-job-local.1" />
-        <PackageReference Include="Intropy.Topology.Generation" Version="2.1.0-job-local.1" />
+        <PackageReference Include="Intropy.Topology.Aspire" Version="2.2.0" />
+        <PackageReference Include="Intropy.Topology.Generation" Version="2.2.0" />
     </ItemGroup>
 
 {{- if hasKey . "sharedContracts" }}
