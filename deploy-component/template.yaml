@@ -74,6 +74,18 @@ spec:
         description: The longest wait between two of those retries (exponential backoff, capped here), as a Go duration. Loaders and transactional integrations only.
         default: 15s
         pattern: "^[0-9]+(ms|s|m)$"
+      portCallMaxRetries:
+        type: integer
+        title: Port call retries
+        description: How often the sidecar retries a failed call from the block to one of its ports (writing to a share, SFTP server or HTTP API, or reading from one) before the call fails back into the pipeline. Loaders and transactional integrations only.
+        default: 5
+        minimum: 0
+      portCallMaxInterval:
+        type: string
+        title: Port call retry max interval
+        description: The longest wait between two of those retries (exponential backoff, capped here), as a Go duration. Loaders and transactional integrations only.
+        default: 10s
+        pattern: "^[0-9]+(ms|s|m)$"
   # The closed fixture catalog for the local development cluster: one Dapr
   # binding skeleton per fixture type in overlays/local/fixtures/, switched on
   # the port's binding for this render. Local manifest rendering fails a
@@ -101,7 +113,8 @@ spec:
       when: '{{ eq .workload "deployment" }}'
     # A loader's or transactional integration's sidecar retries what the block
     # leaves for redelivery before the broker dead-letters it; no other block
-    # kind answers RETRY to a subscription. The kind is folded the way the CLI
+    # kind answers RETRY to a subscription. The same file retries the block's
+    # calls to its ports. The kind is folded the way the CLI
     # folds it: transactional-integration, transactionalIntegration and
     # TransactionalIntegration are one kind.
     - path: base/resiliency.yaml.tmpl

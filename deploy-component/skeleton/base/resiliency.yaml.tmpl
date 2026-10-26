@@ -10,6 +10,14 @@
 # The window must fit inside the broker's own timeouts: the message is held,
 # not returned, while the sidecar retries. Worst case per delivery is about
 # (maxRetries + 1) x the loader's MaxMessageProcessingTime plus the backoff.
+#
+# The block's own calls to its ports retry too (outbound, per port binding): a
+# share, SFTP server or API that is briefly unreachable heals before the call
+# fails back into the pipeline. That matters most for a transactional
+# integration, whose send step turns a failed write into a business incident
+# and acknowledges the message, so the redelivery policy above never sees it.
+# The block waits while the sidecar retries, so these retries count against the
+# same processing window as the redelivery ones.
 apiVersion: dapr.io/v1alpha1
 kind: Resiliency
 metadata:
@@ -21,6 +29,13 @@ spec:
         policy: exponential
         maxInterval: {{ .redeliveryMaxInterval }}
         maxRetries: {{ .redeliveryMaxRetries }}
+{{- $ports := dig "ports" (list) .component }}
+{{- if $ports }}
+      portCalls:
+        policy: exponential
+        maxInterval: {{ .portCallMaxInterval }}
+        maxRetries: {{ .portCallMaxRetries }}
+{{- end }}
 {{- $appId := .appId }}
 {{- $pubsubs := dict }}
 {{- if (eq (lower (replace "-" "" .kind)) "transactionalintegration") }}
@@ -37,15 +52,21 @@ spec:
 {{- end }}
 {{- end }}
   targets:
-{{- if $pubsubs }}
+{{- if or $pubsubs $ports }}
     components:
 {{- range $name, $_ := $pubsubs }}
       {{ $name }}:
         inbound:
           retry: redelivery
 {{- end }}
+{{- /* A port's Dapr binding takes the port's name. */}}
+{{- range $ports }}
+      {{ . }}:
+        outbound:
+          retry: portCalls
+{{- end }}
 {{- else }}
-    # The topology gives this block no subscription: nothing to retry.
+    # The topology gives this block no subscription and no port: nothing to retry.
     components: {}
 {{- end }}
 scopes:

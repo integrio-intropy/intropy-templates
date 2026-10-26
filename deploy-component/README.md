@@ -61,6 +61,27 @@ pub/sub, `<system>-pubsub`, on the topic `internal-<app-id>`). The block
 kind is folded the way the CLI folds it, so `transactional-integration`,
 `transactionalIntegration` and `TransactionalIntegration` all match.
 
+The same `Resiliency` also retries the block's own calls to its ports: one
+`outbound` target per port the topology gives the component, named after the
+port (a port's Dapr binding takes its name), with its own policy
+(`portCallMaxRetries`, default 5; `portCallMaxInterval`, default `10s`).
+A share, SFTP server or HTTP API that is briefly unreachable then heals before
+the call fails back into the pipeline. For a transactional integration this is
+the only retry a destination outage gets: its send step turns a failed write
+into a business incident and acknowledges the message, so the inbound
+redelivery policy never sees it. An outage that outlasts the retries still ends
+as that incident.
+
+Two cautions:
+
+- The block waits while the sidecar retries, so port retries spend the same
+  processing window as redelivery retries. Keep the two policies together
+  within the broker's timeouts.
+- An outbound retry repeats the call. Writing a file again under the same name
+  is harmless, but a `post` to an HTTP API that reached the API and then timed
+  out may be delivered twice. Keep `portCallMaxRetries` low for an HTTP-bound
+  port, or make the API idempotent.
+
 ## The workload is told its pub/sub name
 
 The framework derives no Dapr component name. Each block runs on exactly one
