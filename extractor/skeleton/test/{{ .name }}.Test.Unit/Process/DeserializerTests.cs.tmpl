@@ -1,3 +1,4 @@
+using System.Text;
 using {{ .name }}.Process;
 using {{ .name }}.Model;
 using Intropy.Framework.Blocks.Shared;
@@ -24,7 +25,7 @@ public class DeserializerTests
         var json = """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
         // Act
-        var (result, resultContext) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
+        var (result, resultContext) = await deserializer.ExecuteAsync(Encoding.UTF8.GetBytes(json), context, CancellationToken.None);
 
         // Assert
         Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
@@ -40,7 +41,7 @@ public class DeserializerTests
         var json = """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Pending","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
         // Act
-        var (result, _) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
+        var (result, _) = await deserializer.ExecuteAsync(Encoding.UTF8.GetBytes(json), context, CancellationToken.None);
 
         // Assert
         var success = Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
@@ -58,7 +59,7 @@ public class DeserializerTests
         var json = """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Pending","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
 
         // Act
-        var (_, resultContext) = await deserializer.ExecuteAsync(json, context, CancellationToken.None);
+        var (_, resultContext) = await deserializer.ExecuteAsync(Encoding.UTF8.GetBytes(json), context, CancellationToken.None);
 
         // Assert
         Assert.Equal("ORD-1001", resultContext.Metadata[Constants.ContextKeyOrderId]);

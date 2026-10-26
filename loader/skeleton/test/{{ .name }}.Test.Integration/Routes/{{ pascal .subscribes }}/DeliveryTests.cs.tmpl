@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CloudNative.CloudEvents;
 using Intropy.Contracts.IdempotencyService;
 using Intropy.Framework.Testing.Delivery;
@@ -169,7 +170,9 @@ public class DeliveryTests
     /// <summary>
     /// A bare delivery envelope, like <c>dapr publish</c> produces: no
     /// Subject, a wall-clock Time. The Deserializer backfills the
-    /// Subject/Time context keys from the payload's business identity.
+    /// Subject/Time context keys from the payload's business identity. The
+    /// payload is the parsed JSON, so the envelope carries it as an object, as
+    /// an extractor publishes it; a string would arrive as a quoted JSON string.
     /// </summary>
     private static CloudEvent NewDelivery(string json) => new()
     {
@@ -178,6 +181,6 @@ public class DeliveryTests
         Type = Route.Message,
         Time = DateTimeOffset.UtcNow,
         DataContentType = "application/json",
-        Data = json
+        Data = JsonSerializer.Deserialize<JsonElement>(json)
     };
 }

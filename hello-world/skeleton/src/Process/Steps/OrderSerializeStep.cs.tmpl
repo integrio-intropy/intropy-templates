@@ -8,11 +8,12 @@ namespace {{ .name }}.Process.Steps;
 
 public class OrderSerializeStep : SerializeStep<OrderOut, Context>
 {
-    public override Task<(TechnicalStepResult<string> Result, Context Context)> ExecuteAsync(
+    public override Task<(TechnicalStepResult<byte[]> Result, Context Context)> ExecuteAsync(
         OrderOut input, Context context, CancellationToken ct)
     {
-        var json = JsonSerializer.Serialize(input);
-        return Task.FromResult<(TechnicalStepResult<string>, Context)>(
-            (new TechnicalStepResult<string>.Success(json), context));
+        // The serializer owns the encoding: these bytes are written as they are.
+        var json = JsonSerializer.SerializeToUtf8Bytes(input);
+        return Task.FromResult<(TechnicalStepResult<byte[]>, Context)>(
+            (new TechnicalStepResult<byte[]>.Success(json), context));
     }
 }

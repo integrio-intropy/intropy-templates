@@ -1,4 +1,4 @@
-using CloudNative.CloudEvents;
+using System.Text;
 using {{ .contracts }};
 using {{ .name }}.Routes.{{ pascal .subscribes }};
 using Intropy.Framework.Blocks.Shared;
@@ -20,14 +20,15 @@ public class DeserializerTests
     [Fact]
     public async Task ExecuteAsync_WithValidPayload_ReturnsSuccessAndStampsBusinessIdInContext()
     {
-        // Arrange: a bare envelope, like `dapr publish` produces (no Subject/Time).
+        // Arrange: the payload of a bare envelope, like `dapr publish` produces
+        // (no Subject/Time on the context).
         var deserializer = new Deserializer();
         var context = new Context(new Dictionary<string, string>());
         var json = """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
-        var cloudEvent = new CloudEvent { Id = "evt-1", Data = json };
+        var payload = Encoding.UTF8.GetBytes(json);
 
         // Act
-        var (result, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+        var (result, resultContext) = await deserializer.ExecuteAsync(payload, context, CancellationToken.None);
 
         // Assert
         Assert.IsType<BusinessStepResult<Payload>.Success>(result);
@@ -38,15 +39,16 @@ public class DeserializerTests
         """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Pending","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
 
     [Fact]
-    public async Task ExecuteAsync_WithValidCloudEvent_ReturnsSuccess()
+    public async Task ExecuteAsync_WithValidPayload_ReturnsSuccess()
     {
-        // Arrange: a bare envelope, like `dapr publish` produces (no Subject/Time).
+        // Arrange: the payload of a bare envelope, like `dapr publish` produces
+        // (no Subject/Time on the context).
         var deserializer = new Deserializer();
         var context = new Context(new Dictionary<string, string>());
-        var cloudEvent = new CloudEvent { Id = "evt-1", Data = Json };
+        var payload = Encoding.UTF8.GetBytes(Json);
 
         // Act
-        var (result, _) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+        var (result, _) = await deserializer.ExecuteAsync(payload, context, CancellationToken.None);
 
         // Assert
         var success = Assert.IsType<BusinessStepResult<Payload>.Success>(result);
@@ -56,15 +58,15 @@ public class DeserializerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithValidCloudEvent_StoresOrderIdInContext()
+    public async Task ExecuteAsync_WithValidPayload_StoresOrderIdInContext()
     {
         // Arrange
         var deserializer = new Deserializer();
         var context = new Context(new Dictionary<string, string>());
-        var cloudEvent = new CloudEvent { Id = "evt-1", Data = Json };
+        var payload = Encoding.UTF8.GetBytes(Json);
 
         // Act
-        var (_, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+        var (_, resultContext) = await deserializer.ExecuteAsync(payload, context, CancellationToken.None);
 
         // Assert
         Assert.Equal("ORD-1001", resultContext.Metadata[Constants.ContextKeyOrderId]);
@@ -77,10 +79,10 @@ public class DeserializerTests
         // but a `dapr publish` envelope carries no Subject.
         var deserializer = new Deserializer();
         var context = new Context(new Dictionary<string, string>());
-        var cloudEvent = new CloudEvent { Id = "evt-1", Data = Json };
+        var payload = Encoding.UTF8.GetBytes(Json);
 
         // Act
-        var (_, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+        var (_, resultContext) = await deserializer.ExecuteAsync(payload, context, CancellationToken.None);
 
         // Assert
         Assert.Equal("ORD-1001", resultContext.Metadata[Constants.ContextKeyCloudEventSubject]);
@@ -95,17 +97,17 @@ public class DeserializerTests
         // identity must stay on business fields — a wall-clock Time would make
         // the duplicate check pass everything.
         var deserializer = new Deserializer();
-        var context = new Context(new Dictionary<string, string>());
-        var cloudEvent = new CloudEvent
+        // The host projects the envelope's attributes onto the context before
+        // the pipeline runs.
+        var context = new Context(new Dictionary<string, string>
         {
-            Id = "evt-1",
-            Subject = "envelope-subject",
-            Time = DateTimeOffset.UtcNow,
-            Data = Json
-        };
+            [Constants.ContextKeyCloudEventSubject] = "envelope-subject",
+            [Constants.ContextKeyCloudEventTime] = DateTimeOffset.UtcNow.ToString("O")
+        });
+        var payload = Encoding.UTF8.GetBytes(Json);
 
         // Act
-        var (_, resultContext) = await deserializer.ExecuteAsync(cloudEvent, context, CancellationToken.None);
+        var (_, resultContext) = await deserializer.ExecuteAsync(payload, context, CancellationToken.None);
 
         // Assert
         Assert.Equal("ORD-1001", resultContext.Metadata[Constants.ContextKeyCloudEventSubject]);

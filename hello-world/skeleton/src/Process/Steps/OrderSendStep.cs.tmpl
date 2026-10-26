@@ -1,4 +1,3 @@
-using System.Text;
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Blocks.TransactionalIntegration.Send.Steps;
@@ -8,11 +7,10 @@ namespace {{ .name }}.Process.Steps;
 
 public class OrderSendStep(IFileAdapter fileAdapter) : SendStep<Context>
 {
-    public override async Task<(BusinessStepResult<string> Result, Context Context)> ExecuteAsync(
-        string input, Context context, CancellationToken ct)
+    public override async Task<(BusinessStepResult<byte[]> Result, Context Context)> ExecuteAsync(
+        byte[] input, Context context, CancellationToken ct)
     {
-        var fileName = $"order-{Guid.NewGuid():N}.json";
-        await fileAdapter.WriteAsync(fileName, input, Encoding.UTF8);
-        return (new BusinessStepResult<string>.Success(fileName), context);
+        await fileAdapter.WriteAsync($"order-{Guid.NewGuid():N}.json", input, ct: ct);
+        return (new BusinessStepResult<byte[]>.Success(input), context);
     }
 }

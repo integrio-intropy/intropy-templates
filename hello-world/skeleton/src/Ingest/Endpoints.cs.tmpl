@@ -27,13 +27,17 @@ public static class Endpoints
 
                 return result switch
                 {
-                    StepResult<string>.Success =>
+                    StepResult<byte[]>.Success =>
                         Results.Ok(new { status = "SUCCESS" }),
-                    StepResult<string>.BusinessFailure =>
-                        Results.Ok(new { status = "DROP" }),
-                    StepResult<string>.TechnicalFailure =>
+                    // A retriable business failure (the destination was unreachable)
+                    // keeps the message; one about the data itself drops it.
+                    StepResult<byte[]>.BusinessFailure { Retriable: true } =>
                         Results.Ok(new { status = "RETRY" }),
-                    StepResult<string>.Cancelled or StepResult<string>.Aborted =>
+                    StepResult<byte[]>.BusinessFailure =>
+                        Results.Ok(new { status = "DROP" }),
+                    StepResult<byte[]>.TechnicalFailure =>
+                        Results.Ok(new { status = "RETRY" }),
+                    StepResult<byte[]>.Cancelled or StepResult<byte[]>.Aborted =>
                         Results.Ok(new { status = "DROP" }),
                     _ => Results.Ok(new { status = "RETRY" })
                 };
