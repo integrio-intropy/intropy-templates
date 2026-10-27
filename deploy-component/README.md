@@ -196,7 +196,7 @@ deploy-host pins `hostPublicKey` and never renders the flag.
 The local fixture catalog and deploy-host's GitOps binding catalog
 (`spec.gitops.bindingKinds`) are separate contracts, kept deliberately:
 fixture files carry dev values next to the component, GitOps adapters carry
-reviewed, Secret-backed Components on the host. A binding kind must exist
+reviewed, Secret-backed Components in the system's `shared/` directory. A binding kind must exist
 in the catalog for its side of the render to offer it; today both catalogs
 are `sftp`, `http`, `file`, `blob`.
 
@@ -206,15 +206,15 @@ and any `--image` override without re-rendering.
 
 ### Why a port's binding lives with the component
 
-`intropy manifests create` renders bindings on the host because
+`intropy manifests create` renders bindings in `shared/` because
 customer-cluster credentials are environment-owned and shared at the system
 level. The local
 cluster needs no secret material — fixture credentials are public dev values —
-and the catalog files *can* live on the host (they render
+and the catalog files *can* live in `shared/` (they render
 identically there). They live here anyway: a port is scoped to exactly
 the app-ids that use it, and keeping the binding beside the block that
 resolves it keeps one component's fixture choices out of every other
-component's render. The host's `base/bindings/` adapters are not rendered
+component's render. The `base/bindings/` adapters in `shared/` are not rendered
 locally — the CLI renders only the local overlay, and only this overlay
 references fixture files.
 

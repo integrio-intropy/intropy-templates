@@ -3,7 +3,14 @@
 The system-level half of manifest generation: the Dapr components a system's
 blocks resolve by name.
 
-Rendered once per system into `domains/<domain>/<system>/host/`.
+Rendered once per system into `domains/<domain>/<system>/shared/`.
+
+The CLI names that directory, not this template: it passes the name in as
+`.gitops.host` (the key predates the rename), and `component.yaml` takes it from
+there. CLI 2.2 and earlier rendered `host/`, after the system host; but in a
+source workspace the system host is the Aspire project, and nothing here runs.
+`shared` follows `kind: shared` instead. The template keeps its `deploy-host`
+name so that every CLI release still finds it.
 
 ## Why these objects live here
 
