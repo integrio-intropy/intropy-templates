@@ -56,6 +56,15 @@ scaffolded in the sibling Contracts project. If that project already exists,
 ensure it declares the same payload type; this template leaves existing shared
 contracts untouched.
 
+## Container image
+
+The Dockerfile builds with the system folder as its context
+(`docker build -f <app-id>/Dockerfile .`), so it copies the `Contracts`
+sibling and any `Directory.Build.props` the system keeps next to its
+components. `Dockerfile.dockerignore` limits the context to those files and
+the components' `src/` folders. The component folder defaults to the app id;
+pass `--build-arg COMPONENT=<folder>` when it differs.
+
 ## Parameters
 
 | Name           | Required | Description                                                                                          |

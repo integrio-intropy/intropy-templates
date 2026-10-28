@@ -1,8 +1,9 @@
 # {{ .name }}
 
-Run-to-completion .NET job on the Intropy job host. One run = one call of
-`Job.ExecuteAsync`, then exit. Scheduling lives outside the job — the cadence
-is deployment configuration (a Kubernetes CronJob).
+An Intropy job. Each run calls `Job.ExecuteAsync` once, inside one span
+named after the component, then exits with `0` (success), `1` (the job
+failed) or `2` (the Dapr sidecar was unavailable). In production it runs as a
+CronJob; the schedule is deployment configuration.
 
 ## How a run flows
 
@@ -10,20 +11,17 @@ is deployment configuration (a Kubernetes CronJob).
 scheduled run (CronJob)
    │
    ▼
-JobRunner: wait for the Dapr sidecar ──▶ timeout ──▶ exit 2
+JobRunner waits for the Dapr sidecar ──▶ not available ──▶ exit 2
    │
    ▼
-Job.ExecuteAsync, inside the run's span ──▶ throws, or Failed > 0 ──▶ exit 1
+Job.ExecuteAsync ──▶ throws, or reports Failed > 0 ──▶ exit 1
    │
    ▼
-RunSummary (processed / failed / skipped)
-   │
-   ▼
-JobRunner: shut the sidecar down ──▶ exit 0
+RunSummary (processed / failed / skipped) ──▶ exit 0
 ```
 
-SIGTERM and Ctrl+C cancel the run, which exits `0`: the remaining work is left
-for the next run, so the job must be safe to repeat.
+SIGTERM or Ctrl+C cancels the run, which exits 0 and leaves the remaining
+work for the next run, so a run must be safe to repeat.
 
 ## Build and test
 
@@ -32,20 +30,13 @@ task build
 task test
 ```
 
-`task test` runs both test projects (`task test:unit` / `task test:integration`
-run them separately). The unit suite covers the job's own logic without a
-host. The integration suite proves the DI graph builds without a sidecar, and
-runs the job once under the real `JobRunner` with the edges faked — the Dapr
-sidecar (`DaprClient`, via NSubstitute) and the two platform-service clients
-(from `Intropy.Framework.Testing`) — to pin the exit-code contract. `task
-coverage` runs the integration suite with branch coverage (Cobertura report
-under the integration project's `TestResults/`).
-
 ## Container image
 
+From the system folder (the parent of this one):
+
 ```bash
-docker build -t {{ .appId }} .
+docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .
 ```
 
-Multi-stage build on the .NET 10 chiseled runtime. The image contains only the
-app — the Dapr sidecar and components come from the deployment environment.
+See `AGENTS.md` for the component's names and key files, and
+<https://docs.intropy.io> for how jobs work.

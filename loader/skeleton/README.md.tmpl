@@ -1,41 +1,37 @@
 # {{ .name }}
 
-.NET loader integration. A generic-host worker consumes the `{{ .channel }}`
-message from the Dapr pub/sub through a streaming subscription, runs every
-delivered event through one Intropy loader pipeline, and writes the result as `{orderId}.json`
-through the destination binding. It serves no HTTP, so the sidecar needs no
-app port. The loader is a long-running worker (a Deployment in production).
+An Intropy loader. It consumes the `{{ .subscribes }}` message from the
+system's pub/sub (topic `{{ .channel }}`), runs each event through a loader
+pipeline (deserialize, validate, idempotency check, transform, send) and
+writes the result through the `{{ .port }}` destination port. It is a
+long-running worker; in production it runs as a Deployment.
+{{- if .empty }}
+
+The pipeline steps were scaffolded empty: each throws
+`NotImplementedException` until it is implemented.
+{{- end }}
 
 ## How a message flows
 
 ```
-sidecar streams a CloudEvent from '{{ .channel }}'
+the sidecar delivers a CloudEvent from '{{ .channel }}'
    │
    ▼
-deserialize ──▶ validate ──▶ transform
+Deserializer ──▶ Validator ──▶ idempotency check ──▶ Transformer ──▶ Sender
    │
    ▼
-idempotency check
-   │
-   ▼
-write {orderId}.json to the destination
-   │
-   ▼
-ack Success ──▶ message consumed
+{{ .port }} gets {{ if .empty }}the result{{ else }}{orderId}.json{{ end }} ──▶ ack Success (message consumed)
 ```
 
-Off the happy path: duplicates and routed business incidents also ack Success
-(the message is consumed, never written); a technical failure acks Retry and
-the sidecar redelivers until the destination recovers. A redelivery reaches the
-pipeline as a retry, so one that succeeds resolves the incident an earlier
-delivery routed. On SIGTERM the message in flight gets a grace period before it
-is left for redelivery.
+Off the happy path:
 
-Settings live in `src/appsettings.json`, overridable by
-`appsettings.{Environment}.json` and environment variables; deployment
-overlays the file via ConfigMap; the generic host's `IConfiguration` is in DI. The
-platform-service app ids (`PlatformServices:*`) come from the scaffold
-parameters `idempotencyAppId`/`businessIncidentsAppId`.
+- **Invalid data:** the `Validator` routes a business incident and the message
+  is acked Success, so it is consumed and nothing is written.
+- **Duplicate:** the idempotency check cancels the delivery; it is acked
+  Success without writing again.
+- **Technical failure** (e.g. the destination is down): the message is acked
+  Retry and the sidecar redelivers it. A redelivery that succeeds resolves the
+  incident an earlier delivery routed.
 
 ## Build and test
 
@@ -44,150 +40,16 @@ task build
 task test
 ```
 
-The loader does not run standalone. It runs via its system host, which
-provides the pub/sub, destination binding, and platform services, and
-carries the sample data used to publish a message to the topic. `task test`
-covers the component-level loop: pipeline unit tests plus integration tests
-proving the whole DI graph and the delivery path behave without a sidecar
-(`task test:unit` / `task test:integration` run the suites separately).
-`task coverage` runs the integration suite with branch coverage (Cobertura
-report under the integration project's `TestResults/`).
-
-## Testing strategy
-
-The integration suite runs against `Intropy.Framework.Testing` fakes — no
-Dapr sidecar, no Testcontainers, no live platform services. The one principle
-throughout: **boot the host exactly as production composition does, fake
-only the edges, assert on fake state and the delivery ack.**
-
-### Layers
-
-| Layer | Project / files | What it pins |
-|---|---|---|
-| Step unit tests | `test/{{ .name }}.Test.Unit/Routes/{{ pascal .subscribes }}/*Tests.cs` | Each pipeline step's own contract: `Deserializer` (valid payload, business id and CloudEvent subject/time stamped into the context), `Validator` (one test per business rule), `Transformer` (field fidelity), `Sender` (writes through the adapter; the one NSubstitute seam). |
-| Delivery integration | `test/{{ .name }}.Test.Integration/Routes/{{ pascal .subscribes }}/DeliveryTests.cs` | The full pipeline (deserialize → validate → idempotency → transform → send) driven end-to-end: `LoaderSut` starts the real host with the externals faked, and `FakeStreamingSubscriber` delivers CloudEvents over the loader's subscription exactly as the sidecar would. Pins the ack contract: loaded, duplicate, and incident-routed messages ack Success; a dead destination acks Retry and leaves no trace.{{- if .empty }} In this empty-bodies scaffold two tests are not included: business-failure incident routing (which input fails validation is the Validator's to define), and duplicate-ack (the duplicate simulation relies on the idempotency commit the implemented pipeline records). Add them as the corresponding implementation lands.{{- end }} |
-| Boot / composition | `test/{{ .name }}.Test.Integration/BootSmokeTests.cs`, `CompositionTests.cs` | The host starts without a sidecar, composes its pipeline and serves its app callback; the validated DI graph from `Composition` builds and resolves the keyed destination adapter. |
-
-### The edges and their fakes
-
-- **Destination files** — `InMemoryFileAdapter` at the keyed
-  `IFileAdapter` seam, with fault injection: `WriteException` simulates a
-  dead destination (the Retry path).
-- **Platform services** — `FakeIdempotencyServiceClient` and
-  `FakeBusinessIncidentServiceClient`. Tests assert on recorded state
-  (`Committed`, `Incidents.Single().Data.Description`) directly.
-- **Delivery** — `FakeStreamingSubscriber` stands in for the sidecar: it
-  records the subscription the loader opens and delivers CloudEvents to it,
-  encoded as the sidecar hands them over, returning the loader's ack as a
-  `DeliveryAck`.
-
-### Behaviors pinned
-
-- **Never retry a poison message.** Invalid input routes a business incident
-  and acks Success; a business failure does **not** commit idempotency (a
-  corrected redelivery must not cancel as seen-before).
-- **A duplicate is a traceable no-op.** The idempotency check cancels the
-  delivery; the message is acked but never written or committed again.
-- **A dead destination redelivers.** A write failure acks Retry with nothing
-  written, committed, or incident-routed — the sidecar retries until the
-  destination recovers.
-
-### What is deliberately not tested
-
-No Testcontainers or real Dapr sidecar: the delivery tests already prove the
-message handling and ack mapping at near-zero cost, and the framework owns the
-subscription itself. Revisit only if the real sidecar's streaming behavior is
-ever suspected of diverging.
-
-## Shared contracts
-
-The canonical payload types (`{{ .payloadType }}`) live in the sibling
-`../{{ .contracts }}` project, referenced from `src/{{ .name }}.csproj`. It was
-scaffolded together with this project (or already existed — components in the
-same parent directory share it); the publishing extractor serializes exactly
-those records. Only the destination load record (`Out`) stays local in
-`src/Routes/{{ pascal .subscribes }}/Out.cs`.
+The loader does not run standalone. Run it with the rest of the system from
+the system host (`task run` there).
 
 ## Container image
 
+From the system folder (the parent of this one):
+
 ```bash
-docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .
+docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .
 ```
 
-Multi-stage build on the .NET 10 chiseled ASP.NET Core runtime (the framework's
-hosting package needs the ASP.NET Core shared framework; the loader itself
-listens on no port). The shared contracts sibling
-enters the build as the `contracts` named context (it lies outside this build
-context). The image contains only the app — the Dapr sidecar and components
-come from the deployment environment.
-
-## Pipeline
-
-Per delivered message (the framework's loader host rebuilds the message into
-a CloudEvent and drives this):
-
-```text
-// Loader pipeline transitions:
-//
-//         ┌─────────────────────────────┐
-//         │ 1. Deserializer             │
-//         └──────────────┬──────────────┘
-//                        │ CloudEvent.Data → shared {{ .payloadType }}; stamps context
-//                        ▼
-//         ┌─────────────────────────────┐
-//         │ 2. Validator                ├──── failure ───► Business Incident Service
-//         └──────────────┬──────────────┘
-//                        │ required fields + business rules pass
-//                        ▼
-//         ┌─────────────────────────────┐
-//         │ 3. Idempotency check        ├──── duplicate ─► [[Cancelled]]
-//         └──────────────┬──────────────┘
-//                        │ Subject / Time is new
-//                        ▼
-//         ┌─────────────────────────────┐
-//         │ 4. Transformer              │
-//         └──────────────┬──────────────┘
-//                        │ shared {{ .payloadType }} → Out
-//                        ▼
-//         ┌─────────────────────────────┐
-//         │ 5. Sender                   │
-//         └─────────────────────────────┘
-//                        writes {orderId}.json through destination binding
-//
-// Success, duplicates, and business incidents ack [[Success]].
-// Technical failures from any step ack [[Retry]] for sidecar redelivery.
-```
-{{- if .empty }}
-
-1. `Deserializer` parses `CloudEvent.Data` into the shared `{{ .payloadType }}` contract.
-2. `Validator` enforces business rules.
-3. Idempotency check — cancels duplicates.
-4. `Transformer` maps `{{ .payloadType }}` → `Out`.
-5. `Sender` writes `Out` through the destination binding.
-
-Every step body throws `NotImplementedException` — this project was scaffolded
-with empty bodies for a migration agent to fill in. The idempotency and
-business-incident wiring is already in place; the idempotency step keys off
-CloudEvent Subject/Time from the context, so backfill those from stable
-business fields in your `Deserializer` (see `AGENTS.md`).
-{{- else }}
-
-1. `Deserializer` parses `CloudEvent.Data` into the shared `{{ .payloadType }}` contract
-   (from `../{{ .contracts }}` — the same record the extractor publishes), stamps
-   `order_id` into the pipeline context, and stamps the `subject`/`time`
-   context keys from the order's `OrderId`/`OrderDate` — for
-   extractor-published events these equal the envelope values, and a
-   `dapr publish` envelope carries no subject and a wall-clock time.
-2. `Validator` enforces required fields and basic business rules; failures are
-   routed to the Business Incident Service.
-3. Idempotency check — asks the Idempotency Service whether this Subject /
-   Time combination was already processed; duplicates cancel the run.
-4. `Transformer` maps the canonical order to the load record `Out`
-   (`LoadedAt` = now, preserving the input `Status`).
-5. `Sender` serializes `Out` with default System.Text.Json (PascalCase) and
-   writes `{orderId}.json` through the destination binding.
-
-Success, an idempotent duplicate, and a routed business incident all
-acknowledge the message (`Success`, sent back over the subscription stream); a
-technical failure acks `Retry` and the sidecar redelivers.
-{{- end }}
+See `AGENTS.md` for the component's names, ports and key files, and
+<https://docs.intropy.io> for how loaders work.

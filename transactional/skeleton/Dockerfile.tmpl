@@ -1,12 +1,23 @@
+# syntax=docker/dockerfile:1
+# Build context: the system folder, which holds this component. From the
+# system folder:
+#   docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .
+# COMPONENT is this component's folder; override it with --build-arg when the
+# folder is not named {{ .appId }}.
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG COMPONENT={{ .appId }}
 WORKDIR /source
 
-# Restore first so the NuGet layer is cached until the csproj changes.
-COPY src/{{ .name }}.csproj src/
-RUN dotnet restore ./src
+# The system's shared MSBuild properties, when it has them (the glob matches
+# nothing otherwise).
+COPY Directory.Build.prop[s] ./
 
-COPY src/ src/
-RUN dotnet publish ./src -c Release -o /app --no-restore
+# Restore first so the NuGet layer is cached until a csproj changes.
+COPY ${COMPONENT}/src/{{ .name }}.csproj ${COMPONENT}/src/
+RUN dotnet restore ${COMPONENT}/src
+
+COPY ${COMPONENT}/src/ ${COMPONENT}/src/
+RUN dotnet publish ${COMPONENT}/src -c Release -o /app --no-restore
 
 # Chiseled runtime: no shell or package manager, runs as non-root `app`.
 # Invariant globalization — switch to 10.0-noble-chiseled-extra if the job

@@ -1,18 +1,24 @@
 # syntax=docker/dockerfile:1
+# Build context: the system folder, which holds this component and the
+# {{ .contracts }} sibling it references. From the system folder:
+#   docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .
+# COMPONENT is this component's folder; override it with --build-arg when the
+# folder is not named {{ .appId }}.
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG COMPONENT={{ .appId }}
 WORKDIR /source
 
-# The app references the shared contracts sibling (../../{{ .contracts }}), which
-# lies outside this build context. Pass it in as a named context:
-#   docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .
-COPY --from=contracts --exclude=bin --exclude=obj . {{ .contracts }}/
+# The system's shared MSBuild properties, when it has them (the glob matches
+# nothing otherwise).
+COPY Directory.Build.prop[s] ./
+COPY {{ .contracts }}/ {{ .contracts }}/
 
 # Restore first so the NuGet layer is cached until a csproj changes.
-COPY src/{{ .name }}.csproj app/src/
-RUN dotnet restore ./app/src
+COPY ${COMPONENT}/src/{{ .name }}.csproj ${COMPONENT}/src/
+RUN dotnet restore ${COMPONENT}/src
 
-COPY src/ app/src/
-RUN dotnet publish ./app/src -c Release -o /app --no-restore
+COPY ${COMPONENT}/src/ ${COMPONENT}/src/
+RUN dotnet publish ${COMPONENT}/src -c Release -o /app --no-restore
 
 # Chiseled ASP.NET Core runtime: no shell or package manager, runs as non-root
 # `app`. The loader serves no HTTP — it consumes through a Dapr streaming

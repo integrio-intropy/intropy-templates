@@ -2,8 +2,8 @@
 # instead of accepting the derived default. The message identity has no
 # override: `publishes` names the message, and its name IS the CloudEvents
 # type. Only the envelope source is pinnable.
-name: Extractor.Perfion
-organization: Maxbo
+name: Extractor.Catalog
+organization: Fluxia
 publishes: product-export
-eventSource: "urn:maxbo:perfion"
+eventSource: "urn:fluxia:catalog"
 empty: false

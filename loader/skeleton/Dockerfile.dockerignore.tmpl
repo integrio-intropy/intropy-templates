@@ -1,0 +1,8 @@
+# Read by `docker build -f <component>/Dockerfile .`; patterns are relative to
+# the build context, the system folder. Only what the build copies is sent.
+*
+!Directory.Build.props
+!{{ .contracts }}/
+!*/src/
+**/bin/
+**/obj/

@@ -39,6 +39,15 @@ job's work is its own.
 The job kind needs Intropy.Topology and the intropy CLI releases that know
 it; an older CLI skips a `job` record in `sys create` with a warning.
 
+## Container image
+
+The Dockerfile builds with the system folder as its context
+(`docker build -f <app-id>/Dockerfile .`), so it copies any
+`Directory.Build.props` the system keeps next to its components.
+`Dockerfile.dockerignore` limits the context to that file and the components'
+`src/` folders. The component folder defaults to the app id; pass
+`--build-arg COMPONENT=<folder>` when it differs.
+
 ## Parameters
 
 | Name           | Required | Description                                                                                    |
