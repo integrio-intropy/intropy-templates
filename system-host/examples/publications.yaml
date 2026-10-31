@@ -1,0 +1,44 @@
+# Render fixture: one extractor that publishes three messages on one topic.
+# The component entry carries `publications` (every name, the `publishes`
+# message first) only because there is more than one; `messages` declares all
+# three on the shared `sales-events` topic, so one loader can route them all.
+# The host renders one .Publishes(...) per publication, in order.
+#   intropy int create system-host -o /tmp/system-host-out -f system-host/examples/publications.yaml --version main --no-input
+name: sales-flow
+topics:
+  - pubsub: sales-flow-pubsub
+    name: sales-events
+    contract: OrderCreated
+messages:
+  - name: order-created
+    type: order-created
+    contract: OrderCreated
+    publisher: order-extractor
+    pubsub: sales-flow-pubsub
+    topic: sales-events
+  - name: order-updated
+    type: order-updated
+    contract: OrderUpdated
+    publisher: order-extractor
+    pubsub: sales-flow-pubsub
+    topic: sales-events
+  - name: order-cancelled
+    type: order-cancelled
+    contract: OrderCancelled
+    publisher: order-extractor
+    pubsub: sales-flow-pubsub
+    topic: sales-events
+ports:
+  - name: order-extractor-source
+components:
+  - appId: order-extractor
+    kind: extractor
+    publishes: order-created
+    publications:
+      - order-created
+      - order-updated
+      - order-cancelled
+    port: order-extractor-source
+sharedContracts:
+  name: Contracts
+  include: ../Contracts/Contracts.csproj

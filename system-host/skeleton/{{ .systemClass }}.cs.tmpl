@@ -25,12 +25,22 @@ public sealed class {{ .systemClass }} : ISystemDefinition
 {{- range .components }}
 {{- if eq .kind "extractor" }}
 {{- if not (hasKey . "publishes") }}{{- fail (printf "component %q declares no publishes message" .appId) }}{{- end }}
-{{- if not (hasKey $msgField .publishes) }}{{- fail (printf "component %q wires message %q, but the system payload carries no contract for it" .appId .publishes) }}{{- end }}
+{{- /* publications is present only when the extractor publishes more than
+one message: every name, the publishes message first. All of them share the
+one topic the host settles for the component. */ -}}
+{{- $publications := list .publishes }}
+{{- if hasKey . "publications" }}{{ $publications = .publications }}{{ end }}
+{{- $extractor := . }}
+{{- range $publications }}
+{{- if not (hasKey $msgField .) }}{{- fail (printf "component %q wires message %q, but the system payload carries no contract for it" $extractor.appId .) }}{{- end }}
+{{- end }}
         builder.AddExtractor("{{ .appId }}")
 {{- if hasKey . "port" }}
             .From(Ports.{{ index $portField .port }})
 {{- end }}
-            .Publishes(Messages.{{ index $msgField .publishes }})
+{{- range $publications }}
+            .Publishes(Messages.{{ index $msgField . }})
+{{- end }}
             .Calls(Services.Idempotency)
             .Calls(Services.BusinessIncidents);
 {{- else if eq .kind "loader" }}

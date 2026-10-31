@@ -24,7 +24,7 @@ unit.
 | `Messages.cs` | `messages` — one `MessageRef<T>` field per internal message, channel resolved from `topics` by name (the topic name defaults to the message name) |
 | `Ports.cs` | `ports` — one `PortRef` per port (the name is the whole identity; the deployed binding type is environment-owned deployment configuration) |
 | `<Project>Development.cs` | `ports` — one `development.Files(...).RootPath("./test/<name>")` resolution per port, plus OpenAPI-backed mocks for both platform services and one `development.Rerun(...).Every(...)` rerun per run-to-completion component — extractors and transactional integrations (the skeleton's `Services.cs` + `mocks/` exist regardless of payload) |
-| `<Project>System.cs` | `components` — one `builder.Add<Kind>(...)` chain per component, wired `.Publishes(...)`/`.Subscribes(...)` through `Messages.*` |
+| `<Project>System.cs` | `components` — one `builder.Add<Kind>(...)` chain per component, wired `.Publishes(...)`/`.Subscribes(...)` through `Messages.*` (one `.Publishes(...)` per extractor publication) |
 | `<Project>.SystemHost.csproj` | `sharedContracts.include` — the `ProjectReference` to the workspace's shared contracts project |
 | `Program.cs`, `Taskfile.yml`, `Properties/launchSettings.json`, `Services.cs`, `mocks/`, `sample-data/`, `AGENTS.md`, `README.md`, `.gitignore` | static shell |
 
@@ -72,9 +72,9 @@ identifiers and the joins from components to them.
 |---|---|---|
 | `name` | string | DNS-1123 system name; becomes `SystemName`. |
 | `topics` | list of `{pubsub, name, contract}` | Derived transport list retained for deploy consumers. Sorted by (pubsub, name). |
-| `messages` | list of `{name, type, contract, publisher}` — optional | The message-first view, primary input for `Messages.cs`: one entry per produced message (`type` repeats the name). |
+| `messages` | list of `{name, type, contract, publisher, pubsub?, topic?}` — optional | The message-first view, primary input for `Messages.cs`: one entry per produced message, every publication of a multi-message extractor included (`type` repeats the name). |
 | `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
-| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, `transactional-integration`, or `job`. Extractors carry scalar `publishes`, loaders carry scalar `subscribes`, transactional integrations carry `fromPort`/`toPort`, and jobs carry nothing more. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
+| `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, `transactional-integration`, or `job`. Extractors carry scalar `publishes`, plus `publications` — every message name, `publishes` first — only when they publish more than one; loaders carry scalar `subscribes`, transactional integrations carry `fromPort`/`toPort`, and jobs carry nothing more. All are raw names; the skeleton joins them to the `Messages`/`Ports` fields. |
 | `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Messages.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A message-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
 
 Derived `projectName`/`systemClass` (`order-flow` → `OrderFlow` /
@@ -92,7 +92,8 @@ intropy int create system-host -o /tmp/system-host-out \
   -f system-host/examples/minimal.yaml --version main --no-input
 ```
 
-`examples/empty.yaml` covers the empty-system render. Building a render
+`examples/empty.yaml` covers the empty-system render; `examples/publications.yaml`
+covers an extractor publishing three messages on one topic. Building a render
 requires the `Intropy.Topology.Aspire` / `Intropy.Topology.Generation`
 packages to be resolvable from the configured NuGet feeds.
 

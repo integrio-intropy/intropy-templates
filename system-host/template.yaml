@@ -47,9 +47,10 @@ spec:
           type: object
           additionalProperties: true
       # The message-first section, the primary input for the declaration:
-      # one entry per internal message declared by local producers. Entries
-      # carry {name, type, contract, publisher}; the channel is derived from
-      # the message name.
+      # one entry per internal message declared by local producers, every
+      # publication of a multi-message extractor included. Entries carry
+      # {name, type, contract, publisher}, plus pubsub/topic when the
+      # producer's channel is not the one derived from the message name.
       messages:
         type: array
         items:
@@ -60,6 +61,10 @@ spec:
         items:
           type: object
           additionalProperties: true
+      # One entry per component. An extractor carries scalar `publishes`, and
+      # `publications` (every message name, `publishes` first) only when it
+      # publishes more than one; the skeleton renders one .Publishes(...) per
+      # name. All of an extractor's publications share its one topic.
       components:
         type: array
         items:
