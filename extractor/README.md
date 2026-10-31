@@ -42,14 +42,19 @@ Service and Business Incident Service the pipeline wires in).
 
 The template declares a `spec.dependencies` entry on `shared-contracts`: the
 render also scaffolds a sibling `Contracts` class library holding the published
-payload type derived from the message name (plus `OrderLine`)
+payload type (plus `OrderLine`)
 — unless that sibling already exists (scaffolded by an earlier component), in
 which case it is left untouched. The extractor's csproj references it as
 `../../Contracts/Contracts.csproj`; only the inbound file shape
 (`Source<Contract>`) stays local to the component. The name is plain
 `Contracts` because the project is scoped by the system directory it lives in.
-The derived payload type is threaded through to `shared-contracts`, which
-renames its canonical record to match.
+The payload type is `typeName` when set, else the PascalCase of the message
+(`invoice-created` becomes `InvoiceCreated`). It is threaded through to
+`shared-contracts`, which names its canonical record after it, and recorded as
+`payloadType` in `.intropy/scaffold.json`. Set `typeName` when a schema names
+the type and the message name would make a long one:
+`--publishes com.example.sales.order.created.v1 -s typeName=OrderCreatedV1`
+gives `OrderCreatedV1` instead of `ComExampleSalesOrderCreatedV1`.
 
 ## Container image
 
@@ -66,7 +71,8 @@ pass `--build-arg COMPONENT=<folder>` when it differs.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderExtractor`).            |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
-| `publishes`   | yes      | The message this extractor publishes. The topic, CloudEvents `type`, and payload type derive from this value. |
+| `publishes`   | yes      | The message this extractor publishes. The topic, CloudEvents `type`, and (unless `typeName` is set) payload type derive from this value. |
+| `typeName`     | no       | PascalCase payload type, the record the message carries in `Contracts`. Defaults to the PascalCase of `publishes`. |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `eventSource`  | no       | CloudEvent `source` for published events. Unset, derives as `urn:<organization>:<app-id>`; set it to preserve an existing event identity during a migration. |

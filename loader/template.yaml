@@ -58,6 +58,11 @@ spec:
         title: Topic
         description: The topic the loader consumes. Defaults to the first route's message name; set it when the routed messages share a topic their producers publish on.
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      typeName:
+        type: string
+        title: Payload type
+        description: PascalCase name of the record the first route's message carries in the shared contracts project. Defaults to the PascalCase of that message name; set it when a schema names the type.
+        pattern: "^[A-Z][A-Za-z0-9]*$"
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -90,9 +95,12 @@ spec:
     # fixed order, so the values below repeat the projection rather than
     # read this one.
     subscribes: '{{ (index .routes 0).message }}'
-    # The payload type is the PascalCase projection of the subscribed message;
-    # the shared-contracts sibling is created around this record when needed.
-    payloadType: '{{ pascal (index .routes 0).message }}'
+    # The payload type the subscribed message carries: the typeName parameter,
+    # else the PascalCase of the message. The shared-contracts sibling is
+    # created around this record when needed, and every skeleton reference to
+    # the type follows this value; the route folder and namespace stay named
+    # after the message.
+    payloadType: '{{ get . "typeName" | default (pascal (index .routes 0).message) }}'
     # The topic the loader consumes: the topic parameter, else the subscribed
     # message name. One derivation, so every file that names the channel agrees.
     channel: '{{ get . "topic" | default (index .routes 0).message }}'

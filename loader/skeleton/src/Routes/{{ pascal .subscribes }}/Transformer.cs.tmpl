@@ -2,7 +2,7 @@ using {{ .contracts }};
 using Intropy.Framework.Blocks.Loader.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
-using Payload = {{ .contracts }}.{{ pascal .subscribes }};
+using Payload = {{ .contracts }}.{{ .payloadType }};
 
 namespace {{ .name }}.Routes.{{ pascal .subscribes }};
 

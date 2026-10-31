@@ -43,6 +43,11 @@ spec:
         title: Topic
         description: The topic the extractor declares for its message, recorded for the system host. Defaults to the message name; set it to share one topic between several messages, so one loader can route them all. At run time the extractor publishes on the topic the topology settles (INTROPY_TOPIC_NAME).
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      typeName:
+        type: string
+        title: Payload type
+        description: PascalCase name of the record the message carries in the shared contracts project. Defaults to the PascalCase of the message name; set it when a schema names the type.
+        pattern: "^[A-Z][A-Za-z0-9]*$"
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -73,12 +78,12 @@ spec:
     # "Contracts" on purpose: the project is scoped to the system directory it
     # lives in, not to the organization.
     contracts: 'Contracts'
-    # The payload type the message projects to: PascalCase of the message
-    # identity, and the generated record in the shared-contracts sibling is
-    # named after it. The message is the declaration; the channel and this
-    # type are its projections. The CLI assembly derives the same value from
-    # the scalar message wiring.
-    payloadType: '{{ pascal .publishes }}'
+    # The payload type the message carries: the typeName parameter, else the
+    # PascalCase of the message identity. The generated record in the
+    # shared-contracts sibling and every skeleton reference are named after
+    # this value, never re-derived from the message. Recorded in
+    # .intropy/scaffold.json, where `intropy sys create` reads it back.
+    payloadType: '{{ get . "typeName" | default (pascal .publishes) }}'
     # The extractor's source port — the named interface it reads the outside
     # world through. Derived like appId so it stays unique per component.
     # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to

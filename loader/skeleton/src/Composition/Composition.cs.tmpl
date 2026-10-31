@@ -14,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 {{- /* The one message's pipeline namespace and payload type. */}}
 using {{ pascal .subscribes }}Route = {{ .name }}.Routes.{{ pascal .subscribes }};
-using {{ pascal .subscribes }}Payload = {{ .contracts }}.{{ pascal .subscribes }};
+using {{ pascal .subscribes }}Payload = {{ .contracts }}.{{ .payloadType }};
 
 namespace {{ .name }}.Composition;
 

@@ -51,8 +51,12 @@ it is left untouched. The loader's csproj references it as
 local to the component. The name is plain `Contracts` because the project is
 scoped by the system directory it lives in.
 
-The payload type derives from the first route's message (`orders` becomes `Orders`) and is
-scaffolded in the sibling Contracts project. If that project already exists,
+The payload type is `typeName` when set, else the PascalCase of the first route's
+message (`orders` becomes `Orders`). It is recorded as `payloadType` in
+`.intropy/scaffold.json` and scaffolded in the sibling Contracts project. The
+route folder and namespace (`src/Routes/<Message>/`) stay named after the message;
+only the type follows `typeName`, e.g.
+`--subscribes com.example.sales.order.created.v1 -s typeName=OrderCreatedV1`. If that project already exists,
 ensure it declares the same payload type; this template leaves existing shared
 contracts untouched.
 
@@ -73,6 +77,7 @@ pass `--build-arg COMPONENT=<folder>` when it differs.
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
 | `routes`       | yes      | The loader's subscription: messages it takes from its topic, in evaluation order, each `{message, when?}` with an optional Dapr CEL filter over the camelCase payload. The first route's message is the one the pipeline consumes — its CloudEvents `type` and payload type, recorded as `subscribes`. The other routes are recorded for the system topology; the skeleton never reads them. Events no route takes are acknowledged and dropped, recorded as `default: ignore`. |
 | `topic`        | no       | The topic the loader consumes. Defaults to the first route's message; set it to the shared topic when the routed messages' producers publish on one (`topic` on the extractor). |
+| `typeName`     | no       | PascalCase payload type, the record the first route's message carries in `Contracts`. Defaults to the PascalCase of that message. |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; no idempotency lambdas).     |
