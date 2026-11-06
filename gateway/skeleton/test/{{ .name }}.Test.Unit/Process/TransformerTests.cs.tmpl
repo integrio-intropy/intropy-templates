@@ -1,0 +1,40 @@
+using {{ .contracts }};
+using {{ .name }}.Process;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Unit.Process;
+
+public class TransformerTests
+{
+{{- if .empty }}
+    // Fails from the start: the Transformer body throws NotImplementedException.
+    // The assertion pins the step's contract — map the request body to the
+    // shared contract and return Success — and flips green once the step is
+    // implemented. Add field-fidelity tests with the real shape.
+    [Fact]
+    public async Task ExecuteAsync_WithInput_ReturnsSuccess()
+    {
+        var (result, _) = await new Transformer().ExecuteAsync(SampleOrders.Valid(),
+            new Context(new Dictionary<string, string>()), CancellationToken.None);
+
+        Assert.IsType<TechnicalStepResult<{{ .payloadType }}>.Success>(result);
+    }
+{{- else }}
+    [Fact]
+    public async Task ExecuteAsync_MapsTheOrderToTheCanonicalContract()
+    {
+        var source = SampleOrders.Valid();
+
+        var (result, _) = await new Transformer().ExecuteAsync(source, new Context(new Dictionary<string, string>()),
+            CancellationToken.None);
+
+        var output = Assert.IsType<TechnicalStepResult<{{ .payloadType }}>.Success>(result).Value;
+        Assert.Equal(source.OrderId, output.OrderId);
+        Assert.Equal(source.CustomerId, output.CustomerId);
+        Assert.Equal(source.Status, output.Status);
+        Assert.Equal(source.OrderDate, output.OrderDate);
+        Assert.Equal(source.Lines, output.Lines);
+    }
+{{- end }}
+}

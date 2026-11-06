@@ -1,0 +1,24 @@
+# {{ .name }}
+
+A gateway integration for {{ .organization }}: callers `POST` orders to
+`{{ .endpointPath }}`, and each one is validated, de-duplicated, transformed to the
+canonical `{{ .payloadType }}` contract and published as a `{{ .publishes }}`
+CloudEvent.
+
+| Response | Meaning |
+|---|---|
+| `202 Accepted` | Published; the body carries the event id |
+| `200 OK` | Already published (duplicate); nothing sent again |
+| `422 Unprocessable Entity` | Rejected by a business rule; raised as a business incident |
+| `413 Payload Too Large` | Body over `Gateway:MaxRequestBodyBytes` |
+| `503 Service Unavailable` | Try again after `Retry-After` |
+| `500 Internal Server Error` | The gateway failed in a way a resend cannot cure; do not resend unchanged |
+
+The gateway runs via its system host. Build and test it with `task build` and
+`task test`; `src/{{ .name }}.http` holds {{ if .empty }}sample requests{{ else }}a sample request for each response{{ end }}.
+{{- if .empty }}
+
+The pipeline steps are scaffolded empty (`NotImplementedException`) for a
+migration agent to fill in, and the test suite fails until they land. See
+`AGENTS.md`.
+{{- end }}

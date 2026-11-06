@@ -1,0 +1,20 @@
+{{- $endpoints := dig "endpoints" (list) .component -}}
+{{- if not $endpoints -}}
+{{- fail (printf "gateway %s: the topology record names no endpoints; regenerate it with a gateway-aware Intropy.Topology release" .name) -}}
+{{- end -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  annotations:
+    # The environment's ingress routes these paths unchanged to this Service's
+    # http port. Host names, TLS and authentication stay environment-owned.
+    intropy.io/endpoints: {{ $endpoints | toJson | quote }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

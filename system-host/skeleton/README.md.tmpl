@@ -48,6 +48,10 @@ and port file resolutions) to the graph document.
   topic name defaults to the message name
 - `Ports.cs` — the system's ports (the name is the whole identity;
   the deployed binding type and connection values are deployment configuration)
+{{- if and (hasKey . "endpoints") (gt (len .endpoints) 0) }}
+- `Endpoints.cs` — the HTTP endpoints the gateways serve (`EndpointRef`: a name
+  and the path callers POST to)
+{{- end }}
 - `{{ .projectName }}Development.cs` — the local-run substitutions: OpenAPI
   mocks for platform services, a folder under `test/` per port, and a
   30-second rerun per run-to-completion component (`Rerun(...).AfterEachRun(...)`,

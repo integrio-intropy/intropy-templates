@@ -1,0 +1,48 @@
+using {{ .contracts }};
+using {{ .name }}.Model;
+using {{ .name }}.Process;
+using Intropy.Framework.Components;
+using Intropy.Framework.Components.Gateway;
+
+namespace {{ .name }};
+
+/// <summary>
+/// The gateway: its identity, what it accepts on its endpoint — the orders callers post — what it
+/// publishes, and the rules of the way between them through the pipeline steps in <c>Process/</c>.
+/// The identity is the manifest below (component name, organization, message, event source, and the
+/// endpoint's port and path); the framework wires everything else from it and from the deployment
+/// (pub/sub and topic).
+/// </summary>
+public sealed class {{ .componentClass }} : GatewayComponent
+{
+    protected override ComponentManifest Manifest { get; } = new()
+    {
+        ComponentName = "{{ .componentName }}",
+        Organization = "{{ .organization }}",
+        Publishes = "{{ .publishes }}",
+        EventSource = "{{ .eventSourceValue }}",
+        Port = "{{ .port }}",
+        EndpointPath = "{{ .endpointPath }}",
+    };
+
+    protected override void Inputs(GatewayInputs inputs) => inputs
+        .Accepts<{{ .payloadType }}Request>()
+        .Publishes<{{ .payloadType }}>(pipeline => pipeline
+            // The pipeline's steps, in Process/, in the order they run. To enrich the item with
+            // data from another system, add .Extract<T>() steps between Validate and Transform.
+            .Steps(steps => steps
+                .Deserialize<Deserializer>()
+                .Validate<Validator>()
+                .Transform<Transformer>())
+            // A stable business identity and source version: per-delivery values (a fresh
+            // GUID, the wall-clock time) would let every duplicate through.
+{{- if .empty }}
+            .Idempotency(key: (_, _) => throw new NotImplementedException(),
+                at: (_, _) => throw new NotImplementedException())
+            .OutputEvent(subject: _ => throw new NotImplementedException(),
+                at: _ => throw new NotImplementedException()));
+{{- else }}
+            .Idempotency(key: (order, _) => order.OrderId, at: (order, _) => order.OrderDate)
+            .OutputEvent(subject: order => order.OrderId, at: order => order.OrderDate));
+{{- end }}
+}

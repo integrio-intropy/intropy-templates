@@ -1,0 +1,9 @@
+name: Int1055.OrderGateway
+organization: Acme
+publishes: order-placed
+path: /api/orders
+idempotencyAppId: idempotency-service.services
+businessIncidentsAppId: business-incident-service.services
+eventSource: urn:acme:webshop-orders
+empty: false
+localPort: 5081

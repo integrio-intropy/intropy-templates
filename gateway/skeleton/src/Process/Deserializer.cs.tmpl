@@ -1,0 +1,34 @@
+{{- if not .empty }}
+using System.Text.Json;
+{{- end }}
+using {{ .name }}.Model;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Process;
+
+public class Deserializer : DeserializeStep<{{ .payloadType }}Request, Context>
+{
+{{- if not .empty }}
+    private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
+{{- end }}
+
+    // A body that is not JSON throws, and the framework routes it as a business
+    // incident: the caller gets 422, since resending it unchanged fails again.
+    public override Task<(BusinessStepResult<{{ .payloadType }}Request> Result, Context Context)> ExecuteAsync(
+        ReadOnlyMemory<byte> input, Context context, CancellationToken ct)
+    {
+{{- if .empty }}
+        throw new NotImplementedException();
+{{- else }}
+        var order = JsonSerializer.Deserialize<{{ .payloadType }}Request>(input.Span, Options)
+                    ?? throw new JsonException("The request body is null.");
+
+        context.Metadata[BusinessIncidentContextKeys.BusinessId] = order.OrderId;
+
+        return Task.FromResult<(BusinessStepResult<{{ .payloadType }}Request>, Context)>(
+            (new BusinessStepResult<{{ .payloadType }}Request>.Success(order), context));
+{{- end }}
+    }
+}

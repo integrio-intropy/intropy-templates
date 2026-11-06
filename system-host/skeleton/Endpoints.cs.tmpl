@@ -1,0 +1,18 @@
+{{- $seen := dict -}}
+using Intropy.Topology;
+
+/// <summary>The system's endpoints: the HTTP interfaces its gateways serve. Each is a name and the path callers POST to; the gateway serves it itself, so an endpoint has no Dapr binding and no local folder. The ingress in front of the gateway routes the path and owns authentication.</summary>
+public static class Endpoints
+{
+{{- range $i, $e := .endpoints }}
+{{- $field := regexReplaceAll "[-._]" $e.name " " | title | replace " " "" }}
+{{- if hasKey $seen $field }}
+{{- fail (printf "endpoints %q and %q both derive the Endpoints.cs field %s — rename one endpoint in the gateways' scaffold records" (index $seen $field) $e.name $field) }}
+{{- end }}
+{{- $_ := set $seen $field $e.name }}
+{{- if $i }}
+{{ end }}
+    /// <summary>Callers post to <c>{{ $e.path }}</c>.</summary>
+    public static readonly EndpointRef {{ $field }} = EndpointRef.Define("{{ $e.name }}", "{{ $e.path }}");
+{{- end }}
+}

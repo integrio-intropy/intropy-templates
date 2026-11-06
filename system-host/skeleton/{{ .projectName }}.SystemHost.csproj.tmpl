@@ -14,13 +14,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- Intropy.Topology pinned to 2.2.0: the job kind (AddJob) and port
-             mocks (development.Mock(PortRef)). Aspire matches the version that
-             release depends on. A template release and its pin are one atomic
-             unit; bumping the pin is a template change first. -->
-        <PackageReference Include="Aspire.Hosting.AppHost" Version="13.6.3" />
-        <PackageReference Include="Intropy.Topology.Aspire" Version="2.2.0" />
-        <PackageReference Include="Intropy.Topology.Generation" Version="2.2.0" />
+        <!-- Intropy.Topology pinned to the release that declares gateways
+             (AddGateway, EndpointRef). A template release and its pin are
+             one atomic unit; bumping the pin is a template change first. -->
+        <PackageReference Include="Aspire.Hosting.AppHost" Version="13.5.3" />
+        <PackageReference Include="Intropy.Topology.Aspire" Version="2.1.0-gateway-local.2" />
+        <PackageReference Include="Intropy.Topology.Generation" Version="2.1.0-gateway-local.2" />
     </ItemGroup>
 
 {{- if hasKey . "sharedContracts" }}

@@ -1,0 +1,30 @@
+# Render fixture: a gateway publishing to a loader, as `intropy sys create`
+# assembles it. The gateway's endpoint travels in `endpoints`, never in
+# `ports`.
+#   intropy int create system-host -o /tmp/system-host-gateway -f system-host/examples/gateway.yaml --version main --no-input
+name: order-flow
+topics:
+  - pubsub: order-flow-pubsub
+    name: order-placed
+messages:
+  - name: order-placed
+    type: order-placed
+    contract: OrderPlaced
+    publisher: order-gateway
+ports:
+  - name: order-loader-destination
+endpoints:
+  - name: order-gateway-endpoint
+    path: /order-placed
+components:
+  - appId: order-gateway
+    kind: gateway
+    publishes: order-placed
+    endpoint: order-gateway-endpoint
+  - appId: order-loader
+    kind: loader
+    subscribes: order-placed
+    port: order-loader-destination
+sharedContracts:
+  name: Contracts
+  include: ../Contracts/Contracts.csproj

@@ -1,0 +1,81 @@
+using Intropy.Framework.Testing.Components;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The component's own choices, observed through its production composition served in memory with
+/// only the externals faked: what it publishes, what it records for idempotency, and how it names
+/// an incident. The HTTP contract (status codes, retry hints, probes) is the framework's, and
+/// tested there.
+/// </summary>
+public class GatewayTests
+{
+{{- if .empty }}
+    // Test-owned valid input: the source shape is an empty record shell until the
+    // real contract is defined, so this deliberately uses its own field names
+    // instead of guessing the eventual shape. Replace it with a real request body
+    // as the steps land.
+    private const string Order =
+        """{"sourceRecordId":"REC-1","occurredAt":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":10.0}]}""";
+
+    // Fails from the start: the throwing Deserializer is routed as a business
+    // incident, so nothing is published. It flips green as the steps and the
+    // idempotency and output-event lambdas land, with no test edits. Add a test
+    // per rule as the rules land: the event's subject and time (OutputEvent), the
+    // recorded idempotency key and version (Idempotency), and the incident a
+    // rejected item raises (the Validator, named by the business id the
+    // Deserializer sets).
+    [Fact]
+    public async Task Post_PublishesTheItem()
+    {
+        await using var host = new GatewayTestHost<{{ .componentClass }}>();
+
+        using var _ = await host.PostAsync(Order);
+
+        Assert.Single(host.Topic.Events);
+    }
+{{- else }}
+    private static readonly DateTimeOffset OrderDate = new(2026, 1, 15, 9, 30, 0, TimeSpan.Zero);
+
+    private const string Order =
+        """{"orderId":"ORD-1001","customerId":"CUST-42","status":"Placed","orderDate":"2026-01-15T09:30:00+00:00","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":19.90}]}""";
+
+    private const string OrderWithoutLines =
+        """{"orderId":"ORD-1002","customerId":"CUST-42","status":"Placed","orderDate":"2026-01-15T09:30:00+00:00","lines":[]}""";
+
+    [Fact]
+    public async Task Post_PublishesAnEventAboutTheOrder()
+    {
+        await using var host = new GatewayTestHost<{{ .componentClass }}>();
+
+        using var _ = await host.PostAsync(Order);
+
+        var published = Assert.Single(host.Topic.Events);
+        Assert.Equal("ORD-1001", published.Subject);
+        Assert.Equal(OrderDate, published.Time);
+    }
+
+    [Fact]
+    public async Task Post_RecordsTheOrderForIdempotency()
+    {
+        await using var host = new GatewayTestHost<{{ .componentClass }}>();
+
+        using var _ = await host.PostAsync(Order);
+
+        var committed = Assert.Single(host.Idempotency.Committed);
+        Assert.EndsWith(":ORD-1001", committed.Id, StringComparison.Ordinal);
+        Assert.Equal(OrderDate, committed.Timestamp);
+    }
+
+    [Fact]
+    public async Task Post_WithAnInvalidOrder_RaisesAnIncidentNamedAfterTheOrder()
+    {
+        await using var host = new GatewayTestHost<{{ .componentClass }}>();
+
+        using var _ = await host.PostAsync(OrderWithoutLines);
+
+        Assert.Equal(0, host.Topic.Count);
+        Assert.Equal("ORD-1002", Assert.Single(host.Incidents.Incidents).Id);
+    }
+{{- end }}
+}

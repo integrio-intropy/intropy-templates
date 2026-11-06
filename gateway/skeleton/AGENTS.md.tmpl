@@ -1,0 +1,126 @@
+# Agent Instructions
+
+This project is a .NET gateway integration built on the Intropy framework: a
+resident HTTP service that accepts orders pushed to `POST {{ .endpointPath }}`, runs
+each request body through the Intropy extractor pipeline, and publishes the
+result as a CloudEvent to the system's pub/sub. The caller is the retry
+mechanism — the status code tells it whether to resend.
+
+## Project overview
+
+- Framework: .NET 10, ASP.NET Core
+- App type: Resident web service, hosted by `Intropy.Framework.Components`
+  (`ComponentHost.RunAsync<{{ .componentClass }}>`). The framework wires the web host,
+  the endpoint, `/healthz` and `/readyz`, telemetry, the Dapr client, the
+  platform-service clients and the publisher.
+- Identity: the `Manifest` property of `{{ .componentClass }}`. The framework reads the
+  component name (`{{ .componentName }}`), the organization (`{{ .organization }}`), the
+  message and the event source from it, and checks the declared endpoint against its `Port`
+  (`{{ .port }}`) and `EndpointPath` (`{{ .endpointPath }}`). The payload is named where it
+  is published (`Publishes<{{ .payloadType }}>(...)`), the same type on every endpoint. The same
+  identity is recorded in `.intropy/scaffold.json` (written by `int create`, read by
+  `intropy sys create`); changing it means editing the manifest and the record's matching
+  `values` keys together.
+- App id: `{{ .appId }}`
+- Endpoint: `{{ .port }}` at `POST {{ .endpointPath }}`, on HTTP port 8080 (ASP.NET Core
+  `http_ports` / `urls` override it). The system host serves it locally on
+  `http://localhost:{{ .localPort }}`, from `src/Properties/launchSettings.json`. The
+  manifest's `Port` and `EndpointPath` declare the endpoint the system names for the system
+  host and the ingress; the port is stamped on every published event and scopes the
+  idempotency records.
+- Message: `{{ .publishes }}` — what the gateway publishes; the message name is the
+  CloudEvents type.
+- Channel: `{{ .channel }}` at scaffold time. The code takes the
+  pub/sub and topic from `INTROPY_PUBSUB_NAME` and `INTROPY_TOPIC_NAME`, which the
+  system host and the deployment set; without them startup fails.
+- CloudEvent envelope: source `{{ .eventSourceValue }}`, type `{{ .publishes }}`.
+- Responses: `202` published (`{ requestId, eventId }`), `200` duplicate, `422`
+  rejected (routed as a business incident), `413` body too large, `503` +
+  `Retry-After` when the gateway cannot take the item now, `500` when a
+  technical failure would recur on a resend. Every response
+  carries `X-Request-Id` (the caller's, or one assigned).
+- Idempotency Service: Dapr app id `{{ .idempotencyAppId }}`; Business Incident
+  Service: `{{ .businessIncidentsAppId }}` (`src/appsettings.json`, `PlatformServices:*`).
+- Shared contracts: the published payload type (`{{ .payloadType }}`) lives in the
+  sibling project `../{{ .contracts }}`. `{{ .payloadType }}Request` — the body callers
+  send — stays local in `src/Model/`.
+
+## Important files
+
+- `src/{{ .componentClass }}.cs` - the component: what it accepts on its endpoint and what it
+  publishes (`Inputs`: `Accepts<{{ .payloadType }}Request>()` then `Publishes<{{ .payloadType }}>(...)`),
+  with its pipeline's idempotency
+  rule ({{ if .empty }}throwing lambdas to implement{{ else }}`OrderId`/`OrderDate`{{ end }}) and output event rule (subject and time).
+  Incidents take the framework's default name: the business id the `Deserializer`
+  sets in `BusinessIncidentContextKeys.BusinessId`, else the request id
+  (`request:<id>`).
+- `src/Program.cs` - entrypoint: `ComponentHost.RunAsync<{{ .componentClass }}>(args)`.
+- `src/Process/` - the pipeline's steps: `Deserializer`, `Validator`,
+  `Transformer`, named in `Steps(steps => steps.Deserialize<...>().Validate<...>().Transform<...>())`
+  on the endpoint's pipeline, in the order they run; enrichment steps go between `Validate` and
+  `Transform` as `.Extract<T>()`.
+- `src/Model/{{ .payloadType }}Request.cs` - the request body's shape.
+- `src/appsettings.json` - platform-service app ids and the `Gateway` options
+  (`MaxRequestBodyBytes`, `RetryAfter`).
+- `src/{{ .name }}.http` - {{ if .empty }}a published, a not-JSON and the probe requests{{ else }}one sample request per response{{ end }}, for a running
+  gateway; `src/http-client.env.json` holds the host per environment.
+- `src/Properties/launchSettings.json` - the local port ({{ .localPort }}) the system
+  host serves the gateway on; `local` in `src/http-client.env.json` must match it.
+- `Dockerfile` - multi-stage build on the chiseled ASP.NET Core runtime
+  (`docker build --build-context contracts=../{{ .contracts }} -t {{ .appId }} .`).
+- `test/{{ .name }}.Test.Unit/` - pipeline step unit tests (`task test:unit`).
+- `test/{{ .name }}.Test.Integration/` - the component's rules end to end (the
+  event it publishes, the idempotency key it records, the incident a rejected
+  order raises) and its startup composition, against `GatewayTestHost`, which
+  serves the production graph in memory with the topic and the platform clients
+  faked (`task test:integration`). The HTTP contract itself is the framework's,
+  and is not retested here.
+
+## Build and test
+
+Components do not run standalone — this gateway runs via its system host, which
+provides every Dapr component (pub/sub, platform services) and the
+`INTROPY_*` environment. The component-level loop is build and test:
+
+```bash
+task build
+task test
+```
+
+## Development notes
+
+- A second endpoint carrying other data — another source system's format of the
+  order — is a second `.On(port, path).Accepts<TInput>().Publishes<{{ .payloadType }}>(...)`
+  in `{{ .componentClass }}.Inputs`, with its own input model and steps; every
+  endpoint publishes `{{ .payloadType }}`. The manifest names only the first
+  endpoint, so add the second to the system host by hand.
+- Steps that share data beyond the context's metadata (a looked-up customer, say) get a
+  context of the component's own: a record deriving from `Context`, created with
+  `.Accepts<{{ .payloadType }}Request>().WithContext((metadata, isRetry) => new MyContext(metadata, isRetry))`.
+  Every step of that pipeline is then typed on it (`DeserializeStep<{{ .payloadType }}Request, MyContext>`, ...).
+- Authentication is not in the component: the environment's ingress owns it.
+  Override `ConfigureEndpoints` (e.g. `RequireAuthorization()`) and
+  `ConfigureApplication` in `{{ .componentClass }}` to add it in the app.
+- An infrastructure failure (sidecar, pub/sub, idempotency or incident service
+  down) answers `503`; the caller resends. Any other technical failure (a step
+  throwing in `Transformer`, an output event without a subject) answers `500`
+  and is not resent: it needs a fix in the gateway. A business failure answers
+  `422` and is not worth resending unchanged.
+{{- if .empty }}
+- The step bodies are scaffolded empty (`NotImplementedException`), and
+  `{{ .payloadType }}Request` is an empty record. The idempotency and output-event
+  rules stay in `{{ .componentClass }}.Inputs` with throwing lambdas: point them at a
+  stable business identifier and business timestamp — a per-delivery value
+  (fresh GUID, wall-clock time) lets every duplicate through.
+- The test suite is real and fails out of the box by design — `task test` is
+  red until the steps and the lambdas land. Until then every request answers
+  `422`, since the throwing `Deserializer` is routed as a business incident. Only
+  the composition test starts green. The full sample's rule tests (event subject
+  and time, idempotency key and version, a rejected order's incident) are
+  deliberately not scaffolded, since their values are the implementation's to
+  define. Add them as the rules land.
+{{- end }}
+
+## Framework guidance
+
+Framework how-to (pipelines, blocks, endpoints, Dapr components, testing) lives in the Intropy documentation at <https://docs.intropy.io>. For CLI facts, read `intropy template show` and `intropy <command> --help` at the moment you need them; template releases change.

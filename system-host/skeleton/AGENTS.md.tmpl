@@ -33,6 +33,12 @@ declaration — an Aspire run backend and a generation backend.
   the deployed binding's type, address, and credentials are environment-owned
   deployment configuration the topology deliberately does not repeat. Local
   runs resolve the port through the development definition instead.
+{{- if and (hasKey . "endpoints") (gt (len .endpoints) 0) }}
+- `Endpoints.cs` — the HTTP endpoints the system's gateways serve, as refs
+  (`EndpointRef`: a name and the path callers POST to). Same
+  regenerate-then-yours lifecycle. A gateway serves its endpoint itself:
+  there is no Dapr binding and no local folder behind it.
+{{- end }}
 - `{{ .projectName }}Development.cs` — the `IDevelopmentDefinition` (at most one per
   assembly): local substitutions for the outside world. Same
   regenerate-then-yours lifecycle. `Mock(...).FromOpenApi(...)` stands in an
@@ -128,8 +134,9 @@ originate here too:
   run-to-completion jobs: the host runs each one once at startup, and
   activation cadence lives in deployment configuration, not in the topology —
   in production the schedule is a Kubernetes CronJob in the GitOps repo, its
-  one and only home. Loaders are long-running ASP.NET services and stay up
-  for the whole host run.
+  one and only home. Loaders and gateways are long-running ASP.NET services
+  and stay up for the whole host run; the host gives each gateway its HTTP
+  port in `ASPNETCORE_URLS`.
 
 ## Framework guidance
 

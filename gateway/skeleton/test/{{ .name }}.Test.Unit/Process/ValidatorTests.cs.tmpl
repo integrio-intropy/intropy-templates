@@ -1,0 +1,64 @@
+using {{ .name }}.Model;
+using {{ .name }}.Process;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Core.Pipeline.Abstractions.Results;
+
+namespace {{ .name }}.Test.Unit.Process;
+
+public class ValidatorTests
+{
+{{- if .empty }}
+    // Fails from the start: the Validator body throws NotImplementedException.
+    // The assertion pins only the step's contract — return a BusinessStepResult —
+    // since the rules themselves are defined with the implementation. Add one
+    // test per rule as the rules land.
+    [Fact]
+    public async Task ExecuteAsync_WithInput_ReturnsBusinessStepResult()
+    {
+        var (result, _) = await Validate(SampleOrders.Valid());
+
+        Assert.IsAssignableFrom<BusinessStepResult<{{ .payloadType }}Request>>(result);
+    }
+{{- else }}
+    [Fact]
+    public async Task ExecuteAsync_WithAValidOrder_ReturnsSuccess()
+    {
+        var (result, _) = await Validate(SampleOrders.Valid());
+
+        Assert.IsType<BusinessStepResult<{{ .payloadType }}Request>.Success>(result);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutAnOrderId_ReturnsFailure() =>
+        await AssertFails(SampleOrders.Valid() with { OrderId = "" }, "OrderId is required");
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutACustomerId_ReturnsFailure() =>
+        await AssertFails(SampleOrders.Valid() with { CustomerId = " " }, "CustomerId is required");
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutLines_ReturnsFailure() =>
+        await AssertFails(SampleOrders.Valid() with { Lines = [] }, "Order must contain at least one line");
+
+    [Fact]
+    public async Task ExecuteAsync_WithAFutureOrderDate_ReturnsFailure()
+    {
+        var (result, _) = await Validate(SampleOrders.Valid() with { OrderDate = DateTimeOffset.UtcNow.AddDays(1) });
+
+        var failure = Assert.IsType<BusinessStepResult<{{ .payloadType }}Request>.Failure>(result);
+        Assert.StartsWith("OrderDate", failure.Value.Description, StringComparison.Ordinal);
+    }
+
+    private static async Task AssertFails({{ .payloadType }}Request order, string description)
+    {
+        var (result, _) = await Validate(order);
+
+        var failure = Assert.IsType<BusinessStepResult<{{ .payloadType }}Request>.Failure>(result);
+        Assert.Equal(description, failure.Value.Description);
+    }
+{{- end }}
+
+    private static Task<(BusinessStepResult<{{ .payloadType }}Request> Result, Context Context)> Validate(
+        {{ .payloadType }}Request order) =>
+        new Validator().ExecuteAsync(order, new Context(new Dictionary<string, string>()), CancellationToken.None);
+}
