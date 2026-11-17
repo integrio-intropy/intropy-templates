@@ -51,6 +51,27 @@ public class ReceiveSideIntegrationTests
         Assert.Equal(1, summary.Failed);
         Assert.True(edges.SourceFiles.Files.ContainsKey("order-1.json"));
     }
+{{- if .claimCheck }}
+
+    [Fact]
+    public async Task Run_WhenAFileIsTooLargeForAMessage_EnqueuesAPointerToTheClaimStore()
+    {
+        // Arrange: above TransactionalIntegration:ClaimCheckThresholdBytes in appsettings.json.
+        var edges = new FakeEdges();
+        var job = CreateJob(edges);
+        var content = Enumerable.Repeat((byte)'x', 300_000).ToArray();
+        edges.SourceFiles.AddFile("order-1.json", content);
+
+        // Act
+        var summary = await job.ExecuteAsync(CancellationToken.None);
+
+        // Assert: the file is in the claim store and the message carries only its key.
+        Assert.Equal(1, summary.Processed);
+        var enqueued = Assert.Single(edges.Enqueue.Captured).Item;
+        Assert.StartsWith($"{Constants.ComponentName}/", enqueued.DataRef);
+        Assert.Equal(content, Assert.Single(edges.ClaimStore.Files).Value);
+    }
+{{- end }}
 
     private static IJob CreateJob(FakeEdges edges)
     {

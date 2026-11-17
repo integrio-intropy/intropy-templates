@@ -68,6 +68,12 @@ spec:
         title: Business incident service app-id
         description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment.
         default: "business-incident-service.services"
+      destinationPort:
+        type: string
+        title: Destination port
+        description: Name of the port the loader writes to, as the system host declares it. Empty derives <app-id>-destination; name a port the system already has to share it.
+        default: ""
+        pattern: "^([a-z][a-z0-9-]*)?$"
       empty:
         type: boolean
         title: Empty bodies
@@ -102,11 +108,11 @@ spec:
     # assumes dead-letter.
     default: 'ignore'
     # The loader's destination port — the named interface it writes the
-    # outside world through. Derived like appId so it stays unique per
-    # component. Recorded in .intropy/scaffold.json; `intropy sys create`
+    # outside world through: the destinationPort parameter, or derived like
+    # appId so it stays unique per component. Recorded in .intropy/scaffold.json; `intropy sys create`
     # resolves it to a local file transport by default (external system and
     # transport are never asked for at scaffold time).
-    port: '{{ .name | kebabcase | replace "." "-" }}-destination'
+    port: '{{ default (printf "%s-destination" (.name | kebabcase | replace "." "-")) .destinationPort }}'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'

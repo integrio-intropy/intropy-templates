@@ -58,6 +58,12 @@ spec:
         title: CloudEvent source
         description: Envelope `source` (URI) for published events. The default derives as urn:<organization>:<app-id>; set it to preserve an existing event identity during a migration.
         default: ""
+      sourcePort:
+        type: string
+        title: Source port
+        description: Name of the port the extractor sweeps, as the system host declares it. Empty derives <app-id>-source; name a port the system already has to share it.
+        default: ""
+        pattern: "^([a-z][a-z0-9-]*)?$"
       empty:
         type: boolean
         title: Empty bodies
@@ -80,11 +86,12 @@ spec:
     # the scalar message wiring.
     payloadType: '{{ pascal .publishes }}'
     # The extractor's source port — the named interface it reads the outside
-    # world through. Derived like appId so it stays unique per component.
+    # world through: the sourcePort parameter, or derived like appId so it
+    # stays unique per component.
     # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to
     # a local file transport by default (external system and transport are
     # never asked for at scaffold time).
-    port: '{{ .name | kebabcase | replace "." "-" }}-source'
+    port: '{{ default (printf "%s-source" (.name | kebabcase | replace "." "-")) .sourcePort }}'
     # CloudEvent identity: the type is the message itself (D1 — message
     # identity is the CloudEvents type). No derivation and no override
     # exist: a topic name is never guessed into an event type, and a

@@ -41,6 +41,23 @@ spec:
         title: Business incident service app-id
         description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment. Only wired when empty is false.
         default: "business-incident-service.services"
+      sourcePort:
+        type: string
+        title: Source port
+        description: Name of the port the integration sweeps, as the system host declares it. Empty derives <app-id>-source; name a port the system already has to share it.
+        default: ""
+        pattern: "^([a-z][a-z0-9-]*)?$"
+      destinationPort:
+        type: string
+        title: Destination port
+        description: Name of the port the send pipeline writes to, as the system host declares it. Empty derives <app-id>-destination; name a port the system already has to share it.
+        default: ""
+        pattern: "^([a-z][a-z0-9-]*)?$"
+      claimCheck:
+        type: boolean
+        title: Claim check
+        description: Register a claim store, so a file too large for a queue message is kept there while a pointer travels instead. The environment must then provide the store's binding and its ClaimStore settings.
+        default: false
       empty:
         type: boolean
         title: Empty bodies
@@ -52,11 +69,12 @@ spec:
     # for workspace-level tooling (e.g. solution file assembly).
     projectName: '{{ .name }}'
     # The integration's source and destination ports — the named interfaces
-    # it reads and writes the outside world through. Derived like appId so
-    # they stay unique per component. Recorded in .intropy/scaffold.json;
+    # it reads and writes the outside world through: the sourcePort and
+    # destinationPort parameters, or derived like appId so they stay unique
+    # per component. Recorded in .intropy/scaffold.json;
     # `intropy sys create` reads them back to declare the component's
     # From/To ports in the system host, whose development definition
     # resolves each to a local folder by default (external system and
     # transport are never asked for at scaffold time).
-    fromPort: '{{ .name | kebabcase | replace "." "-" }}-source'
-    toPort: '{{ .name | kebabcase | replace "." "-" }}-destination'
+    fromPort: '{{ default (printf "%s-source" (.name | kebabcase | replace "." "-")) .sourcePort }}'
+    toPort: '{{ default (printf "%s-destination" (.name | kebabcase | replace "." "-")) .destinationPort }}'

@@ -1,0 +1,7 @@
+# Render fixture: named ports and the claim check.
+#   intropy int create transactional -o /tmp/tx-claim -f transactional/examples/claim-check.yaml --version main --no-input
+name: OrderSync
+organization: Fluxia
+sourcePort: erp-export
+destinationPort: warehouse-ftp
+claimCheck: true
