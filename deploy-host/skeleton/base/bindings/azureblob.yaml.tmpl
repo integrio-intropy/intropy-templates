@@ -14,7 +14,7 @@
 # template only declares the port-specific key the platform must provide. With
 # a workload identity that may read the account, delete accountKey: the binding
 # then authenticates with the pod's identity.
-{{- range .topology.ports }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
 {{- if eq (dig "binding" "" .) "azureblob" }}
 ---
 apiVersion: dapr.io/v1alpha1
@@ -22,7 +22,11 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
+{{- if hasKey . "role" }}
+    intropy.io/store: {{ .role }}
+{{- else }}
     intropy.io/port: {{ .name }}
+{{- end }}
 spec:
   type: bindings.azure.blobstorage
   version: v1

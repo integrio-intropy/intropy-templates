@@ -10,7 +10,7 @@
 # configuration, so create-only onboarding leaves an explicit REPLACE-ME
 # placeholder for the reviewer. The name must not change: blocks resolve the
 # binding by the port name.
-{{- range .topology.ports }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
 {{- if eq (dig "binding" "" .) "http" }}
 ---
 apiVersion: dapr.io/v1alpha1
@@ -18,7 +18,11 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
+{{- if hasKey . "role" }}
+    intropy.io/store: {{ .role }}
+{{- else }}
     intropy.io/port: {{ .name }}
+{{- end }}
 spec:
   type: bindings.http
   version: v1

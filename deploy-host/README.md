@@ -141,6 +141,16 @@ deploy-component makes each pod using the port ask the sidecar injector for it.
 An external port (one the component reaches through a client of its own) has
 no binding, so no adapter file renders for it and it takes no kind.
 
+### System stores
+
+The system's claim store and archive store (`.topology.stores`) are not ports,
+but each becomes one binding Component, so the adapter files render them with
+the ports: `--binding <store>=<kind>` selects the kind, the Component is named
+after the store and scoped to the components that use it, and it carries the
+label `intropy.io/store: claim` or `archive` instead of `intropy.io/port`. The
+Secret keys follow the same pattern with the store's name in place of the
+port's.
+
 ### The Secret contract
 
 With no auth block, `secretKeyRef` resolves against a plain Kubernetes

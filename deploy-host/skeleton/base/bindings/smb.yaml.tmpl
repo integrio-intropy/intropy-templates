@@ -20,7 +20,7 @@
 #
 # Secrets live in the platform-owned {{ .secretName }} Secret — the template
 # only declares the port-specific keys the platform must provide.
-{{- range .topology.ports }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
 {{- if eq (dig "binding" "" .) "smb" }}
 ---
 apiVersion: dapr.io/v1alpha1
@@ -28,7 +28,11 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
+{{- if hasKey . "role" }}
+    intropy.io/store: {{ .role }}
+{{- else }}
     intropy.io/port: {{ .name }}
+{{- end }}
   annotations:
     dapr.io/component-container: >
       {

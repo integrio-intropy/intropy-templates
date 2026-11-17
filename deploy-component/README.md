@@ -79,6 +79,17 @@ the workload:
 
 The local overlay has no SMB fixture: `smb` is a GitOps binding kind only.
 
+## A component gets the system stores it uses
+
+A component that declares a claim check or an archive uses a store the topology
+minted for the system (see deploy-host, which renders its binding). The
+framework reads a store from its own configuration section, so every overlay,
+local included, patches `ClaimStore__DaprBindingName` and `ClaimStore__Kind`
+(or the `ArchiveStore` pair) onto the workload, the kind following the store's
+binding as a port's does. A store bound as `file` or `smb` gets the same mounts
+and pod wiring as a port bound that way. A store bound to a kind no file
+adapter speaks (`http`, `blob`) fails the render.
+
 ## External ports get a cursor store, not a binding
 
 A port the topology marks `external` is reached through the component's own

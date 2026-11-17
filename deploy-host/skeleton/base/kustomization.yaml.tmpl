@@ -10,7 +10,7 @@ kind: Kustomization
 # ports may share one adapter — and must stay empty when no port
 # selected any binding (a reference to an unrendered file breaks the build).
 {{- $kinds := dict -}}
-{{- range .topology.ports }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
 {{- $binding := dig "binding" "" . -}}
 {{- if $binding }}{{- $_ := set $kinds $binding true -}}{{- end }}
 {{- end }}

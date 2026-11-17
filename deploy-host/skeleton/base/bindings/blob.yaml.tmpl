@@ -21,7 +21,7 @@
 # for ordinary AWS S3. An S3-compatible store (MinIO, Garage, LocalStack)
 # instead needs endpoint, forcePathStyle "true", and usually disableSSL or
 # insecureSSL — the reviewer adds those per environment.
-{{- range .topology.ports }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
 {{- if eq (dig "binding" "" .) "blob" }}
 ---
 apiVersion: dapr.io/v1alpha1
@@ -29,7 +29,11 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
+{{- if hasKey . "role" }}
+    intropy.io/store: {{ .role }}
+{{- else }}
     intropy.io/port: {{ .name }}
+{{- end }}
 spec:
   type: bindings.aws.s3
   version: v1

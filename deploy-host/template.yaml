@@ -73,14 +73,14 @@ spec:
     # bindings, and a REPLACE-ME scaffold here would duplicate every Component
     # the fixtures render.
     - path: base/bindings/sftp.yaml.tmpl
-      when: '{{- $hit := "" -}}{{- range .topology.ports }}{{- if eq (dig "binding" "" .) "sftp" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
+      when: '{{- $hit := "" -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- if eq (dig "binding" "" .) "sftp" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
     - path: base/bindings/http.yaml.tmpl
-      when: '{{- $hit := "" -}}{{- range .topology.ports }}{{- if eq (dig "binding" "" .) "http" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
+      when: '{{- $hit := "" -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- if eq (dig "binding" "" .) "http" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
     - path: base/bindings/file.yaml.tmpl
-      when: '{{- $hit := "" -}}{{- range .topology.ports }}{{- if eq (dig "binding" "" .) "file" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
+      when: '{{- $hit := "" -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- if eq (dig "binding" "" .) "file" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
     - path: base/bindings/blob.yaml.tmpl
-      when: '{{- $hit := "" -}}{{- range .topology.ports }}{{- if eq (dig "binding" "" .) "blob" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
+      when: '{{- $hit := "" -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- if eq (dig "binding" "" .) "blob" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
     - path: base/bindings/azureblob.yaml.tmpl
-      when: '{{- $hit := "" -}}{{- range .topology.ports }}{{- if eq (dig "binding" "" .) "azureblob" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
+      when: '{{- $hit := "" -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- if eq (dig "binding" "" .) "azureblob" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
     - path: base/bindings/smb.yaml.tmpl
-      when: '{{- $hit := "" -}}{{- range .topology.ports }}{{- if eq (dig "binding" "" .) "smb" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'
+      when: '{{- $hit := "" -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- if eq (dig "binding" "" .) "smb" }}{{- $hit = "true" -}}{{- end }}{{- end }}{{- if and $hit (ne .env "local") }}true{{ end }}'

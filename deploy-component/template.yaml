@@ -158,13 +158,13 @@ spec:
     - path: overlays/local/kustomization.yaml.tmpl
       when: '{{ eq .env "local" }}'
     - path: overlays/local/fixtures/sftp.yaml.tmpl
-      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.ports }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "sftp" }}true{{- end }}{{- end }}'
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "sftp" }}true{{- end }}{{- end }}'
     - path: overlays/local/fixtures/http.yaml.tmpl
-      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.ports }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "http" }}true{{- end }}{{- end }}'
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "http" }}true{{- end }}{{- end }}'
     - path: overlays/local/fixtures/file.yaml.tmpl
-      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.ports }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "file" }}true{{- end }}{{- end }}'
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "file" }}true{{- end }}{{- end }}'
     - path: overlays/local/fixtures/blob.yaml.tmpl
-      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range .topology.ports }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "blob" }}true{{- end }}{{- end }}'
+      when: '{{- $recorded := dig "local" "bindings" dict . -}}{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}{{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}{{- if eq $binding "blob" }}true{{- end }}{{- end }}'
 
     # The generic environment overlay never renders for the local environment:
     # it and overlays/local/ would both land at overlays/local/, and the walk
