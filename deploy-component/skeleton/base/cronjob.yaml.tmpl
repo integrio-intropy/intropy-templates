@@ -95,6 +95,13 @@ spec:
                 - name: INTROPY_TOPIC_NAME
                   value: {{ $topic }}
 {{- end }}
+{{- range dig "cursorPorts" (list) .component }}
+                # Where the framework keeps this external port's read cursor
+                # between runs: the state store the topology minted for the
+                # component (base/cursor-store.yaml).
+                - name: Ports__{{ . }}__CursorStore
+                  value: {{ $.component.cursorStore }}
+{{- end }}
                 # The OTLP/gRPC collector: the local cluster's Tempo, or
                 # deploy.yaml platform.otelEndpoint, or a placeholder.
                 - name: OTEL_EXPORTER_OTLP_ENDPOINT

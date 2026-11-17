@@ -101,6 +101,13 @@ spec:
             - name: INTROPY_TOPIC_NAME
               value: {{ $topic }}
 {{- end }}
+{{- range dig "cursorPorts" (list) .component }}
+            # Where the framework keeps this external port's read cursor
+            # between runs: the state store the topology minted for the
+            # component (base/cursor-store.yaml).
+            - name: Ports__{{ . }}__CursorStore
+              value: {{ $.component.cursorStore }}
+{{- end }}
             # The OTLP/gRPC collector: the local cluster's Tempo, or
             # deploy.yaml platform.otelEndpoint, or a placeholder.
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -113,9 +120,11 @@ spec:
 {{- end }}
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: grpc
+{{- if ne $kind "gateway" }}
           # The callback server speaks HTTP/2 only, which an httpGet probe
           # (HTTP/1.1) cannot reach, so the probes check that the port accepts
-          # connections: ready once the app listens, restarted if it stops.
+          # connections: ready once the app listens, restarted if it stops. A
+          # gateway serves HTTP and has its own probes, above.
           readinessProbe:
             tcpSocket:
               port: 8080
@@ -125,6 +134,7 @@ spec:
               port: 8080
             initialDelaySeconds: 15
             periodSeconds: 20
+{{- end }}
           resources:
             requests:
               cpu: 50m

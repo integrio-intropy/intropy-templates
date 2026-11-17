@@ -22,7 +22,7 @@
 # instead needs endpoint, forcePathStyle "true", and usually disableSSL or
 # insecureSSL — the reviewer adds those per environment.
 {{- range .topology.ports }}
-{{- if eq .binding "blob" }}
+{{- if eq (dig "binding" "" .) "blob" }}
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Component

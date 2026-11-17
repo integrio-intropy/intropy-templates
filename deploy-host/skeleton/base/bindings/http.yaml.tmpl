@@ -11,7 +11,7 @@
 # placeholder for the reviewer. The name must not change: blocks resolve the
 # binding by the port name.
 {{- range .topology.ports }}
-{{- if eq .binding "http" }}
+{{- if eq (dig "binding" "" .) "http" }}
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Component

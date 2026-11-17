@@ -34,7 +34,8 @@ resources:
 # Each file port's adapter kind, which the component reads as Ports:<port>:Kind
 # and without which it refuses to start outside Development. It follows the
 # port's binding for this environment, so it lives in the overlay, not the base:
-# file → Local, sftp → Sftp. An http port is not a file port and gets none. No
+# file → Local, sftp → Sftp. An http port is not a file port and gets none, and
+# neither does an external port, which has no binding at all. No
 # framework file adapter speaks the blob binding (bindings.aws.s3) yet, so a
 # blob port fails the render rather than the first run.
 #

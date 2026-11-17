@@ -1,0 +1,100 @@
+# The smb adapter: one `bindings.smb` Component per port whose topology
+# binding selected `smb`, as a multi-document file. bindings.smb is the Intropy
+# SMB binding, a Dapr pluggable component for Windows file shares with
+# Kerberos; its operations and metadata follow the SFTP binding's.
+#
+# Multi-doc rather than a file each: kustomize reads it natively, and adding a
+# port stays a one-file diff. The topology mints only the port's name, label,
+# and scopes. Server, share and account are environment-owned GitOps
+# configuration, so create-only onboarding leaves explicit REPLACE-ME
+# placeholders for the reviewer. The name must not change: blocks resolve the
+# binding by the port name.
+#
+# A pluggable component runs as a container of its own in every pod that uses
+# it. The dapr.io/component-container annotation is that container: the
+# sidecar injector adds it to each pod that sets
+# dapr.io/inject-pluggable-components, which the component's environment
+# overlay does, together with the smb-binding-runtime volume mounted below.
+# --exit-when-idle lets the binding stop with the sidecar so a scheduled block's
+# Job can complete; a resident block's overlay turns it off for its pods.
+#
+# Secrets live in the platform-owned {{ .secretName }} Secret — the template
+# only declares the port-specific keys the platform must provide.
+{{- range .topology.ports }}
+{{- if eq (dig "binding" "" .) "smb" }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+  labels:
+    intropy.io/port: {{ .name }}
+  annotations:
+    dapr.io/component-container: >
+      {
+        "name": "smb-binding",
+        "image": "REPLACE-ME-SMB-BINDING-IMAGE",
+        "args": ["--health-port", "9464", "--exit-when-idle", "30s", "--exit-when-no-sidecar", "30s"],
+        "env": [
+          {
+            "name": "SMB_BINDING_EXIT_WHEN_IDLE",
+            "valueFrom": { "fieldRef": { "fieldPath": "metadata.annotations['smb-binding.intropy.io/exit-when-idle']" } }
+          }
+        ],
+        "volumeMounts": [
+          { "name": "smb-binding-runtime", "mountPath": "/tmp/dapr-smb-binding" }
+        ],
+        "livenessProbe": {
+          "httpGet": { "path": "/healthz", "port": 9464 },
+          "periodSeconds": 15,
+          "failureThreshold": 3
+        },
+        "resources": {
+          "requests": { "cpu": "20m", "memory": "64Mi" },
+          "limits": { "memory": "256Mi" }
+        },
+        "securityContext": {
+          "runAsNonRoot": true,
+          "allowPrivilegeEscalation": false,
+          "readOnlyRootFilesystem": true,
+          "capabilities": { "drop": ["ALL"] },
+          "seccompProfile": { "type": "RuntimeDefault" }
+        }
+      }
+spec:
+  type: bindings.smb
+  version: v1
+  metadata:
+    # The file server's FQDN as registered in the directory (Kerberos needs the
+    # real name, never an IP address).
+    - name: address
+      value: REPLACE-ME-SMB-SERVER-FQDN
+    - name: share
+      value: REPLACE-ME-SMB-SHARE
+    - name: rootPath
+      value: REPLACE-ME-SMB-ROOT-PATH
+    # The account as user@REALM.
+    - name: username
+      value: REPLACE-ME-SMB-USERNAME
+    # Password authentication is active; for a keytab, delete password and
+    # uncomment authMode and keytab. A secretKeyRef to a key the Secret lacks
+    # keeps the component from starting, so only the active one may be
+    # referenced.
+    - name: password
+      secretKeyRef:
+        name: {{ $.secretName }}
+        key: {{ .name }}-smb-password
+    # - name: authMode
+    #   value: kerberos-keytab
+    # - name: keytab
+    #   secretKeyRef:
+    #     name: {{ $.secretName }}
+    #     key: {{ .name }}-smb-keytab
+    - name: kdcs
+      value: REPLACE-ME-SMB-KDCS
+scopes:
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -14,7 +14,7 @@
 # rootPath on every pod that resolves this binding, or files land on the
 # ephemeral container filesystem and vanish with the pod.
 {{- range .topology.ports }}
-{{- if eq .binding "file" }}
+{{- if eq (dig "binding" "" .) "file" }}
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Component

@@ -146,6 +146,12 @@ spec:
     - path: base/subscription.yaml.tmpl
       when: '{{ or (eq .kind "loader") (eq (lower (replace "-" "" .kind)) "transactionalintegration") (hasKey .component "subscription") }}'
 
+    # The state store a component keeps its read cursors in: only for a
+    # component the topology minted one for, which is one that reads an
+    # external port.
+    - path: base/cursor-store.yaml.tmpl
+      when: '{{ dig "cursorStore" "" .component }}'
+
     # The local overlay is static rather than named by .env, so its files must
     # only render during the local pass. A fixture file exists only when one
     # port selected it; otherwise the kustomization must not reference it.
