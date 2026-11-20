@@ -331,11 +331,11 @@ that apply here are:
 
    ```bash
    intropy int create <name> -o /tmp/<name>-out \
-     -f <name>/examples/minimal.yaml --version main
+     -f <name>/examples/minimal.yaml --template-version main
    ```
 
-   Pass `--version main` while we don't have a release yet. Once releases
-   exist, the default `--version` resolves to the latest tag.
+   Pass `--template-version main` while we don't have a release yet. Once releases
+   exist, the default `--template-version` resolves to the latest tag.
 
 7. Inspect `/tmp/<name>-out/` and confirm the rendered output matches what
    you expected.
@@ -345,8 +345,8 @@ that apply here are:
 The CLI fetches templates by GitHub release tag:
 
 - `intropy int create <name> -o ./out` → uses the latest GitHub release.
-- `intropy int create <name> -o ./out --version v0.2.1` → uses that tag.
-- `intropy int create <name> -o ./out --version main` → uses the default
+- `intropy int create <name> -o ./out --template-version v0.2.1` → uses that tag.
+- `intropy int create <name> -o ./out --template-version main` → uses the default
   branch (works on any ref the GitHub tarball endpoint accepts).
 
 To ship a new template version, cut a GitHub release. There is no

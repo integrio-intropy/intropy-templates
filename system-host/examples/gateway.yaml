@@ -1,7 +1,7 @@
 # Render fixture: a gateway publishing to a loader, as `intropy sys create`
 # assembles it. The gateway's endpoint travels in `endpoints`, never in
 # `ports`.
-#   intropy int create system-host -o /tmp/system-host-gateway -f system-host/examples/gateway.yaml --version main --no-input
+#   intropy int create system-host -o /tmp/system-host-gateway -f system-host/examples/gateway.yaml --template-version main --no-input
 name: order-flow
 topics:
   - pubsub: order-flow-pubsub

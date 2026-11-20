@@ -1,7 +1,7 @@
 # Render fixture: a SQL source. The extractor reads the rows after its
 # watermark from a database instead of sweeping a folder; the port is
 # external (no Dapr binding), and the step bodies are empty.
-#   intropy int create extractor -o /tmp/extractor-sql -f extractor/examples/sql.yaml --version main --no-input
+#   intropy int create extractor -o /tmp/extractor-sql -f extractor/examples/sql.yaml --template-version main --no-input
 name: CampaignExtractor
 organization: Fluxia
 publishes: campaign-changed

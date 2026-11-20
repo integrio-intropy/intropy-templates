@@ -91,7 +91,7 @@ WHERE ChangeId > @watermark`.
 
 ```bash
 intropy int create extractor -o /tmp/extractor-out \
-  -f extractor/examples/minimal.yaml --version main --no-input
+  -f extractor/examples/minimal.yaml --template-version main --no-input
 ```
 
 See `examples/empty.yaml` for the empty-bodies fixture and

@@ -55,11 +55,11 @@ the template root is for the author, not the scaffolded project.
 
 ```bash
 intropy int create hello-world -o /tmp/hello-out \
-    -f hello-world/examples/minimal.yaml --version main
+    -f hello-world/examples/minimal.yaml --template-version main
 ```
 
-Pass `--version main` while there is no release yet. Once releases exist, the
-default `--version` resolves to the latest tag.
+Pass `--template-version main` while there is no release yet. Once releases exist, the
+default `--template-version` resolves to the latest tag.
 
 ## Conventions
 

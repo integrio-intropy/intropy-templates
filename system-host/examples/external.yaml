@@ -3,7 +3,7 @@
 # bindings. Each port carries kind: external; it renders
 # PortRef.DefineExternal, no Files(...) resolution, and a commented
 # Settings(...) line in the development definition.
-#   intropy int create system-host -o /tmp/system-host-external -f system-host/examples/external.yaml --version main --no-input
+#   intropy int create system-host -o /tmp/system-host-external -f system-host/examples/external.yaml --template-version main --no-input
 name: campaign-sync
 topics:
   - pubsub: pubsub

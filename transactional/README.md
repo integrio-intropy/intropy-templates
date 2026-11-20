@@ -99,7 +99,7 @@ The Dockerfile builds with the system folder as its context
 
 ```bash
 intropy int create transactional -o /tmp/transactional-out \
-  -f transactional/examples/full.yaml --version main --no-input
+  -f transactional/examples/full.yaml --template-version main --no-input
 ```
 
 See `examples/empty.yaml` for the empty-bodies fixture and `examples/sql.yaml`

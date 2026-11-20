@@ -1,6 +1,6 @@
 # Render fixture: empty bodies (steps throw NotImplementedException, no
 # idempotency/business-incident wiring) — the migration-agent starting point.
-#   intropy int create transactional -o /tmp/tx-empty -f transactional/examples/empty.yaml --version main --no-input
+#   intropy int create transactional -o /tmp/tx-empty -f transactional/examples/empty.yaml --template-version main --no-input
 name: OrderSync
 organization: Fluxia
 empty: true

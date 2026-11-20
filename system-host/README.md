@@ -95,7 +95,7 @@ components — for an empty render that error is correct behavior.
 
 ```bash
 intropy int create system-host -o /tmp/system-host-out \
-  -f system-host/examples/minimal.yaml --version main --no-input
+  -f system-host/examples/minimal.yaml --template-version main --no-input
 ```
 
 `examples/empty.yaml` covers the empty-system render. Building a render

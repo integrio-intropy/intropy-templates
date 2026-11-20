@@ -1,5 +1,5 @@
 # Render fixture: scalar message-first extractor.
-#   intropy int create extractor -o /tmp/extractor-msg -f extractor/examples/publishes.yaml --version main --no-input
+#   intropy int create extractor -o /tmp/extractor-msg -f extractor/examples/publishes.yaml --template-version main --no-input
 name: ProductExporter
 organization: Fluxia
 publishes: product-exported
