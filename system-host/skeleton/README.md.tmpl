@@ -1,3 +1,11 @@
+{{- /* `task seed` exists only when the system has a folder port to seed (see
+Taskfile.yml); a system whose ports are all external has none. */ -}}
+{{- $seed := eq (len .ports) 0 -}}
+{{- range .ports -}}
+{{- if ne (get . "kind") "external" -}}
+{{- $seed = true -}}
+{{- end -}}
+{{- end -}}
 # {{ .name }} SystemHost
 
 The Aspire host of the `{{ .name }}` Intropy integration system. One class —
@@ -11,8 +19,8 @@ task run        # the whole system under the Aspire dashboard; Ctrl+C to stop
 ```
 
 Extractors and transactional integrations are run-to-completion jobs: a host
-run executes each one once at startup, so seed inbound folders before
-starting — seeding into a live system needs a host restart to be picked up.
+run executes each one once at startup{{ if $seed }}, so seed inbound folders before
+starting — seeding into a live system needs a host restart to be picked up{{ end }}.
 Activation cadence lives in deployment configuration, not in the topology: in
 production the schedule is a Kubernetes CronJob in the GitOps repo. Loaders
 are long-running services and stay up for the whole host run.
@@ -20,13 +28,17 @@ are long-running services and stay up for the whole host run.
 ## Trigger a component
 
 ```bash
+{{- if $seed }}
 task seed       # drop the sample order into the port folder (run-to-completion components sweep it)
+{{- end }}
 task publish    # publish the sample order to the topic through a running sidecar
 ```
 
+{{ if $seed -}}
 `task seed PORT_DIR=./test/<port>` targets the folder the port
 resolves to in the development definition (conventionally `test/<port-name>`);
-the default targets the first declared extractor's port folder. `task publish` takes overrides for
+the default targets the first declared extractor's port folder. {{ end -}}
+`task publish` takes overrides for
 the publishing component (`PUBLISH_APP_ID`) and the topic (`TOPIC`) — the dapr
 CLI resolves the sidecar from the app-id.
 
@@ -59,8 +71,8 @@ and port file resolutions) to the graph document.
 - `Services.cs` — the platform services the blocks call via `.Calls(...)`
 - `mocks/` — the OpenAPI documents backing the local service mocks
 - `sample-data/sample-order-status-0.json` and
-  `sample-data/sample-order-status-1.json` — the sample orders used by
-  `task seed`; `task publish` publishes the status-0 sample
+  `sample-data/sample-order-status-1.json` — the sample orders{{ if $seed }} used by
+  `task seed`;{{ else }};{{ end }} `task publish` publishes the status-0 sample
 {{- if hasKey . "sharedContracts" }}
 - `{{ .sharedContracts.name }}/` — the contract records the messages carry
   (referenced from the csproj as rendered: `{{ .sharedContracts.include }}`)

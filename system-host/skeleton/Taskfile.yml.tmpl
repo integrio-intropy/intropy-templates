@@ -3,11 +3,15 @@ extractors sweep their source folder once at host start, so that folder is
 the one to seed before `task run`. An external port has no folder to seed.
 Other components' folders stay reachable via the PORT_DIR override. A system
 without a folder-reading extractor gets a placeholder default; PORT_DIR is
-required there. */ -}}
+required there. A system whose ports are all external has no folder at all,
+so it gets no seed task. */ -}}
+{{- $seed := eq (len .ports) 0 -}}
 {{- $external := dict -}}
 {{- range .ports -}}
 {{- if eq (get . "kind") "external" -}}
 {{- $_ := set $external .name true -}}
+{{- else -}}
+{{- $seed = true -}}
 {{- end -}}
 {{- end -}}
 {{- $seedPort := "<port>" -}}
@@ -66,6 +70,7 @@ tasks:
       - dotnet run
 
   # ── Trigger a run ─────────────────────────────────────────────────
+{{- if $seed }}
   seed:
     desc: Drop both sample orders into a port folder (run-to-completion components sweep them at host start)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
@@ -77,6 +82,7 @@ tasks:
       - mkdir -p {{ "{{" }}.PORT_DIR}}
       - cp ./sample-data/sample-order-status-0.json ./sample-data/sample-order-status-1.json {{ "{{" }}.PORT_DIR}}/
       - echo "Seeded {{ "{{" }}.PORT_DIR}} with sample-order-status-0.json and sample-order-status-1.json"
+{{- end }}
 
   publish:
     desc: Publish the sample order to a topic via a component's sidecar (needs the host running)

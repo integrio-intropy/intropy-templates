@@ -34,6 +34,8 @@ declaration — an Aspire run backend and a generation backend.
   deployment configuration the topology deliberately does not repeat. Local
   runs resolve the port through the development definition instead.
 {{- $hasExternal := false }}{{- range .ports }}{{- if eq (get . "kind") "external" }}{{- $hasExternal = true }}{{- end }}{{- end }}
+{{- /* `task seed` exists only when a folder port exists (or none is declared yet). */}}
+{{- $seed := eq (len .ports) 0 }}{{- range .ports }}{{- if ne (get . "kind") "external" }}{{- $seed = true }}{{- end }}{{- end }}
 {{- if $hasExternal }}
   An external port (`PortRef.DefineExternal`) has no binding: its component
   reaches the system through a client of its own, and a component that reads
@@ -55,7 +57,7 @@ declaration — an Aspire run backend and a generation backend.
 {{- end }} and
   `Rerun("<component>").AfterEachRun(...)` re-runs a declared run-to-completion
   component (extractor or transactional integration) on an interval
-  during local runs so a later seed is picked up without a host restart.
+  during local runs so {{ if $seed }}a later seed{{ else }}new source data{{ end }} is picked up without a host restart.
 - `Services.cs` — the platform services as refs (`ServiceRef`), declared as static
   fields; blocks attach them in `Define()` via `.Calls(...)`.
 - `mocks/` — the OpenAPI 3.0.x documents backing the platform-service mocks,
@@ -94,6 +96,7 @@ to `./out`), `task build`.
 Components never run standalone — this host is the only run path, and triggers
 originate here too:
 
+{{ if $seed -}}
 - **Extractors**: an extractor runs once when the host starts, so seed before
   `task run`: `task seed` drops both status samples
   (`sample-data/sample-order-status-0.json` and
@@ -114,6 +117,15 @@ originate here too:
   internal pub/sub hop (the receive side publishes for the send side to
   process) is component-owned and invisible to the topology — the host
   declares only the two ports.
+{{- else -}}
+- **Extractors and transactional integrations**: run-to-completion — each one
+  reads its external source once when the host starts, with the local values
+  `Settings(...).Set(...)` gives the port in the development definition. In
+  development the rerun declared there re-runs every run-to-completion
+  component every 30 seconds, so new source data is picked up without a host
+  restart. Every port is external, so there is no folder to seed and no
+  `task seed`.
+{{- end }}
 - **Loaders**: `task publish` publishes the sample order to the topic through
   a running component's sidecar (override `PUBLISH_APP_ID` and `TOPIC`; the
   dapr CLI resolves the sidecar from the app-id).
