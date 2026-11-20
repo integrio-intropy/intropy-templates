@@ -1,0 +1,38 @@
+# The cursor store: the Dapr state store this component keeps its read cursors
+# in, one record per external port it reads. The topology mints the name
+# (<component>-cursors) and the workload passes it to the framework as
+# Ports__<port>__CursorStore. Scoped to the component, its only reader and
+# writer: the framework keys each record by component and port.
+#
+# The framework saves a cursor first-write-wins and reads it back with strong
+# consistency, so the store must support ETags.
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .component.cursorStore }}
+spec:
+{{- if eq .env "local" }}
+  # The local development cluster's Postgres, which the k3s setup installs with
+  # a dapr_state database. The address and credentials are the fixture
+  # contract (see deploy-component/README.md), inline because there is nothing
+  # to keep secret locally.
+  type: state.postgresql
+  version: v2
+  metadata:
+    - name: connectionString
+      value: host=postgres.fixtures.svc.cluster.local port=5432 user=postgres password=password database=dapr_state
+{{- else }}
+  # Which state store an environment runs is deployment configuration: replace
+  # the type and metadata with the one the platform provides. The connection
+  # string lives in the platform-owned {{ .system }}-secrets Secret; the
+  # template only declares the key the platform must provide.
+  type: state.postgresql
+  version: v2
+  metadata:
+    - name: connectionString
+      secretKeyRef:
+        name: {{ .system }}-secrets
+        key: cursor-store-connection
+{{- end }}
+scopes:
+  - {{ .appId }}

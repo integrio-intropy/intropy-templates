@@ -52,11 +52,60 @@ A component chooses the file adapter behind each port from `Ports:<port>:Kind`
 and refuses to start without it outside Development. Every overlay, local
 included, patches one `Ports__<port>__Kind` variable onto the workload for each
 port whose scopes list the component's app-id: `file` renders `Local`, `sftp`
-renders `Sftp`, and an `http` port is not a file port, so it gets none. It lives
-in the overlays, not the base, because a port's binding may differ per
-environment. No framework file adapter speaks the `blob` binding
-(`bindings.aws.s3`) yet, so a blob port fails the render instead of the
-component's first run.
+renders `Sftp`, `azureblob` renders `AzureBlob`, and `smb` renders `Smb`. An
+`http` port is not a file port, so it gets none. It lives in the overlays, not
+the base, because a port's binding may differ per environment. No framework
+file adapter speaks the `blob` binding (`bindings.aws.s3`), so a blob port
+fails the render instead of the component's first run.
+
+## A component using an smb port runs the SMB binding next to it
+
+The SMB binding is a pluggable component: a container of its own in the pod. An
+environment overlay whose component uses an `smb` port therefore also patches
+the workload:
+
+- `dapr.io/inject-pluggable-components: "true"`, so the sidecar injector adds
+  the container the binding's Component declares (see deploy-host), and the
+  memory-backed `smb-binding-runtime` volume it keeps its Kerberos files on.
+- On a Deployment, `smb-binding.intropy.io/exit-when-idle: "off"`: the binding
+  stops by itself when its sidecar is gone, which is right for a Job and wrong
+  for a pod whose sidecar may restart.
+- On a CronJob, `restartPolicy: OnFailure` with `backoffLimit: 5`, and
+  `INTROPY_JOB_SIDECAR_SHUTDOWN=OnSuccess`. daprd looks for the binding's socket
+  once, usually before the binding listens, and exits; it has to be restarted in
+  the same pod. That only works when a failed run leaves the sidecar running: a
+  sidecar that was shut down exits 0 and is not restarted, and the retried run
+  would wait for it until the Job fails.
+
+The local overlay has no SMB fixture: `smb` is a GitOps binding kind only.
+
+## A component gets the system stores it uses
+
+A component that declares a claim check or an archive uses a store the topology
+minted for the system (see deploy-host, which renders its binding). The
+framework reads a store from its own configuration section, so every overlay,
+local included, patches `ClaimStore__DaprBindingName` and `ClaimStore__Kind`
+(or the `ArchiveStore` pair) onto the workload, the kind following the store's
+binding as a port's does. A store bound as `file` or `smb` gets the same mounts
+and pod wiring as a port bound that way. A store bound to a kind no file
+adapter speaks (`http`, `blob`) fails the render.
+
+## External ports get a cursor store, not a binding
+
+A port the topology marks `external` is reached through the component's own
+client, so it has no binding and no adapter kind. A component that reads one
+keeps a cursor between runs, in a Dapr state store the topology mints for it
+(`<component>-cursors`). For such a component the base renders
+`cursor-store.yaml`, a state store scoped to the component's app-id, and the
+workload gets one `Ports__<port>__CursorStore` variable per external port it
+reads, naming that store.
+
+The local render points the store at the local cluster's Postgres
+(`postgres.fixtures.svc.cluster.local`, database `dapr_state`). A GitOps render
+writes a `state.postgresql` Component whose connection string comes from the
+`cursor-store-connection` key of the system's Secret: replace the type and
+metadata with the state store the environment runs. The framework saves cursors
+first-write-wins, so the store must support ETags.
 
 ## Loaders and transactional integrations get a redelivery policy
 

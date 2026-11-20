@@ -12,7 +12,7 @@
 # whose app-id is first in the port's scopes emits it — scopes still
 # list every app-id that may use it.
 {{- $recorded := dig "local" "bindings" dict . -}}
-{{- range .topology.ports }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
 {{- $conn := . }}
 {{- $b := dig "binding" "" . -}}
 {{- if and (or (eq $b "http") (and (not $b) (eq (index $recorded .name) "http"))) (eq $.component.appId (index $conn.appIds 0)) }}
@@ -22,7 +22,11 @@ kind: Component
 metadata:
   name: {{ .name }}
   labels:
+{{- if hasKey . "role" }}
+    intropy.io/store: {{ .role }}
+{{- else }}
     intropy.io/port: {{ .name }}
+{{- end }}
 spec:
   type: bindings.http
   version: v1

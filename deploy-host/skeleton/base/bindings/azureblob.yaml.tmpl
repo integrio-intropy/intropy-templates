@@ -1,0 +1,47 @@
+# The azureblob adapter: one Dapr `bindings.azure.blobstorage` Component per
+# port whose topology binding selected `azureblob`, as a multi-document file.
+# Metadata contract per dapr/components-contrib
+# bindings/azure/blobstorage/metadata.yaml.
+#
+# Multi-doc rather than a file each: kustomize reads it natively, and adding a
+# port stays a one-file diff. The topology mints only the port's name, label,
+# and scopes. Account and container are environment-owned GitOps
+# configuration, so create-only onboarding leaves explicit REPLACE-ME
+# placeholders for the reviewer. The name must not change: blocks resolve the
+# binding by the port name.
+#
+# The account key lives in the platform-owned {{ .secretName }} Secret — the
+# template only declares the port-specific key the platform must provide. With
+# a workload identity that may read the account, delete accountKey: the binding
+# then authenticates with the pod's identity.
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
+{{- if eq (dig "binding" "" .) "azureblob" }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .name }}
+  labels:
+{{- if hasKey . "role" }}
+    intropy.io/store: {{ .role }}
+{{- else }}
+    intropy.io/port: {{ .name }}
+{{- end }}
+spec:
+  type: bindings.azure.blobstorage
+  version: v1
+  metadata:
+    - name: accountName
+      value: REPLACE-ME-STORAGE-ACCOUNT
+    - name: containerName
+      value: REPLACE-ME-CONTAINER
+    - name: accountKey
+      secretKeyRef:
+        name: {{ $.secretName }}
+        key: {{ .name }}-blob-account-key
+scopes:
+{{- range .appIds }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -10,8 +10,9 @@ kind: Kustomization
 # ports may share one adapter — and must stay empty when no port
 # selected any binding (a reference to an unrendered file breaks the build).
 {{- $kinds := dict -}}
-{{- range .topology.ports }}
-{{- if .binding }}{{- $_ := set $kinds .binding true -}}{{- end }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
+{{- $binding := dig "binding" "" . -}}
+{{- if $binding }}{{- $_ := set $kinds $binding true -}}{{- end }}
 {{- end }}
 resources:
   - dapr/pubsub-{{ .pubsub }}.yaml
@@ -26,4 +27,10 @@ resources:
 {{- end }}
 {{- if and (hasKey $kinds "blob") (ne .env "local") }}
   - bindings/blob.yaml
+{{- end }}
+{{- if and (hasKey $kinds "azureblob") (ne .env "local") }}
+  - bindings/azureblob.yaml
+{{- end }}
+{{- if and (hasKey $kinds "smb") (ne .env "local") }}
+  - bindings/smb.yaml
 {{- end }}

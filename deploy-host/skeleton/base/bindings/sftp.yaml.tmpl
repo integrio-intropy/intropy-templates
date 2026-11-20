@@ -18,15 +18,19 @@
 #
 # Authentication is either password or private-key, not both (the binding's
 # two authentication profiles). The reviewer deletes the profile not in use.
-{{- range .topology.ports }}
-{{- if eq .binding "sftp" }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
+{{- if eq (dig "binding" "" .) "sftp" }}
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
   name: {{ .name }}
   labels:
+{{- if hasKey . "role" }}
+    intropy.io/store: {{ .role }}
+{{- else }}
     intropy.io/port: {{ .name }}
+{{- end }}
 spec:
   type: bindings.sftp
   version: v1

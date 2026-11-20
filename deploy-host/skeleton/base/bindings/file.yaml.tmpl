@@ -13,15 +13,19 @@
 # deployment must mount suitable storage (a PVC, a hostPath, an NFS share) at
 # rootPath on every pod that resolves this binding, or files land on the
 # ephemeral container filesystem and vanish with the pod.
-{{- range .topology.ports }}
-{{- if eq .binding "file" }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
+{{- if eq (dig "binding" "" .) "file" }}
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
   name: {{ .name }}
   labels:
+{{- if hasKey . "role" }}
+    intropy.io/store: {{ .role }}
+{{- else }}
     intropy.io/port: {{ .name }}
+{{- end }}
 spec:
   type: bindings.localstorage
   version: v1
@@ -45,7 +49,11 @@ kind: PersistentVolumeClaim
 metadata:
   name: {{ .name }}-file
   labels:
+{{- if hasKey . "role" }}
+    intropy.io/store: {{ .role }}
+{{- else }}
     intropy.io/port: {{ .name }}
+{{- end }}
 spec:
   storageClassName: REPLACE-ME-STORAGE-CLASS
   accessModes:

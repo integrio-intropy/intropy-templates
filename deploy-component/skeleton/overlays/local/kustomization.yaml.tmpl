@@ -12,7 +12,7 @@ kind: Kustomization
 # tag; pinned in the README) to local/<name>:dev.
 {{- $recorded := dig "local" "bindings" dict . -}}
 {{- $fixtures := dict -}}
-{{- range .topology.ports }}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
 {{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}
 {{- if $binding }}{{- $_ := set $fixtures $binding true -}}{{- end }}
 {{- end }}
@@ -34,7 +34,8 @@ resources:
 # Each file port's adapter kind, which the component reads as Ports:<port>:Kind
 # and without which it refuses to start outside Development. It follows the
 # port's binding for this environment, so it lives in the overlay, not the base:
-# file → Local, sftp → Sftp. An http port is not a file port and gets none. No
+# file → Local, sftp → Sftp. An http port is not a file port and gets none, and
+# neither does an external port, which has no binding at all. No
 # framework file adapter speaks the blob binding (bindings.aws.s3) yet, so a
 # blob port fails the render rather than the first run.
 #
@@ -45,16 +46,24 @@ resources:
 {{- $appId := dig "component" "appId" "" . -}}
 {{- $kinds := dict -}}
 {{- $filePorts := list -}}
-{{- range .topology.ports }}
+{{- $stores := dict -}}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
 {{- if has $appId (dig "appIds" (list) .) }}
 {{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}
 {{- if eq $binding "blob" }}{{ fail (printf "port %s is bound to blob, which no framework file adapter supports yet" .name) }}{{ end }}
 {{- $kind := get (dict "file" "Local" "sftp" "Sftp") $binding -}}
-{{- if $kind }}{{- $_ := set $kinds .name $kind -}}{{- end }}
+{{- if hasKey . "role" }}
+{{- /* A system store: the framework reads its adapter from the ClaimStore or
+     ArchiveStore section, which takes the binding's name and its kind. */ -}}
+{{- if not $kind }}{{ fail (printf "store %s is bound to %q, which no framework file adapter supports; use the file or sftp fixture" .name $binding) }}{{ end }}
+{{- $section := ternary "ClaimStore" "ArchiveStore" (eq .role "claim") -}}
+{{- $_ := set $stores (printf "%s__DaprBindingName" $section) .name -}}
+{{- $_ := set $stores (printf "%s__Kind" $section) $kind -}}
+{{- else if $kind }}{{- $_ := set $kinds .name $kind -}}{{- end }}
 {{- if eq $binding "file" }}{{- $filePorts = append $filePorts .name -}}{{- end }}
 {{- end }}
 {{- end }}
-{{- if $kinds }}
+{{- if or $kinds $stores }}
 {{- $pod := ternary "/spec/jobTemplate/spec/template" "/spec/template" (eq .workload "cronjob") }}
 {{- $env := printf "%s/spec/containers/0/env/-" $pod }}
 patches:
@@ -68,6 +77,13 @@ patches:
         value:
           name: Ports__{{ $port }}__Kind
           value: {{ get $kinds $port }}
+{{- end }}
+{{- range $name := keys $stores | sortAlpha }}
+      - op: add
+        path: {{ $env }}
+        value:
+          name: {{ $name }}
+          value: {{ get $stores $name }}
 {{- end }}
 {{- if $filePorts }}
 {{- $mounts := list }}

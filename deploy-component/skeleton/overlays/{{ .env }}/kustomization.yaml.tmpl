@@ -12,36 +12,67 @@ namespace: {{ default "integration" (dig "gitops" "namespace" "" .) }}
 resources:
   - ../../base
 
+# A system store the component uses (the claim store, the archive store) is
+# bound like a port, but the framework reads it from its own section: the
+# workload gets ClaimStore__DaprBindingName and ClaimStore__Kind, or the
+# ArchiveStore pair, and a file or smb store gets the same mounts and pod
+# wiring as a port bound that way.
+#
 # Each file port's adapter kind, which the component reads as Ports:<port>:Kind
 # and without which it refuses to start outside Development. It follows the
 # port's binding for this environment, so it lives in the overlay, not the base:
-# file → Local, sftp → Sftp. An http port is not a file port and gets none. No
-# framework file adapter speaks the blob binding (bindings.aws.s3) yet, so a
-# blob port fails the render rather than the first run.
+# file → Local, sftp → Sftp, azureblob → AzureBlob, smb → Smb. An http port is
+# not a file port and gets none, and neither does an external port, which has
+# no binding at all. No framework file adapter speaks the blob binding
+# (bindings.aws.s3), so a blob port fails the render rather than the first run.
 #
 # A file port's directory lives on its claim, <port>-file (deploy-host renders
 # it next to the binding), mounted into this component's sidecar at
 # /data/<port>: the localstorage binding runs in daprd, whose own filesystem is
 # read-only.
+#
+# An smb port's binding is a pluggable component: a container of its own, which
+# the sidecar injector adds to this pod because of the annotation below, and
+# which keeps its krb5.conf and keytab on the memory-backed
+# smb-binding-runtime volume. daprd looks for the binding's socket once, usually
+# before the binding listens, and exits; it must be restarted in the same pod,
+# where the binding is ready by then. A Deployment does that anyway. A CronJob
+# needs restartPolicy OnFailure for it, with retries to spend, and a component
+# that leaves the sidecar running when a run fails
+# (INTROPY_JOB_SIDECAR_SHUTDOWN=OnSuccess): a sidecar that was shut down exits
+# 0, is not restarted, and the retried run would wait for it forever. The
+# binding stops by itself once the sidecar is gone, so the Job completes; a
+# Deployment's pods turn that off, since there a sidecar restart is routine.
 {{- $recorded := dig "local" "bindings" dict . -}}
 {{- $appId := dig "component" "appId" "" . -}}
 {{- $kinds := dict -}}
 {{- $filePorts := list -}}
-{{- range .topology.ports }}
+{{- $smb := false -}}
+{{- $stores := dict -}}
+{{- range (concat .topology.ports (dig "stores" (list) .topology)) }}
 {{- if has $appId (dig "appIds" (list) .) }}
 {{- $binding := default (get $recorded .name) (dig "binding" "" .) -}}
-{{- if eq $binding "blob" }}{{ fail (printf "port %s is bound to blob, which no framework file adapter supports yet" .name) }}{{ end }}
-{{- $kind := get (dict "file" "Local" "sftp" "Sftp") $binding -}}
-{{- if $kind }}{{- $_ := set $kinds .name $kind -}}{{- end }}
+{{- if eq $binding "blob" }}{{ fail (printf "port %s is bound to blob, which no framework file adapter supports; bind an Azure Blob Storage container as azureblob" .name) }}{{ end }}
+{{- $kind := get (dict "file" "Local" "sftp" "Sftp" "azureblob" "AzureBlob" "smb" "Smb") $binding -}}
+{{- if hasKey . "role" }}
+{{- /* A system store: the framework reads its adapter from the ClaimStore or
+     ArchiveStore section, which takes the binding's name and its kind. */ -}}
+{{- if not $kind }}{{ fail (printf "store %s is bound to %q, which no framework file adapter supports; bind it as file, sftp, azureblob or smb" .name $binding) }}{{ end }}
+{{- $section := ternary "ClaimStore" "ArchiveStore" (eq .role "claim") -}}
+{{- $_ := set $stores (printf "%s__DaprBindingName" $section) .name -}}
+{{- $_ := set $stores (printf "%s__Kind" $section) $kind -}}
+{{- else if $kind }}{{- $_ := set $kinds .name $kind -}}{{- end }}
 {{- if eq $binding "file" }}{{- $filePorts = append $filePorts .name -}}{{- end }}
+{{- if eq $binding "smb" }}{{- $smb = true -}}{{- end }}
 {{- end }}
 {{- end }}
-{{- if $kinds }}
-{{- $pod := ternary "/spec/jobTemplate/spec/template" "/spec/template" (eq .workload "cronjob") }}
+{{- if or $kinds $stores }}
+{{- $cronjob := eq .workload "cronjob" }}
+{{- $pod := ternary "/spec/jobTemplate/spec/template" "/spec/template" $cronjob }}
 {{- $env := printf "%s/spec/containers/0/env/-" $pod }}
 patches:
   - target:
-      kind: {{ ternary "CronJob" "Deployment" (eq .workload "cronjob") }}
+      kind: {{ ternary "CronJob" "Deployment" $cronjob }}
       name: {{ .name }}
     patch: |-
 {{- range $port := keys $kinds | sortAlpha }}
@@ -51,12 +82,43 @@ patches:
           name: Ports__{{ $port }}__Kind
           value: {{ get $kinds $port }}
 {{- end }}
+{{- range $name := keys $stores | sortAlpha }}
+      - op: add
+        path: {{ $env }}
+        value:
+          name: {{ $name }}
+          value: {{ get $stores $name }}
+{{- end }}
+{{- if $smb }}
+      - op: add
+        path: {{ $pod }}/metadata/annotations/dapr.io~1inject-pluggable-components
+        value: "true"
+{{- if $cronjob }}
+      - op: add
+        path: {{ $env }}
+        value:
+          name: INTROPY_JOB_SIDECAR_SHUTDOWN
+          value: OnSuccess
+      - op: replace
+        path: {{ $pod }}/spec/restartPolicy
+        value: OnFailure
+      - op: replace
+        path: /spec/jobTemplate/spec/backoffLimit
+        value: 5
+{{- else }}
+      - op: add
+        path: {{ $pod }}/metadata/annotations/smb-binding.intropy.io~1exit-when-idle
+        value: "off"
+{{- end }}
+{{- end }}
 {{- if $filePorts }}
 {{- $mounts := list }}
 {{- range $port := $filePorts | sortAlpha }}{{- $mounts = append $mounts (printf "%s-file:/data/%s" $port $port) -}}{{- end }}
       - op: add
         path: {{ $pod }}/metadata/annotations/dapr.io~1volume-mounts-rw
         value: {{ join "," $mounts | quote }}
+{{- end }}
+{{- if or $filePorts $smb }}
       - op: add
         path: {{ $pod }}/spec/volumes
         value:
@@ -64,6 +126,12 @@ patches:
           - name: {{ $port }}-file
             persistentVolumeClaim:
               claimName: {{ $port }}-file
+{{- end }}
+{{- if $smb }}
+          - name: smb-binding-runtime
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Mi
 {{- end }}
 {{- end }}
 {{- end }}

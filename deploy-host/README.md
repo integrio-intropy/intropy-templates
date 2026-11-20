@@ -116,6 +116,8 @@ local side renders dev-valued fixtures.
 | `http` | `bindings.http` | `url` |
 | `file` | `bindings.localstorage` | `rootPath` |
 | `blob` | `bindings.aws.s3` | `bucket`, `region`, `accessKey`, `secretKey` |
+| `azureblob` | `bindings.azure.blobstorage` | `accountName`, `containerName`, `accountKey` |
+| `smb` | `bindings.smb` | `address`, `share`, `rootPath`, `username`, `password` or `keytab`, `kdcs` |
 
 The catalog names do not all match the Dapr type: there is no
 `bindings.file` (the file adapter is `bindings.localstorage`) and no
@@ -129,6 +131,25 @@ renders a commented `Authorization` header from the Secret for an API that
 needs one. The blob adapter declares no
 `endpoint`: it is optional, and setting one is wrong for ordinary AWS S3 —
 an S3-compatible store is the reviewer's per-environment addition.
+
+The smb adapter is the Intropy SMB binding, a Dapr pluggable component: it
+runs as a container of its own in every pod that uses the port. Its Component
+carries that container in the `dapr.io/component-container` annotation, with
+`REPLACE-ME-SMB-BINDING-IMAGE` for the image the platform publishes, and
+deploy-component makes each pod using the port ask the sidecar injector for it.
+
+An external port (one the component reaches through a client of its own) has
+no binding, so no adapter file renders for it and it takes no kind.
+
+### System stores
+
+The system's claim store and archive store (`.topology.stores`) are not ports,
+but each becomes one binding Component, so the adapter files render them with
+the ports: `--binding <store>=<kind>` selects the kind, the Component is named
+after the store and scoped to the components that use it, and it carries the
+label `intropy.io/store: claim` or `archive` instead of `intropy.io/port`. The
+Secret keys follow the same pattern with the store's name in place of the
+port's.
 
 ### The Secret contract
 
@@ -146,6 +167,9 @@ the port-specific keys the platform must provide:
 | `<port>-http-authorization` | `http` (only when its `Authorization` header is uncommented) |
 | `<port>-s3-access-key` | `blob` |
 | `<port>-s3-secret-key` | `blob` |
+| `<port>-blob-account-key` | `azureblob` (delete the entry to use the pod's workload identity) |
+| `<port>-smb-password` | `smb` (password authentication) |
+| `<port>-smb-keytab` | `smb` (keytab authentication) |
 
 Endpoints (`address`, `url`, `bucket`, `region`, `rootPath`) remain
 `REPLACE-ME` values for the reviewer; credentials never render as values.
