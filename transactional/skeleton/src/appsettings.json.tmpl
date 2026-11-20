@@ -4,11 +4,26 @@
       "Default": "Information",
       "Microsoft": "Warning"
     }
-  }{{- if not .empty }},
+  }
+{{- if eq .source "sql" }},
+
+  "Ports": {
+    "{{ .fromPort }}": {
+      "Kind": "Sql",
+      "InitialWatermark": "int:0"
+    }
+  }
+{{- end }}
+{{- if not .empty }},
 
   "PlatformServices": {
     "IdempotencyServiceAppId": "{{ .idempotencyAppId }}",
     "BusinessIncidentServiceAppId": "{{ .businessIncidentsAppId }}"
+  }
+{{- else if eq .source "sql" }},
+
+  "PlatformServices": {
+    "IdempotencyServiceAppId": "{{ .idempotencyAppId }}"
   }
 {{- end }}
 }

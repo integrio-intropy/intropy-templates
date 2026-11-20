@@ -3,6 +3,8 @@ using {{ .name }}.Model;
 {{- if not .empty }}
 using Intropy.Contracts.BusinessIncidentService;
 using Intropy.Contracts.IdempotencyService;
+{{- else if eq .source "sql" }}
+using Intropy.Contracts.IdempotencyService;
 {{- end }}
 using Intropy.Framework.Adapters.File;
 using Intropy.Framework.Blocks.Shared;
@@ -12,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace {{ .name }}.Send;
 
 /// <summary>
-/// The send route of the <see cref="Constants.SourcePort"/> files: the send pipeline each of
+/// The send route of the <see cref="Constants.SourcePort"/> {{ if eq .source "sql" }}reads{{ else }}files{{ end }}: the send pipeline each of
 /// their messages goes through. The framework builds it in each message's own scope, so every
 /// external dependency resolves from the provider and a test swaps any of them by swapping its
 /// registration.
@@ -43,6 +45,19 @@ public static class SendRoute
                 incidentClient,
                 messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId, "unknown"),
                 subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId, "unknown"));
+{{- else if eq .source "sql" }}
+        var idempotencyClient = provider.GetRequiredService<IIdempotencyServiceClient>();
+
+        return builder
+            .WithDeserializer(new Deserializer())
+            // The SQL source keys each read by the watermark range it covers, so a range
+            // read again after a failed run is cancelled as a duplicate.
+            .WithSourceIdempotency(idempotencyClient)
+            .WithExtractor(new Extractor())
+            .WithValidator(new Validator())
+            .WithTransformer(new Transformer())
+            .WithSerializer(new Serializer())
+            .WithSender(new Sender(destinationAdapter));
 {{- else }}
 
         return builder

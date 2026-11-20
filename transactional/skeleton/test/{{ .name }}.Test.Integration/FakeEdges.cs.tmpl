@@ -2,17 +2,32 @@ using {{ .name }}.Configuration;
 using {{ .name }}.Model;
 using {{ .name }}.Send;
 using Intropy.Framework.Adapters.File;
+{{- if eq .source "sql" }}
+using Intropy.Framework.Adapters.Sql;
+{{- end }}
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
 using Intropy.Framework.Blocks.TransactionalIntegration.Send;
 using Intropy.Framework.Core.Configuration;
+{{- if eq .source "sql" }}
+using Intropy.Framework.Hosting.StatefulSweeps;
+{{- end }}
 using Intropy.Framework.Testing.Adapters;
+{{- if eq .source "sql" }}
+using Intropy.Framework.Testing.StatefulSweeps;
+{{- end }}
 using Intropy.Framework.Testing.Topics;
+{{- if eq .source "sql" }}
+using Microsoft.Data.Sqlite;
+{{- end }}
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 {{- if not .empty }}
 using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Contracts.IdempotencyService;
+using Intropy.Framework.Testing.Services;
+{{- else if eq .source "sql" }}
 using Intropy.Contracts.IdempotencyService;
 using Intropy.Framework.Testing.Services;
 {{- end }}
@@ -21,14 +36,32 @@ namespace {{ .name }}.Test.Integration;
 
 /// <summary>
 /// The externals every integration test fakes, plus the DI wiring that swaps
-/// them into the real <see cref="Composition.ConfigureServices"/> graph.
+/// them into the real <see cref="Composition.ConfigureServices"/> graph{{ if eq .source "sql" }}:
+/// the database (a SQLite file of the test's own, read with the component's own
+/// query), the cursor store the watermark is kept in, the destination, the
+/// internal queue and the idempotency service{{ end }}.
 /// Centralised so the receive-side and send-pipeline suites cannot drift apart
 /// when the set of externals changes.
 /// </summary>
+{{- if eq .source "sql" }}
+public sealed class FakeEdges : IDisposable
+{
+    private const string CursorStoreName = "{{ .cursorStore }}";
+
+    /// <summary>The SQLite file the source reads; <see cref="ExecuteAsync"/> writes to it.</summary>
+    public string DatabasePath { get; } = Path.Combine(Path.GetTempPath(), $"{Constants.ComponentName}-{Guid.NewGuid():N}.db");
+
+    /// <summary>The cursor store the source port's watermark is kept in.</summary>
+    public InMemoryCursorStore Cursors { get; } = new();
+
+    /// <summary>The key the sweep keeps the source port's watermark under.</summary>
+    public static string CursorKey => $"{Constants.ComponentName}:{Constants.SourcePort}";
+{{- else }}
 public sealed class FakeEdges
 {
     /// <summary>The keyed source adapter (<see cref="Constants.SourcePort"/>).</summary>
     public InMemoryFileAdapter SourceFiles { get; } = new();
+{{- end }}
 
     /// <summary>The keyed destination adapter (<see cref="Constants.DestinationPort"/>).</summary>
     public InMemoryFileAdapter DestinationFiles { get; } = new();
@@ -36,6 +69,9 @@ public sealed class FakeEdges
 
     public FakeIdempotencyServiceClient Idempotency { get; } = new();
     public FakeBusinessIncidentServiceClient Incidents { get; } = new();
+{{- else if eq .source "sql" }}
+
+    public FakeIdempotencyServiceClient Idempotency { get; } = new();
 {{- end }}
 
     /// <summary>
@@ -53,7 +89,9 @@ public sealed class FakeEdges
     /// fakes. Adapter and client swaps remove the production registrations
     /// before adding the fakes, so the override never depends on registration
     /// order (last-wins) — a reordered <see cref="Composition.ConfigureServices"/>
-    /// cannot silently shadow a fake.
+    /// cannot silently shadow a fake.{{ if eq .source "sql" }} The source keeps the
+    /// component's query and delta (<see cref="Composition.ConfigureSource"/>) and
+    /// reads <see cref="DatabasePath"/> instead of the configured database.{{ end }}
     /// </summary>
     public IServiceCollection CreateServices()
     {
@@ -61,9 +99,20 @@ public sealed class FakeEdges
         UseInternalQueue(services);
         services.RemoveAll<EnqueueStep<Context>>();
         services.AddSingleton<EnqueueStep<Context>>(Enqueue);
-
+{{ if eq .source "sql" }}
+        services.RemoveAllKeyed<IPolledSource>(Constants.SourcePort);
+        services.AddSqlSource(Constants.SourcePort, new SqlSourceOptions
+        {
+            Kind = SqlSourceOptions.SqliteKind,
+            ConnectionString = $"Data Source={DatabasePath}",
+            CursorStore = CursorStoreName,
+            InitialWatermark = "int:0"
+        }, Composition.ConfigureSource);
+        services.AddKeyedSingleton<ICursorStore>(CursorStoreName, Cursors);
+{{- else }}
         services.RemoveAllKeyed<IFileAdapter>(Constants.SourcePort);
         services.AddKeyedSingleton<IFileAdapter>(Constants.SourcePort, (_, _) => SourceFiles);
+{{- end }}
         services.RemoveAllKeyed<IFileAdapter>(Constants.DestinationPort);
         services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationPort, (_, _) => DestinationFiles);
 {{- if not .empty }}
@@ -71,6 +120,9 @@ public sealed class FakeEdges
         services.AddSingleton<IIdempotencyServiceClient>(Idempotency);
         services.RemoveAll<IBusinessIncidentServiceClient>();
         services.AddSingleton<IBusinessIncidentServiceClient>(Incidents);
+{{- else if eq .source "sql" }}
+        services.RemoveAll<IIdempotencyServiceClient>();
+        services.AddSingleton<IIdempotencyServiceClient>(Idempotency);
 {{- end }}
         return services;
     }
@@ -101,4 +153,23 @@ public sealed class FakeEdges
             scope.GetRequiredService<FrameworkOptions>(), scope.GetRequiredService<ILoggerFactory>());
         return SendRoute.Configure(builder, scope).Build();
     }
+{{- if eq .source "sql" }}
+
+    /// <summary>Runs a statement against <see cref="DatabasePath"/>: the test's tables and rows.</summary>
+    public async Task ExecuteAsync(string statement)
+    {
+        await using var connection = new SqliteConnection($"Data Source={DatabasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = statement;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public void Dispose()
+    {
+        // SQLite pools connections, which keep the file open.
+        SqliteConnection.ClearAllPools();
+        File.Delete(DatabasePath);
+    }
+{{- end }}
 }

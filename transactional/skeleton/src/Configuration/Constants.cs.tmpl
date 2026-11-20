@@ -7,6 +7,19 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
+{{- if eq .source "sql" }}
+
+    // The From/To ports: the named interfaces this component reads and
+    // writes the outside world through. Each is declared in the system host's
+    // Ports.cs. The source is an external port (no Dapr binding): its name is
+    // the key of the SQL source registered for it and of its section in
+    // configuration, Ports:<port>; the environment sets the database behind
+    // it (Kind, the connection string). The destination is the Dapr binding
+    // component's name and the key of the file adapter registered for it; the
+    // environment swaps the binding's type (local folder, SFTP, …) behind it.
+    // The names never change between environments.
+{{- else }}
+
     // The From/To ports: the named interfaces this component reads and
     // writes the outside world through. The name is each port's whole
     // identity — declared in the system host's Ports.cs, it is also the Dapr
@@ -15,6 +28,7 @@ public static class Constants
     // each binding's type (local folder, SFTP, …) behind its name. A second
     // source carrying other data is declared next to it, in the system host,
     // and as a source and route in Composition.
+{{- end }}
     public const string SourcePort = "{{ .fromPort }}";
     public const string DestinationPort = "{{ .toPort }}";
 
@@ -23,4 +37,11 @@ public static class Constants
     public const string ContextKeyFileName = SourceContextKeys.FileName;
     public const string ContextKeyOrderId = "order_id";
     public const string ContextKeyProcessedAt = "processed_at";
+{{- if eq .source "sql" }}
+
+    // Set by the framework on every read's context and carried to the send
+    // side: the port and the watermark range the read covers, such as
+    // {{ .fromPort }}:int:0:int:2. The send side's idempotency keys off it.
+    public const string ContextKeyIdempotencyKey = SourceContextKeys.IdempotencyKey;
+{{- end }}
 }

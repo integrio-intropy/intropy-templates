@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: transactional
   title: Transactional Integration
-  description: .NET job that polls a local source folder, publishes via in-memory Dapr pub/sub, and writes the transformed result to a local destination folder.
+  description: .NET job that reads its source once per run (a folder's files, or a SQL query's new rows), queues each read on an internal Dapr pub/sub topic, and writes the transformed result to its destination port.
   tags:
     - example
     - dotnet
@@ -31,10 +31,16 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      source:
+        type: string
+        title: Source
+        description: What the integration reads. "file" sweeps a folder through a Dapr binding; "sql" queries a database for the rows after a watermark it keeps between runs.
+        enum: [file, sql]
+        default: file
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
-        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment. Only wired when empty is false.
+        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment. Wired when empty is false or source is sql.
         default: "idempotency-service.services"
       businessIncidentsAppId:
         type: string
@@ -60,3 +66,25 @@ spec:
     # transport are never asked for at scaffold time).
     fromPort: '{{ .name | kebabcase | replace "." "-" }}-source'
     toPort: '{{ .name | kebabcase | replace "." "-" }}-destination'
+    # How the system reaches the source port, recorded in .intropy/scaffold.json:
+    # `intropy sys create` declares an external port (a database, an HTTP API)
+    # with PortRef.DefineExternal, no binding and no folder. The destination
+    # port is always a binding.
+    fromPortKind: '{{ if eq .source "file" }}binding{{ else }}external{{ end }}'
+    # The SQL source ships empty bodies only: its sample is the query, not a
+    # business model. Refused up front rather than rendering a half sample.
+    sourceCheck: '{{ if and (eq .source "sql") (not .empty) }}{{ fail "source=sql renders empty step bodies only; scaffold it with empty=true" }}{{ end }}'
+    # The Dapr state store the SQL source keeps its watermark in. The topology
+    # mints it under this name for every component that reads an external
+    # port, and the host passes it as Ports__<port>__CursorStore; the
+    # Development settings repeat it for runs and tests outside the host.
+    cursorStore: '{{ .name | kebabcase | replace "." "-" }}-cursors'
+  files:
+    # The query exists only for a SQL source; the folder sweep's receive-side
+    # tests only for a file source, the watermark's only for a SQL one.
+    - path: src/Sql/**
+      when: '{{ eq .source "sql" }}'
+    - path: "test/*/ReceiveSideIntegrationTests.cs.tmpl"
+      when: '{{ eq .source "file" }}'
+    - path: "test/*/SqlReceiveTests.cs.tmpl"
+      when: '{{ eq .source "sql" }}'

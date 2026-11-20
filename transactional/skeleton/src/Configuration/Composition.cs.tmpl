@@ -6,12 +6,19 @@ using {{ .name }}.Send;
 using Intropy.BusinessIncidentService.Client;
 {{- end }}
 using Intropy.Framework.Adapters.File;
+{{- if eq .source "sql" }}
+using Intropy.Framework.Adapters.Sql;
+{{- end }}
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Common;
 using Intropy.Framework.Core.Configuration;
+{{- if eq .source "sql" }}
+using Intropy.Framework.Hosting.StatefulSweeps;
+{{- else }}
 using Intropy.Framework.Hosting.FileSweeps;
+{{- end }}
 using Intropy.Framework.Hosting.TransactionalIntegration;
-{{- if not .empty }}
+{{- if or (not .empty) (eq .source "sql") }}
 using Intropy.IdempotencyService.Client;
 {{- end }}
 using Intropy.Telemetry;
@@ -25,7 +32,7 @@ namespace {{ .name }}.Configuration;
 /// <summary>
 /// The component's service registrations, shared by the entrypoint
 /// (<c>Program.cs</c>) and the composition smoke test. Everything the runner
-/// needs — telemetry, Dapr clients, both file adapters, the receive and send
+/// needs — telemetry, Dapr clients, {{ if eq .source "sql" }}the SQL source and the destination file adapter{{ else }}both file adapters{{ end }}, the receive and send
 /// pipelines — is registered here so the test can prove the whole graph
 /// builds without a sidecar.
 /// </summary>
@@ -88,6 +95,19 @@ public static class Composition
             c.AppId = configuration["PlatformServices:BusinessIncidentServiceAppId"]
                       ?? "business-incident-service.services";
         });
+{{- else if eq .source "sql" }}
+
+        // The send side's idempotency keys off the range each read covers, so a range
+        // read again after a failed run is cancelled as a duplicate. Registered after
+        // the DaprClient above on purpose: AddIdempotencyServiceClient contributes its
+        // own DaprClient registration (camelCase JSON + string enums), and the last
+        // registration wins for GetRequiredService<DaprClient>().
+        services.AddIdempotencyServiceClient(c =>
+        {
+            // Dapr app id / HTTPEndpoint name; from appsettings.json, overridable per environment.
+            c.AppId = configuration["PlatformServices:IdempotencyServiceAppId"]
+                      ?? "idempotency-service.services";
+        });
 {{- end }}
 
         services.AddIntropyFramework(x =>
@@ -95,6 +115,58 @@ public static class Composition
             x.ComponentName = Constants.ComponentName;
             x.ServiceNamespace = Constants.Organization;
         });
+
+{{- if eq .source "sql" }}
+
+        // The SQL source behind the source port: the query, and the column whose highest
+        // value becomes the next run's @watermark. Its settings come from Ports:<port>:
+        // Kind (Sql for SQL Server, Sqlite for a local file), the connection string, the
+        // initial watermark, and the cursor store the watermark is kept in, which the
+        // system host sets to the store the topology mints for this component. With no
+        // connection string, startup fails naming the port.
+        services.AddSqlSource(Constants.SourcePort, configuration.GetSection(
+            $"{PortServiceCollectionExtensions.PortsSectionName}:{Constants.SourcePort}"), ConfigureSource);
+
+        // The destination's file adapter is registered under the port name, and the
+        // Sender writes through it. It is chosen by configuration: Ports:<port>:Kind
+        // selects the Dapr binding the port is deployed with (Local, Sftp or AzureBlob).
+        // appsettings.Development.json selects Local, the local folder the system host
+        // resolves the port to; a deployment sets Ports__<port>__Kind to match the binding
+        // it renders. With no Kind, startup fails naming the port. A binding's address and
+        // credentials live in the environment's Dapr component (GitOps values), resolved
+        // out of the cluster's secret store.
+        services.AddDestinationPort(Constants.DestinationPort, configuration);
+
+        // Register the integration last, after every source, adapter and platform service
+        // its pipelines resolve from DI has been added to the service collection.
+        // The framework owns the receive side: the source port is polled, and each run
+        // reads the rows after the watermark as one message, the rows as a JSON array,
+        // and publishes it to the internal hop (carrying its context metadata — its port
+        // and the read's range — and its trace). The watermark moves once the message is
+        // on the queue; a run that fails reads the same range again. The routes say which
+        // send pipeline each port's messages go through; the component supplies only those.
+        // The queue is the one the topology mints for this component: the topic
+        // internal-<app id> on the system's internal-queue pub/sub. The framework derives
+        // neither name: it reads the pub/sub from INTROPY_PUBSUB_NAME and the topic from
+        // INTROPY_TOPIC_NAME, which the host and the deployment set from the topology.
+        services.AddTransactionalIntegration(
+            new TransactionalIntegrationDefinition<Context>(),
+            sources => sources.Port(new PolledSourcePort(Constants.SourcePort)),
+            routes => routes.On<In, Out>([Constants.SourcePort], SendRoute.Configure));
+
+        return services;
+    }
+
+    /// <summary>
+    /// The SQL source's query and delta: the rows after the watermark, which moves to the
+    /// highest <c>ChangeId</c> a run queued. Shared with the integration tests, which
+    /// run it against a SQLite file of their own.
+    /// </summary>
+    public static void ConfigureSource(SqlSourceBuilder sql) => sql
+        .Query(SqlFile.Embedded("Sql/Query.sql"))
+        .Delta(Delta.Column("ChangeId"));
+}
+{{- else }}
 
         // Each port's file adapter is registered under the port name: the source the
         // framework sweeps, the destination the Sender writes through. Each is chosen by configuration:
@@ -131,3 +203,4 @@ public static class Composition
         return services;
     }
 }
+{{- end }}

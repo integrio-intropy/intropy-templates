@@ -52,6 +52,26 @@ the topic in `INTROPY_TOPIC_NAME`; the framework derives neither. The topic is
 unique per component, so two transactional integrations — in one system or in
 several sharing a broker — never receive each other's files.
 
+## SQL source
+
+With `source=sql` the source port is external: the component reads it through
+`Intropy.Framework.Adapters.Sql` (`AddSqlSource`, a `PolledSourcePort`), with
+no Dapr binding and no folder. Each run reads the rows after the watermark as
+one message, the rows as a JSON array, queues it on the internal hop, and moves
+the watermark once it is on the queue. The destination stays a file binding.
+The scaffold record carries `fromPortKind: external`, so `intropy sys create`
+declares the port with `PortRef.DefineExternal` and the topology mints the
+cursor store the watermark is kept in (`<app-id>-cursors`), which the host
+passes as `Ports__<port>__CursorStore`. `src/appsettings.Development.json`
+reads a SQLite file and names that store, so the composition and integration
+tests run without a host or a database server.
+
+The send pipeline wires `WithSourceIdempotency`, keyed by the range each read
+covers, so a range read again after a failed run is cancelled as a duplicate;
+the Idempotency Service client is registered even though `empty` is true. The
+source renders empty step bodies only (`empty=false` is refused); its sample
+is the query, `SELECT … FROM ChangeLog WHERE ChangeId > @watermark`.
+
 ## Container image
 
 The Dockerfile builds with the system folder as its context
@@ -67,7 +87,8 @@ The Dockerfile builds with the system folder as its context
 | -------------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderSync`).           |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.               |
-| `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. Only wired when `empty` is false. |
+| `source`       | no       | What the integration reads: `file` (default) sweeps a folder through a Dapr binding; `sql` queries a database for the rows after a watermark (`src/Sql/Query.sql`, external port, empty step bodies only). See [SQL source](#sql-source). |
+| `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. Wired when `empty` is false or `source` is `sql`. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `empty`        | no       | Strip sample step bodies and the idempotency/business-incident wiring for a migration agent to fill in. |
 
@@ -78,4 +99,5 @@ intropy int create transactional -o /tmp/transactional-out \
   -f transactional/examples/full.yaml --version main --no-input
 ```
 
-See `examples/empty.yaml` for the empty-bodies fixture.
+See `examples/empty.yaml` for the empty-bodies fixture and `examples/sql.yaml`
+for the SQL source.
