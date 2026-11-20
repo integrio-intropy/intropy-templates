@@ -22,7 +22,7 @@ namespace {{ .name }}.Test.Integration;
 /// </summary>
 public class SweepTests
 {
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
     // Test-owned valid input: the scaffold's source shape is an empty record
     // shell until the real contract is defined, so this file deliberately uses
     // its own field names instead of guessing the eventual shape. Replace it

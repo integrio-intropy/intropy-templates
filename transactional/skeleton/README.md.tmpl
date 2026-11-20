@@ -1,11 +1,19 @@
 # {{ .name }}
 
+{{ if eq .source "sql" -}}
+An Intropy transactional integration. Each run reads the rows after its
+watermark from the `{{ .fromPort }}` source port's database and queues them as
+one message on the internal topic `internal-{{ .appId }}`; a send pipeline
+(deserialize, idempotency check, validate, transform, serialize, send) takes
+each queued read and writes the result to the `{{ .toPort }}` destination port.
+{{- else -}}
 An Intropy transactional integration. Each run sweeps the `{{ .fromPort }}`
 source port and queues every file on the internal topic
 `internal-{{ .appId }}`; a send pipeline (deserialize, validate, transform,
 serialize, send) takes each queued file and writes the result to the
 `{{ .toPort }}` destination port.
-{{- if .empty }}
+{{- end }}
+{{- if eq .bodies "stub" }}
 
 The pipeline steps were scaffolded empty: each throws
 `NotImplementedException` until it is implemented.
@@ -14,6 +22,26 @@ The pipeline steps were scaffolded empty: each throws
 ## How a run flows
 
 ```
+{{- if eq .source "sql" }}
+scheduled run: query {{ .fromPort }} for the rows after the watermark
+   │
+   ▼
+publish the rows to internal-{{ .appId }} ──▶ watermark moves past them
+   │
+   ▼  (per delivery from internal-{{ .appId }})
+Deserializer ──▶ idempotency check (the read's range) ──▶ Extractor
+   ──▶ Validator ──▶ Transformer ──▶ Serializer ──▶ Sender
+   │
+   ▼
+{{ .toPort }} gets the result
+```
+
+The framework owns the receive side (read, publish, move the watermark); the
+component owns the send pipeline. A read that can't be published leaves its
+range pending, and the next run reads exactly that range again; the
+idempotency check cancels it if it was already written. A send that fails
+routes a business incident named by the read's range.
+{{- else }}
 scheduled run: sweep {{ .fromPort }} ──▶ per file:
    │
    ▼
@@ -34,7 +62,8 @@ Deserializer ──▶ idempotency check ──▶ Extractor ──▶ Validator
 The framework owns the receive side (sweep, publish, delete); the component
 owns the send pipeline. A file that can't be read or published stays for the
 next run.
-{{- if not .empty }}
+{{- end }}
+{{- if eq .bodies "sample" }}
 
 Off the happy path in the send pipeline:
 

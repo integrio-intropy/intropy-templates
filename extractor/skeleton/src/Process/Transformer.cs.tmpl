@@ -11,7 +11,7 @@ public class Transformer : TransformStep<Source{{ .payloadType }}, {{ .payloadTy
     public override Task<(TechnicalStepResult<{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
         Source{{ .payloadType }} input, Context context, CancellationToken ct)
     {
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
         throw new NotImplementedException();
 {{- else }}
         // {{ .payloadType }} is the canonical contract from the shared contracts

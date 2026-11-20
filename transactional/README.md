@@ -1,15 +1,17 @@
 # transactional
 
 Scaffolds a .NET transactional integration job: a console runner
-(`Intropy.Framework.Hosting.TransactionalIntegration`) polls a local source
-folder binding, publishes each file onto a Dapr pub/sub topic, processes every
-delivery through a VETER send pipeline (`Intropy.Framework.Blocks.TransactionalIntegration`),
-and writes the transformed result to a destination folder binding. Two
-framework pipelines cooperate: the framework owns the **receive** side — it
-sweeps the source folder, publishes each file to the internal hop, and deletes
-it once it is on the queue — and the component supplies the **send**
-pipeline (deserialize → idempotency → extract → validate → transform →
-serialize → send) turns each delivered message into the outbound file.
+(`Intropy.Framework.Hosting.TransactionalIntegration`) reads its source once
+per run — a folder binding's files, or with `source=sql` a SQL query's rows
+after a watermark (see [SQL source](#sql-source)) — publishes each read onto a
+Dapr pub/sub topic, processes every delivery through a VETER send pipeline
+(`Intropy.Framework.Blocks.TransactionalIntegration`), and writes the
+transformed result to a destination folder binding. Two framework pipelines
+cooperate: the framework owns the **receive** side — it reads the source,
+publishes each read to the internal hop, and then deletes the file or moves
+the watermark — and the component supplies the **send** pipeline (deserialize →
+idempotency → extract → validate → transform → serialize → send), which turns
+each delivered message into the outbound file.
 
 The rendered project has a Taskfile (`task build`, `task test`, `task coverage`
 — the component-level loop), two test projects, a Dockerfile on the chiseled
@@ -52,6 +54,27 @@ the topic in `INTROPY_TOPIC_NAME`; the framework derives neither. The topic is
 unique per component, so two transactional integrations — in one system or in
 several sharing a broker — never receive each other's files.
 
+## SQL source
+
+With `source=sql` the source port is external: the component reads it through
+`Intropy.Framework.Adapters.Sql` (`AddSqlSource`, a `PolledSourcePort`), with
+no Dapr binding and no folder. Each run reads the rows after the watermark as
+one message, the rows as a JSON array, queues it on the internal hop, and moves
+the watermark once it is on the queue. The destination stays a file binding.
+The scaffold record carries `fromPortKind: external`, so `intropy sys create`
+declares the port with `PortRef.DefineExternal` and the topology mints the
+cursor store the watermark is kept in (`<app-id>-cursors`), which the host
+passes as `Ports__<port>__CursorStore`. `src/appsettings.Development.json`
+reads a SQLite file and names that store, so the composition and integration
+tests run without a host or a database server.
+
+The send pipeline wires `WithSourceIdempotency` and `WithBusinessIncidents`,
+both keyed by the range each read covers: a range read again after a failed
+run is cancelled as a duplicate, and an incident is named by its range. Both
+platform-service clients are registered whatever `empty` says. The source
+always renders empty step bodies (`empty` applies to the file source only);
+its sample is the query, `SELECT … FROM ChangeLog WHERE ChangeId > @watermark`.
+
 ## Container image
 
 The Dockerfile builds with the system folder as its context
@@ -67,18 +90,20 @@ The Dockerfile builds with the system folder as its context
 | -------------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderSync`).           |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.               |
+| `source`       | no       | What the integration reads: `file` (default) sweeps a folder through a Dapr binding; `sql` queries a database for the rows after a watermark (`src/Sql/Query.sql`, external port, always empty step bodies). See [SQL source](#sql-source). |
 | `sourcePort` | no | Name of the port the integration sweeps. Empty derives `<app-id>-source`; name a port the system already declares to share it with other components. |
 | `destinationPort` | no | Name of the port the send pipeline writes to. Empty derives `<app-id>-destination`; name a port the system already declares to share it. |
 | `claimCheck` | no | Register a claim store (default `false`): `AddClaimStore`, the `ClaimStore` and `TransactionalIntegration` settings, the store's fake and a receive-side test. A file over `ClaimCheckThresholdBytes` is then kept in the store while a pointer travels on the queue. The environment provides the store's binding (`claim-store`) and `ClaimStore__Kind`; in Development the store is the `claims` folder of the destination port's local folder. |
-| `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. Only wired when `empty` is false. |
-| `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
-| `empty`        | no       | Strip sample step bodies and the idempotency/business-incident wiring for a migration agent to fill in. |
+| `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. Wired when `empty` is false or `source` is `sql`. |
+| `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Rendered and wired like `idempotencyAppId`: when `empty` is false or `source` is `sql`. |
+| `empty`        | no       | File source only: strip sample step bodies and the idempotency/business-incident wiring for a migration agent to fill in. A SQL source always renders empty bodies with both services wired. |
 
 ## Render
 
 ```bash
 intropy int create transactional -o /tmp/transactional-out \
-  -f transactional/examples/full.yaml --version main --no-input
+  -f transactional/examples/full.yaml --template-version main --no-input
 ```
 
-See `examples/empty.yaml` for the empty-bodies fixture.
+See `examples/empty.yaml` for the empty-bodies fixture and `examples/sql.yaml`
+for the SQL source.

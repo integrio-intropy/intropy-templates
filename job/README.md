@@ -61,5 +61,5 @@ The Dockerfile builds with the system folder as its context
 
 ```bash
 intropy int create job -o /tmp/job-out \
-  -f job/examples/minimal.yaml --version main --no-input
+  -f job/examples/minimal.yaml --template-version main --no-input
 ```

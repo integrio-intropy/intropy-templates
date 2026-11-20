@@ -8,7 +8,27 @@ namespace {{ .name }}.Test.Unit.Process;
 
 public class DeserializerTests
 {
-{{- if .empty }}
+{{- if eq .source "sql" }}
+    // Fails from the start: the Deserializer body throws NotImplementedException.
+    // The assertion pins the step's framework contract — parse the rows the SQL
+    // source sends — and flips green once the step is implemented. The input is
+    // the shape Sql/Query.sql selects: a JSON array, one object per row, one
+    // property per column. Change it with the query.
+    [Fact]
+    public async Task ExecuteAsync_WithTheRowsOfARead_ReturnsSuccess()
+    {
+        // Arrange
+        var deserializer = new Deserializer();
+        var context = new Context(new Dictionary<string, string>());
+        var json = """[{"ChangeId":1,"RecordId":"REC-1","ChangedAt":"2026-01-15T09:30:00+00:00"}]""";
+
+        // Act
+        var (result, _) = await deserializer.ExecuteAsync(Encoding.UTF8.GetBytes(json), context, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
+    }
+{{- else if eq .bodies "stub" }}
     // Fails from the start: the Deserializer body throws NotImplementedException.
     // The assertions pin the step's framework contract — parse the input and
     // stamp the business id into the context for the idempotency/incident

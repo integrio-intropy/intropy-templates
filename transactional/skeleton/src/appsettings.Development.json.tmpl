@@ -3,7 +3,15 @@
   "ClaimStore": { "Kind": "Local", "DaprBindingName": "{{ .toPort }}", "BasePath": "claims" },
 {{- end }}
   "Ports": {
+{{- if eq .source "sql" }}
+    "{{ .fromPort }}": {
+      "Kind": "Sqlite",
+      "ConnectionString": "Data Source={{ .appId }}.db",
+      "CursorStore": "{{ .cursorStore }}"
+    },
+{{- else }}
     "{{ .fromPort }}": { "Kind": "Local" },
+{{- end }}
     "{{ .toPort }}": { "Kind": "Local" }
   }
 }

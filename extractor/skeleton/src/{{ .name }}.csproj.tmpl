@@ -11,9 +11,12 @@
     <PackageReference Include="Dapr.Client" Version="1.18.10" />
     <PackageReference Include="Intropy.BusinessIncidentService.Client" Version="0.1.1" />
     <PackageReference Include="Intropy.Contracts" Version="0.1.0" />
-    <PackageReference Include="Intropy.Framework.Adapters" Version="2.1.0-beta.16" />
-    <PackageReference Include="Intropy.Framework.Blocks" Version="2.1.0-beta.16" />
-    <PackageReference Include="Intropy.Framework.Hosting" Version="2.1.0-beta.16" />
+    <PackageReference Include="Intropy.Framework.Adapters" Version="{{ .frameworkVersion }}" />
+{{- if eq .source "sql" }}
+    <PackageReference Include="Intropy.Framework.Adapters.Sql" Version="{{ .frameworkVersion }}" />
+{{- end }}
+    <PackageReference Include="Intropy.Framework.Blocks" Version="{{ .frameworkVersion }}" />
+    <PackageReference Include="Intropy.Framework.Hosting" Version="{{ .frameworkVersion }}" />
     <PackageReference Include="Intropy.IdempotencyService.Client" Version="0.1.1" />
     <PackageReference Include="Intropy.Telemetry.ConsoleApp" Version="0.2.0-rc.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.10" />
@@ -28,6 +31,14 @@
          spec.dependencies entry, so it exists whenever this project does. -->
     <ProjectReference Include="../../{{ .contracts }}/{{ .contracts }}.csproj" />
   </ItemGroup>
+
+{{- if eq .source "sql" }}
+
+  <ItemGroup>
+    <!-- The source's query, read with SqlFile.Embedded("Sql/Query.sql"). -->
+    <EmbeddedResource Include="Sql/*.sql" />
+  </ItemGroup>
+{{- end }}
 
   <ItemGroup>
     <None Update="appsettings.json">

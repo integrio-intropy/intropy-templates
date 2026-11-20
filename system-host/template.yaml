@@ -55,6 +55,9 @@ spec:
         items:
           type: object
           additionalProperties: true
+      # {name, kind?} each. kind is `binding` (the default, omitted) or
+      # `external`: a system its components reach through a client of their
+      # own, with no Dapr binding and no local folder (PortRef.DefineExternal).
       ports:
         type: array
         items:

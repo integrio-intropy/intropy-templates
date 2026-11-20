@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: transactional
   title: Transactional Integration
-  description: .NET job that polls a local source folder, publishes via in-memory Dapr pub/sub, and writes the transformed result to a local destination folder.
+  description: .NET job that reads its source once per run (a folder's files, or a SQL query's new rows), queues each read on an internal Dapr pub/sub topic, and writes the transformed result to its destination port.
   tags:
     - example
     - dotnet
@@ -31,15 +31,21 @@ spec:
         title: Organization
         description: PascalCase name of the organization the integration runs for. Becomes the telemetry ServiceNamespace and the business-incident source URN (urn:<organization>:<component>).
         pattern: "^[A-Z][A-Za-z0-9]*$"
+      source:
+        type: string
+        title: Source
+        description: What the integration reads; "file" sweeps a folder through a Dapr binding, "sql" queries a database for the rows after a watermark it keeps between runs. A SQL source always renders empty step bodies, with idempotency and business incidents keyed by the read's range.
+        enum: [file, sql]
+        default: file
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
-        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment. Only wired when empty is false.
+        description: Dapr app-id of the Idempotency Service. The default matches the platform-services deployment. Wired when empty is false or source is sql.
         default: "idempotency-service.services"
       businessIncidentsAppId:
         type: string
         title: Business incident service app-id
-        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment. Only wired when empty is false.
+        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment. Wired when empty is false or source is sql.
         default: "business-incident-service.services"
       sourcePort:
         type: string
@@ -61,7 +67,7 @@ spec:
       empty:
         type: boolean
         title: Empty bodies
-        description: When true, strip sample business logic from pipeline step bodies and omit the idempotency/business-incident service wiring. The resulting project compiles and starts under Dapr, but every step throws NotImplementedException so a migration agent can fill them in.
+        description: When true, a file source renders without sample business logic or idempotency/business-incident wiring; every step throws NotImplementedException for a migration agent to fill in. A SQL source ignores it and always renders empty bodies.
         default: false
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
@@ -78,3 +84,27 @@ spec:
     # transport are never asked for at scaffold time).
     fromPort: '{{ default (printf "%s-source" (.name | kebabcase | replace "." "-")) .sourcePort }}'
     toPort: '{{ default (printf "%s-destination" (.name | kebabcase | replace "." "-")) .destinationPort }}'
+    # How the system reaches the source port, recorded in .intropy/scaffold.json:
+    # `intropy sys create` declares an external port (a database, an HTTP API)
+    # with PortRef.DefineExternal, no binding and no folder. The destination
+    # port is always a binding.
+    fromPortKind: '{{ if eq .source "file" }}binding{{ else }}external{{ end }}'
+    # Whether the step bodies carry the order sample or throw
+    # NotImplementedException: "sample" only for a file source with
+    # empty=false. A SQL source's sample is its query, so its bodies are
+    # always stubs.
+    bodies: '{{ if and (not .empty) (eq .source "file") }}sample{{ else }}stub{{ end }}'
+    # The Dapr state store the SQL source keeps its watermark in. The topology
+    # mints it under this name for every component that reads an external
+    # port, and the host passes it as Ports__<port>__CursorStore; the
+    # Development settings repeat it for runs and tests outside the host.
+    cursorStore: '{{ .name | kebabcase | replace "." "-" }}-cursors'
+  files:
+    # The query exists only for a SQL source; the folder sweep's receive-side
+    # tests only for a file source, the watermark's only for a SQL one.
+    - path: src/Sql/**
+      when: '{{ eq .source "sql" }}'
+    - path: "test/*/ReceiveSideIntegrationTests.cs.tmpl"
+      when: '{{ eq .source "file" }}'
+    - path: "test/*/SqlReceiveTests.cs.tmpl"
+      when: '{{ eq .source "sql" }}'

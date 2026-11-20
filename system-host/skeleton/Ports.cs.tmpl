@@ -1,7 +1,8 @@
 {{- $seen := dict -}}
+{{- $hasExternal := false }}{{- range .ports }}{{- if eq (get . "kind") "external" }}{{- $hasExternal = true }}{{- end }}{{- end -}}
 using Intropy.Topology;
 
-/// <summary>The system's ports: the named interfaces its edge blocks reach the outside world through. The name is each port's whole identity — the Dapr binding component uses the same name, while its deployed type, address, and credentials are environment-owned deployment configuration. The development definition resolves each port to a local folder under test/ so the system runs with zero external configuration.</summary>
+/// <summary>The system's ports: the named interfaces its edge blocks reach the outside world through. The name is each port's whole identity — the Dapr binding component uses the same name, while its deployed type, address, and credentials are environment-owned deployment configuration. The development definition resolves each {{ if $hasExternal }}binding {{ end }}port to a local folder under test/ so the system runs with zero external configuration{{ if $hasExternal }}; an external port is reached through its component's own client instead{{ end }}.</summary>
 public static class Ports
 {
 {{- range $i, $c := .ports }}
@@ -10,9 +11,17 @@ public static class Ports
 {{- fail (printf "ports %q and %q both derive the Ports.cs field %s — rename one port in the components' scaffold records" (index $seen $field) $c.name $field) }}
 {{- end }}
 {{- $_ := set $seen $field $c.name }}
+{{- $kind := get $c "kind" | default "binding" }}
 {{- if $i }}
 {{ end }}
+{{- if eq $kind "external" }}
+    /// <summary>An external system the component reaches through a client of its own; a reader keeps a cursor between runs in a state store the topology mints for it. There is no Dapr binding and no local folder; its local values are development settings.</summary>
+    public static readonly PortRef {{ $field }} = PortRef.DefineExternal("{{ $c.name }}");
+{{- else if eq $kind "binding" }}
     /// <summary>Locally resolved to <c>./test/{{ $c.name }}</c>; the deployed binding type is environment-owned deployment configuration.</summary>
     public static readonly PortRef {{ $field }} = PortRef.Define("{{ $c.name }}");
+{{- else }}
+{{- fail (printf "port %q has kind %q — a port is a binding (the default) or external" $c.name $kind) }}
+{{- end }}
 {{- end }}
 }

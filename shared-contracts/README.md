@@ -41,5 +41,5 @@ record so system assembly knows this project is not a block.
 
 ```bash
 intropy int create shared-contracts -o /tmp/shared-contracts-out \
-  -f shared-contracts/examples/minimal.yaml --version main --no-input
+  -f shared-contracts/examples/minimal.yaml --template-version main --no-input
 ```

@@ -1,0 +1,16 @@
+# Render fixture: a system whose transactional integration reads a SQL
+# source. Its From port is external and its To port a file binding; nothing
+# sweeps a folder, so the host renders no seed task.
+#   intropy int create system-host -o /tmp/system-host-sql-tx -f system-host/examples/sql-transactional.yaml --template-version main --no-input
+name: campaign-sync
+topics: []
+messages: []
+ports:
+  - name: campaign-sync-source
+    kind: external
+  - name: campaign-sync-destination
+components:
+  - appId: campaign-sync
+    kind: transactional-integration
+    fromPort: campaign-sync-source
+    toPort: campaign-sync-destination

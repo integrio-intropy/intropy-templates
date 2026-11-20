@@ -9,7 +9,17 @@
   "ClaimStore": { "DaprBindingName": "claim-store", "BasePath": "claims" },
 
   "TransactionalIntegration": { "ClaimCheckMode": "Auto", "ClaimCheckThresholdBytes": 200000 }
-{{- end }}{{- if not .empty }},
+{{- end }}
+{{- if eq .source "sql" }},
+
+  "Ports": {
+    "{{ .fromPort }}": {
+      "Kind": "Sql",
+      "InitialWatermark": "int:0"
+    }
+  }
+{{- end }}
+{{- if or (not .empty) (eq .source "sql") }},
 
   "PlatformServices": {
     "IdempotencyServiceAppId": "{{ .idempotencyAppId }}",

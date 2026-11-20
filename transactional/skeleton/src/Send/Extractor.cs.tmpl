@@ -10,7 +10,7 @@ public class Extractor : ExtractStep<In, Context>
     public override Task<(BusinessStepResult<In> Result, Context Context)> ExecuteAsync(
         In input, Context context, CancellationToken ct)
     {
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
         throw new NotImplementedException();
 {{- else }}
         return Task.FromResult<(BusinessStepResult<In>, Context)>(

@@ -1,8 +1,14 @@
 # Agent Instructions
 
 `{{ .name }}` is an Intropy transactional integration: a .NET 10 job that
+{{- if eq .source "sql" }}
+reads the rows after its watermark from its source port's database once per
+run, queues them as one message on an internal topic, and runs each queued
+read through a send pipeline that writes to its destination port.
+{{- else }}
 sweeps its source port, queues each file on an internal topic, and runs each
 queued file through a send pipeline that writes to its destination port.
+{{- end }}
 
 ## Project overview
 
@@ -11,6 +17,28 @@ queued file through a send pipeline that writes to its destination port.
   invisible to the system topology; the framework reads both names from
   `INTROPY_PUBSUB_NAME` / `INTROPY_TOPIC_NAME`, which the system host and the
   deployment set.
+{{- if eq .source "sql" }}
+- Source port: `{{ .fromPort }}`, an external port (`PortRef.DefineExternal` in
+  the system host's `Ports.cs`): a SQL query, no Dapr binding. Destination
+  port: `{{ .toPort }}`, a Dapr binding declared in the same file.
+- Query: `src/Sql/Query.sql`, embedded; the watermark column is `ChangeId`
+  (`Delta.Column` in `Composition.cs`)
+- Exit codes: `0` success, `1` a read could not be queued and its range stays
+  pending, or a queued message was left for redelivery; `2` sidecar or
+  internal queue unavailable
+- Config keys (`src/appsettings*.json`):
+  - `Ports:{{ .fromPort }}:Kind`: `Sql` (SQL Server); `Sqlite` in Development
+  - `Ports:{{ .fromPort }}:ConnectionString`: a secret; Development reads
+    `{{ .appId }}.db`, and the system host's development settings override it
+  - `Ports:{{ .fromPort }}:InitialWatermark`: `int:0`, the watermark before the
+    first run
+  - `Ports:{{ .fromPort }}:CursorStore`: the state store the watermark is kept
+    in, `{{ .cursorStore }}`; the system host and the deployment set it
+  - `Ports:{{ .toPort }}:Kind`: `Local` in Development; a deployment sets
+    `Ports__<port>__Kind` (`Sftp`, `AzureBlob`)
+  - `PlatformServices:IdempotencyServiceAppId`: `{{ .idempotencyAppId }}`
+  - `PlatformServices:BusinessIncidentServiceAppId`: `{{ .businessIncidentsAppId }}`
+{{- else }}
 - Source port: `{{ .fromPort }}`; destination port: `{{ .toPort }}`. Both are
   declared in the system host's `Ports.cs`.
 - Config keys (`src/appsettings*.json`):
@@ -28,30 +56,52 @@ queued file through a send pipeline that writes to its destination port.
     `TransactionalIntegration:ClaimCheckThresholdBytes` (`200000`): a larger
     file is queued as a pointer to the claim store.
 {{- end }}
-{{- if not .empty }}
+{{- end }}
+{{- if eq .bodies "sample" }}
   - `PlatformServices:IdempotencyServiceAppId`: `{{ .idempotencyAppId }}`
   - `PlatformServices:BusinessIncidentServiceAppId`: `{{ .businessIncidentsAppId }}`
 {{- end }}
 
 ## Important files
 
+{{ if eq .source "sql" -}}
+- `src/Configuration/Composition.cs`: DI registrations, the SQL source's query
+  and delta (`ConfigureSource`), and `AddTransactionalIntegration`. The
+  framework owns the receive side (read, publish, move the watermark); there is
+  no receive-side component code.
+- `src/Sql/Query.sql`: the source's query.
+{{- else -}}
 - `src/Configuration/Composition.cs`: DI registrations and
   `AddTransactionalIntegration`. The framework owns the receive side (sweep,
   publish, delete); there is no receive-side component code.
+{{- end }}
 - `src/Configuration/Constants.cs`: component name, ports, context keys.
 - `src/Send/`: the send pipeline steps and `SendRoute`, which composes them.
 - `src/Model/`: the `In`, `Out` and `Line` records.
 - `test/{{ .name }}.Test.Unit/`: step unit tests.
+{{- if eq .source "sql" }}
+- `test/{{ .name }}.Test.Integration/`: receive-side watermark
+  (`SqlReceiveTests`), send-pipeline and composition tests against a SQLite
+  file and `Intropy.Framework.Testing` fakes (in `FakeEdges.cs`).
+  `SqlReceiveTests` creates the table `Sql/Query.sql` reads; change them
+  together.
+{{- else }}
 - `test/{{ .name }}.Test.Integration/`: receive-side, send-pipeline and
   composition tests on `Intropy.Framework.Testing` fakes (fakes in `FakeEdges.cs`).
+{{- end }}
 - `test/samples/`: sample files, copied to both test projects' output.
 - `Dockerfile`, `Dockerfile.dockerignore`: image build. The build context is
   the system folder: `docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .`
 
 ## Build and test
 
+{{ if eq .source "sql" -}}
+The job runs via its system host, which provides the cursor store, the
+destination binding, the pub/sub and the platform services.
+{{- else -}}
 The job runs via its system host, which provides the storage bindings, the
 pub/sub and the platform services.
+{{- end }}
 
 ```bash
 task build
@@ -61,10 +111,25 @@ task coverage    # Cobertura report under the integration project's TestResults/
 
 ## Development notes
 
+{{ if eq .source "sql" -}}
+- The pipeline works on bytes at both ends: the `Deserializer` receives one
+  read's rows as a JSON array (one object per row, one property per column of
+  `Sql/Query.sql`), and the `Serializer` returns the bytes the `Sender` writes
+  as they are.
+- The step bodies throw `NotImplementedException`; the send-pipeline tests
+  are red until they are implemented. The model is an empty shell; give `In`
+  the shape of the query's rows.
+- Idempotency and business incidents key off the range each read covers
+  (`WithSourceIdempotency` and `WithBusinessIncidents` in
+  `src/Send/SendRoute.cs`): a range read again after a failed run is
+  cancelled as a duplicate, and an incident is named by its range.
+{{- else -}}
 - The pipeline works on bytes at both ends: the `Deserializer` receives the
   source file's raw bytes, and the `Serializer` returns the bytes the `Sender`
   writes as they are.
-{{- if .empty }}
+{{- end }}
+{{- if eq .source "sql" }}
+{{- else if .empty }}
 - The step bodies throw `NotImplementedException`. Idempotency and business
   incidents are not wired; add `.WithIdempotency(...)` and
   `.WithBusinessIncidents(...)` in `src/Send/SendRoute.cs` and register their

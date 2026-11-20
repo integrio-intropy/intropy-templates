@@ -1,14 +1,32 @@
-{{- /* The seed default follows the first extractor with a port —
-extractors sweep their source folder once at host start, so that folder is
-the one to seed before `task run`. Other components' folders stay reachable
-via the PORT_DIR override. A system without a port-bearing extractor gets a
-placeholder default; PORT_DIR is required there. */ -}}
-{{- $seedPort := "<port>" -}}
+{{- /* `task seed` drops the sample orders into a folder a run-to-completion
+component sweeps at host start: an extractor's source port, or a transactional
+integration's From port, when that port is a binding. An external port (a
+database, an HTTP API) has no folder, and a destination folder is never swept,
+so a system without a folder reader gets no seed task. A system without
+components keeps it with a placeholder default; PORT_DIR is required there.
+The default is the first folder-reading extractor's port, else the first
+folder-reading transactional integration's From port; other folders stay
+reachable via PORT_DIR. README.md and AGENTS.md state this rule in prose; keep
+them in step. */ -}}
+{{- $external := dict -}}
+{{- range .ports -}}
+{{- if eq (get . "kind") "external" -}}
+{{- $_ := set $external .name true -}}
+{{- end -}}
+{{- end -}}
+{{- $seedPort := "" -}}
+{{- $fromPort := "" -}}
 {{- range .components -}}
-{{- if and (eq .kind "extractor") (hasKey . "port") -}}
-{{- $seedPort = .port -}}
+{{- if and (eq .kind "extractor") (hasKey . "port") (eq $seedPort "") -}}
+{{- if not (hasKey $external .port) -}}{{- $seedPort = .port -}}{{- end -}}
+{{- end -}}
+{{- if and (eq .kind "transactional-integration") (hasKey . "fromPort") (eq $fromPort "") -}}
+{{- if not (hasKey $external .fromPort) -}}{{- $fromPort = .fromPort -}}{{- end -}}
 {{- end -}}
 {{- end -}}
+{{- $seedPort = $seedPort | default $fromPort -}}
+{{- $seed := or (ne $seedPort "") (eq (len .components) 0) -}}
+{{- if eq $seedPort "" }}{{ $seedPort = "<port>" }}{{ end -}}
 {{- /* The publish defaults follow the system's first topic and the first
 component on it that stays resident — a loader, whose sidecar is still up
 while the host runs; a run-to-completion extractor's sidecar may already be
@@ -59,6 +77,7 @@ tasks:
       - dotnet run
 
   # ── Trigger a run ─────────────────────────────────────────────────
+{{- if $seed }}
   seed:
     desc: Drop both sample orders into a port folder (run-to-completion components sweep them at host start)
     dir: "{{ "{{" }}.TASKFILE_DIR}}"
@@ -70,6 +89,7 @@ tasks:
       - mkdir -p {{ "{{" }}.PORT_DIR}}
       - cp ./sample-data/sample-order-status-0.json ./sample-data/sample-order-status-1.json {{ "{{" }}.PORT_DIR}}/
       - echo "Seeded {{ "{{" }}.PORT_DIR}} with sample-order-status-0.json and sample-order-status-1.json"
+{{- end }}
 
   publish:
     desc: Publish the sample order to a topic via a component's sidecar (needs the host running)

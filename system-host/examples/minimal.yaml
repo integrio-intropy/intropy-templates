@@ -6,7 +6,7 @@
 # `messages` is the message-first view; `components` carry scalar
 # publishes/subscribes values. sharedContracts.include is the ProjectReference
 # path from the host's output directory to the contracts csproj.
-#   intropy int create system-host -o /tmp/system-host-out -f system-host/examples/minimal.yaml --version main --no-input
+#   intropy int create system-host -o /tmp/system-host-out -f system-host/examples/minimal.yaml --template-version main --no-input
 name: order-flow
 topics:
   - pubsub: pubsub

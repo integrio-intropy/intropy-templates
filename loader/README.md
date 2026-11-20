@@ -82,7 +82,7 @@ pass `--build-arg COMPONENT=<folder>` when it differs.
 
 ```bash
 intropy int create loader -o /tmp/loader-out \
-  -f loader/examples/minimal.yaml --version main --no-input
+  -f loader/examples/minimal.yaml --template-version main --no-input
 ```
 
 See `examples/empty.yaml` for the empty-bodies fixture.
