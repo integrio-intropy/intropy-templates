@@ -14,16 +14,11 @@
     }
   }
 {{- end }}
-{{- if not .empty }},
+{{- if or (not .empty) (eq .source "sql") }},
 
   "PlatformServices": {
     "IdempotencyServiceAppId": "{{ .idempotencyAppId }}",
     "BusinessIncidentServiceAppId": "{{ .businessIncidentsAppId }}"
-  }
-{{- else if eq .source "sql" }},
-
-  "PlatformServices": {
-    "IdempotencyServiceAppId": "{{ .idempotencyAppId }}"
   }
 {{- end }}
 }

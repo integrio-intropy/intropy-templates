@@ -1,4 +1,4 @@
-{{- if .empty -}}
+{{- if eq .bodies "stub" -}}
 namespace {{ .name }}.Model;
 
 public record Source{{ .payloadType }}();

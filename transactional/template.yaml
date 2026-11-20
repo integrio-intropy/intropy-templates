@@ -34,7 +34,7 @@ spec:
       source:
         type: string
         title: Source
-        description: What the integration reads. "file" sweeps a folder through a Dapr binding; "sql" queries a database for the rows after a watermark it keeps between runs.
+        description: What the integration reads; "file" sweeps a folder through a Dapr binding, "sql" queries a database for the rows after a watermark it keeps between runs. A SQL source always renders empty step bodies, with idempotency and business incidents keyed by the read's range.
         enum: [file, sql]
         default: file
       idempotencyAppId:
@@ -45,12 +45,12 @@ spec:
       businessIncidentsAppId:
         type: string
         title: Business incident service app-id
-        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment. Only wired when empty is false.
+        description: Dapr app-id of the Business Incident Service. The default matches the platform-services deployment. Wired when empty is false or source is sql.
         default: "business-incident-service.services"
       empty:
         type: boolean
         title: Empty bodies
-        description: When true, strip sample business logic from pipeline step bodies and omit the idempotency/business-incident service wiring. The resulting project compiles and starts under Dapr, but every step throws NotImplementedException so a migration agent can fill them in.
+        description: When true, a file source renders without sample business logic or idempotency/business-incident wiring; every step throws NotImplementedException for a migration agent to fill in. A SQL source ignores it and always renders empty bodies.
         default: false
   values:
     appId: '{{ .name | kebabcase | replace "." "-" }}'
@@ -71,9 +71,11 @@ spec:
     # with PortRef.DefineExternal, no binding and no folder. The destination
     # port is always a binding.
     fromPortKind: '{{ if eq .source "file" }}binding{{ else }}external{{ end }}'
-    # The SQL source ships empty bodies only: its sample is the query, not a
-    # business model. Refused up front rather than rendering a half sample.
-    sourceCheck: '{{ if and (eq .source "sql") (not .empty) }}{{ fail "source=sql renders empty step bodies only; scaffold it with empty=true" }}{{ end }}'
+    # Whether the step bodies carry the order sample or throw
+    # NotImplementedException: "sample" only for a file source with
+    # empty=false. A SQL source's sample is its query, so its bodies are
+    # always stubs.
+    bodies: '{{ if and (not .empty) (eq .source "file") }}sample{{ else }}stub{{ end }}'
     # The Dapr state store the SQL source keeps its watermark in. The topology
     # mints it under this name for every component that reads an external
     # port, and the host passes it as Ports__<port>__CursorStore; the

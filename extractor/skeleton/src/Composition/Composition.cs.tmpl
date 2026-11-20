@@ -222,7 +222,7 @@ public static class Composition
             // make the check pass everything.
             .WithIdempotency(
                 idExtractor: (Source{{ .payloadType }} order, Context _) =>
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
                     throw new NotImplementedException(),
                 dateExtractor: (_, _) =>
                     throw new NotImplementedException())
@@ -237,7 +237,7 @@ public static class Composition
             // Subject, Time, Data) and validates Subject/Time at serialize time;
             // the publisher adds Source/Type from the registration above.
             .WithSerializer(new CloudEventSerializeStep<{{ .payloadType }}, Context>(
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
                 subject: _ => throw new NotImplementedException(),
                 time: _ => throw new NotImplementedException()))
 {{- else }}

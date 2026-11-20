@@ -10,7 +10,7 @@ namespace {{ .name }}.Test.Unit.Send;
 
 public class SenderTests
 {
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
     // Add tests as you implement the pipeline steps.
 {{- else }}
     [Fact]

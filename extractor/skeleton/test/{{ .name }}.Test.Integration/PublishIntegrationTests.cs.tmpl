@@ -20,7 +20,7 @@ public class PublishIntegrationTests
 {
     private const string PubSubName = "test-system-pubsub";
     private const string TopicName = "{{ .channel }}";
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
     // Fails from the start by design: the framework's BusinessStep wrapper
     // routes the throwing Deserializer as a business incident, so the pipeline
     // consumes the input without ever publishing — and the capture below stays

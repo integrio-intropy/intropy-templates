@@ -1,8 +1,8 @@
 # Render fixture: a SQL source. The integration reads the rows after its
 # watermark from a database instead of sweeping a folder; the source port is
-# external (no Dapr binding), and the step bodies are empty.
+# external (no Dapr binding). A SQL source always renders empty step bodies,
+# whatever `empty` says, so this fixture leaves it at its default.
 #   intropy int create transactional -o /tmp/tx-sql -f transactional/examples/sql.yaml --template-version main --no-input
 name: CampaignSync
 organization: Fluxia
 source: sql
-empty: true

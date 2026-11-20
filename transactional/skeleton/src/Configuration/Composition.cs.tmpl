@@ -2,7 +2,7 @@ using Dapr.Client;
 using Dapr.Messaging.PublishSubscribe.Extensions;
 using {{ .name }}.Model;
 using {{ .name }}.Send;
-{{- if not .empty }}
+{{- if or (not .empty) (eq .source "sql") }}
 using Intropy.BusinessIncidentService.Client;
 {{- end }}
 using Intropy.Framework.Adapters.File;
@@ -79,7 +79,12 @@ public static class Composition
 
         services.AddSingleton(_ => new DaprClientBuilder().Build());
         services.AddDaprPubSubClient();
-{{- if not .empty }}
+{{- if or (not .empty) (eq .source "sql") }}
+{{- if eq .source "sql" }}
+
+        // The send side keys idempotency and business incidents off the range each read
+        // covers, so a range read again after a failed run is cancelled as a duplicate.
+{{- end }}
 
         // Registered after the DaprClient above on purpose: AddIdempotencyServiceClient
         // contributes its own DaprClient registration (camelCase JSON + string enums),
@@ -94,19 +99,6 @@ public static class Composition
         {
             c.AppId = configuration["PlatformServices:BusinessIncidentServiceAppId"]
                       ?? "business-incident-service.services";
-        });
-{{- else if eq .source "sql" }}
-
-        // The send side's idempotency keys off the range each read covers, so a range
-        // read again after a failed run is cancelled as a duplicate. Registered after
-        // the DaprClient above on purpose: AddIdempotencyServiceClient contributes its
-        // own DaprClient registration (camelCase JSON + string enums), and the last
-        // registration wins for GetRequiredService<DaprClient>().
-        services.AddIdempotencyServiceClient(c =>
-        {
-            // Dapr app id / HTTPEndpoint name; from appsettings.json, overridable per environment.
-            c.AppId = configuration["PlatformServices:IdempotencyServiceAppId"]
-                      ?? "idempotency-service.services";
         });
 {{- end }}
 

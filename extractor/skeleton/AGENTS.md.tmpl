@@ -96,7 +96,7 @@ task coverage    # Cobertura report under the integration project's TestResults/
   except the tests that exercise only the query and the watermark.
 - The model and the unit tests' inputs are empty shells; give them the shape
   of `Sql/Query.sql`'s rows.
-{{- else if .empty }}
+{{- else if eq .bodies "stub" }}
 - The step bodies and the idempotency id/date extractors throw
   `NotImplementedException`; `task test` is red until they are implemented.
   The business-incident, duplicate-cancel and delete-failure sweep tests are

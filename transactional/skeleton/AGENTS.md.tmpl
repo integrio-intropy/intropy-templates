@@ -37,6 +37,7 @@ queued file through a send pipeline that writes to its destination port.
   - `Ports:{{ .toPort }}:Kind`: `Local` in Development; a deployment sets
     `Ports__<port>__Kind` (`Sftp`, `AzureBlob`)
   - `PlatformServices:IdempotencyServiceAppId`: `{{ .idempotencyAppId }}`
+  - `PlatformServices:BusinessIncidentServiceAppId`: `{{ .businessIncidentsAppId }}`
 {{- else }}
 - Source port: `{{ .fromPort }}`; destination port: `{{ .toPort }}`. Both are
   declared in the system host's `Ports.cs`.
@@ -44,7 +45,7 @@ queued file through a send pipeline that writes to its destination port.
   - `Ports:{{ .fromPort }}:Kind`, `Ports:{{ .toPort }}:Kind`: `Local` in
     Development; a deployment sets `Ports__<port>__Kind` (`Sftp`, `AzureBlob`)
 {{- end }}
-{{- if not .empty }}
+{{- if eq .bodies "sample" }}
   - `PlatformServices:IdempotencyServiceAppId`: `{{ .idempotencyAppId }}`
   - `PlatformServices:BusinessIncidentServiceAppId`: `{{ .businessIncidentsAppId }}`
 {{- end }}
@@ -105,11 +106,10 @@ task coverage    # Cobertura report under the integration project's TestResults/
 - The step bodies throw `NotImplementedException`; the send-pipeline tests
   are red until they are implemented. The model is an empty shell; give `In`
   the shape of the query's rows.
-- Idempotency keys off the range each read covers (`WithSourceIdempotency` in
-  `src/Send/SendRoute.cs`), so a range read again after a failed run is
-  cancelled as a duplicate. Business incidents are not wired; add
-  `.WithBusinessIncidents(...)` there and register its client in
-  `src/Configuration/Composition.cs`.
+- Idempotency and business incidents key off the range each read covers
+  (`WithSourceIdempotency` and `WithBusinessIncidents` in
+  `src/Send/SendRoute.cs`): a range read again after a failed run is
+  cancelled as a duplicate, and an incident is named by its range.
 {{- else -}}
 - The pipeline works on bytes at both ends: the `Deserializer` receives the
   source file's raw bytes, and the `Serializer` returns the bytes the `Sender`

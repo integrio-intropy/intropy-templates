@@ -1,15 +1,17 @@
 # transactional
 
 Scaffolds a .NET transactional integration job: a console runner
-(`Intropy.Framework.Hosting.TransactionalIntegration`) polls a local source
-folder binding, publishes each file onto a Dapr pub/sub topic, processes every
-delivery through a VETER send pipeline (`Intropy.Framework.Blocks.TransactionalIntegration`),
-and writes the transformed result to a destination folder binding. Two
-framework pipelines cooperate: the framework owns the **receive** side — it
-sweeps the source folder, publishes each file to the internal hop, and deletes
-it once it is on the queue — and the component supplies the **send**
-pipeline (deserialize → idempotency → extract → validate → transform →
-serialize → send) turns each delivered message into the outbound file.
+(`Intropy.Framework.Hosting.TransactionalIntegration`) reads its source once
+per run — a folder binding's files, or with `source=sql` a SQL query's rows
+after a watermark (see [SQL source](#sql-source)) — publishes each read onto a
+Dapr pub/sub topic, processes every delivery through a VETER send pipeline
+(`Intropy.Framework.Blocks.TransactionalIntegration`), and writes the
+transformed result to a destination folder binding. Two framework pipelines
+cooperate: the framework owns the **receive** side — it reads the source,
+publishes each read to the internal hop, and then deletes the file or moves
+the watermark — and the component supplies the **send** pipeline (deserialize →
+idempotency → extract → validate → transform → serialize → send), which turns
+each delivered message into the outbound file.
 
 The rendered project has a Taskfile (`task build`, `task test`, `task coverage`
 — the component-level loop), two test projects, a Dockerfile on the chiseled
@@ -66,11 +68,12 @@ passes as `Ports__<port>__CursorStore`. `src/appsettings.Development.json`
 reads a SQLite file and names that store, so the composition and integration
 tests run without a host or a database server.
 
-The send pipeline wires `WithSourceIdempotency`, keyed by the range each read
-covers, so a range read again after a failed run is cancelled as a duplicate;
-the Idempotency Service client is registered even though `empty` is true. The
-source renders empty step bodies only (`empty=false` is refused); its sample
-is the query, `SELECT … FROM ChangeLog WHERE ChangeId > @watermark`.
+The send pipeline wires `WithSourceIdempotency` and `WithBusinessIncidents`,
+both keyed by the range each read covers: a range read again after a failed
+run is cancelled as a duplicate, and an incident is named by its range. Both
+platform-service clients are registered whatever `empty` says. The source
+always renders empty step bodies (`empty` applies to the file source only);
+its sample is the query, `SELECT … FROM ChangeLog WHERE ChangeId > @watermark`.
 
 ## Container image
 
@@ -87,10 +90,10 @@ The Dockerfile builds with the system folder as its context
 | -------------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderSync`).           |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.               |
-| `source`       | no       | What the integration reads: `file` (default) sweeps a folder through a Dapr binding; `sql` queries a database for the rows after a watermark (`src/Sql/Query.sql`, external port, empty step bodies only). See [SQL source](#sql-source). |
+| `source`       | no       | What the integration reads: `file` (default) sweeps a folder through a Dapr binding; `sql` queries a database for the rows after a watermark (`src/Sql/Query.sql`, external port, always empty step bodies). See [SQL source](#sql-source). |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. Wired when `empty` is false or `source` is `sql`. |
-| `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
-| `empty`        | no       | Strip sample step bodies and the idempotency/business-incident wiring for a migration agent to fill in. |
+| `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Rendered and wired like `idempotencyAppId`: when `empty` is false or `source` is `sql`. |
+| `empty`        | no       | File source only: strip sample step bodies and the idempotency/business-incident wiring for a migration agent to fill in. A SQL source always renders empty bodies with both services wired. |
 
 ## Render
 

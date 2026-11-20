@@ -11,7 +11,7 @@ public class Serializer : SerializeStep<Out, Context>
     public override Task<(TechnicalStepResult<byte[]> Result, Context Context)> ExecuteAsync(
         Out input, Context context, CancellationToken ct)
     {
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
         throw new NotImplementedException();
 {{- else }}
         // The serializer owns the encoding: these bytes are written as they are.

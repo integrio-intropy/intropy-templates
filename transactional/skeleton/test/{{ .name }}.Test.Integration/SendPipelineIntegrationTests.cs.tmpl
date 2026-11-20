@@ -21,7 +21,8 @@ namespace {{ .name }}.Test.Integration;
 /// receive side queues it: the rows as a JSON array, and the read's watermark
 /// range on its context. These tests pin the send pipeline's consumption
 /// contract: a read is written and its range committed; a range already
-/// committed is consumed without writing again.
+/// committed is consumed without writing again; a destination fault routes an
+/// incident named by the range and stays retriable.
 /// </summary>
 {{- else if .empty }}
 /// The full send pipeline (deserialize → extract → validate → transform →
@@ -91,6 +92,32 @@ public class SendPipelineIntegrationTests
         Assert.IsType<StepResult<byte[]>.Cancelled>(result);
         Assert.Empty(edges.DestinationFiles.Files);
         Assert.Empty(edges.Idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task Execute_WhenDestinationThrows_RoutesAnIncidentForTheRange_AndKeepsTheReadForRedelivery()
+    {
+        // Arrange: the transactional SendStep is a BusinessStep, so a fault at the
+        // destination adapter routes an incident. An unreachable destination says
+        // nothing about the data, so the failure stays retriable.
+        var edges = new FakeEdges();
+        edges.DestinationFiles.WriteException = new InvalidOperationException("Destination unreachable");
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = FakeEdges.ResolveSendPipeline(provider);
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            Encoding.UTF8.GetBytes(ReadJson), NewReadContext(), CancellationToken.None);
+
+        // Assert: one incident from the Send step, named by the read's range;
+        // nothing written or committed.
+        var failure = Assert.IsType<StepResult<byte[]>.BusinessFailure>(result);
+        Assert.True(failure.Retriable);
+        Assert.Empty(edges.DestinationFiles.Files);
+        Assert.Empty(edges.Idempotency.Committed);
+        var incident = Assert.Single(edges.Incidents.Incidents);
+        Assert.Equal(s_range, incident.Subject);
+        Assert.Contains("'Send' step", incident.Data.Description);
     }
 
     // What the receive side stamps on a read's context and carries to the send

@@ -23,11 +23,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-{{- if not .empty }}
+{{- if or (not .empty) (eq .source "sql") }}
 using Intropy.Contracts.BusinessIncidentService;
-using Intropy.Contracts.IdempotencyService;
-using Intropy.Framework.Testing.Services;
-{{- else if eq .source "sql" }}
 using Intropy.Contracts.IdempotencyService;
 using Intropy.Framework.Testing.Services;
 {{- end }}
@@ -39,7 +36,7 @@ namespace {{ .name }}.Test.Integration;
 /// them into the real <see cref="Composition.ConfigureServices"/> graph{{ if eq .source "sql" }}:
 /// the database (a SQLite file of the test's own, read with the component's own
 /// query), the cursor store the watermark is kept in, the destination, the
-/// internal queue and the idempotency service{{ end }}.
+/// internal queue and the two platform-service clients{{ end }}.
 /// Centralised so the receive-side and send-pipeline suites cannot drift apart
 /// when the set of externals changes.
 /// </summary>
@@ -65,13 +62,10 @@ public sealed class FakeEdges
 
     /// <summary>The keyed destination adapter (<see cref="Constants.DestinationPort"/>).</summary>
     public InMemoryFileAdapter DestinationFiles { get; } = new();
-{{- if not .empty }}
+{{- if or (not .empty) (eq .source "sql") }}
 
     public FakeIdempotencyServiceClient Idempotency { get; } = new();
     public FakeBusinessIncidentServiceClient Incidents { get; } = new();
-{{- else if eq .source "sql" }}
-
-    public FakeIdempotencyServiceClient Idempotency { get; } = new();
 {{- end }}
 
     /// <summary>
@@ -115,14 +109,11 @@ public sealed class FakeEdges
 {{- end }}
         services.RemoveAllKeyed<IFileAdapter>(Constants.DestinationPort);
         services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationPort, (_, _) => DestinationFiles);
-{{- if not .empty }}
+{{- if or (not .empty) (eq .source "sql") }}
         services.RemoveAll<IIdempotencyServiceClient>();
         services.AddSingleton<IIdempotencyServiceClient>(Idempotency);
         services.RemoveAll<IBusinessIncidentServiceClient>();
         services.AddSingleton<IBusinessIncidentServiceClient>(Incidents);
-{{- else if eq .source "sql" }}
-        services.RemoveAll<IIdempotencyServiceClient>();
-        services.AddSingleton<IIdempotencyServiceClient>(Idempotency);
 {{- end }}
         return services;
     }

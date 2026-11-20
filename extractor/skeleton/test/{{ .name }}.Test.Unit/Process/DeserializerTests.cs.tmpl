@@ -28,7 +28,7 @@ public class DeserializerTests
         // Assert
         Assert.IsType<BusinessStepResult<Source{{ .payloadType }}>.Success>(result);
     }
-{{- else if .empty }}
+{{- else if eq .bodies "stub" }}
     // Fails from the start: the Deserializer body throws NotImplementedException.
     // The assertions pin the step's framework contract — parse the input and
     // stamp the business id into the context for the idempotency/incident

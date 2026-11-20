@@ -76,7 +76,7 @@ idempotency check, transform) and publishes the result as the
 `{{ .publishes }}` message on the system's pub/sub (topic `{{ .channel }}`).
 A published file is deleted; a failed one stays for the next run. In
 production it runs as a CronJob.
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
 
 The pipeline steps were scaffolded empty: each throws
 `NotImplementedException` until it is implemented.

@@ -70,8 +70,8 @@ no Dapr binding and no folder. The scaffold record carries
 is kept in (`<app-id>-cursors`), which the host passes as
 `Ports__<port>__CursorStore`. `src/appsettings.Development.json` reads a
 SQLite file and names that store, so the composition and integration tests run
-without a host or a database server. The source renders empty step bodies only
-(`empty=false` is refused); its sample is the query, `SELECT … FROM ChangeLog
+without a host or a database server. The source always renders empty step bodies
+(`empty` applies to the file source only); its sample is the query, `SELECT … FROM ChangeLog
 WHERE ChangeId > @watermark`.
 
 ## Parameters
@@ -81,7 +81,7 @@ WHERE ChangeId > @watermark`.
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderExtractor`).            |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.                     |
 | `publishes`   | yes      | The message this extractor publishes. The topic, CloudEvents `type`, and payload type derive from this value. |
-| `source`       | no       | What the extractor reads: `file` (default) sweeps a folder through a Dapr binding; `sql` queries a database for the rows after a watermark (`src/Sql/Query.sql`, external port, empty step bodies only). See [SQL source](#sql-source). |
+| `source`       | no       | What the extractor reads: `file` (default) sweeps a folder through a Dapr binding; `sql` queries a database for the rows after a watermark (`src/Sql/Query.sql`, external port, always empty step bodies). See [SQL source](#sql-source). |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
 | `eventSource`  | no       | CloudEvent `source` for published events. Unset, derives as `urn:<organization>:<app-id>`; set it to preserve an existing event identity during a migration. |

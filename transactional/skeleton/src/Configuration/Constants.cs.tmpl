@@ -32,16 +32,19 @@ public static class Constants
     public const string SourcePort = "{{ .fromPort }}";
     public const string DestinationPort = "{{ .toPort }}";
 
+{{- if eq .source "sql" }}
+
+    // Set by the framework on every read's context and carried to the send
+    // side: the port and the watermark range the read covers, such as
+    // {{ .fromPort }}:int:0:int:2. The send side's idempotency and business
+    // incidents key off it.
+    public const string ContextKeyIdempotencyKey = SourceContextKeys.IdempotencyKey;
+{{- else }}
+
     // Set by the framework on every source file's context before the receive
     // pipeline runs, and propagated with the message to the send side.
     public const string ContextKeyFileName = SourceContextKeys.FileName;
     public const string ContextKeyOrderId = "order_id";
     public const string ContextKeyProcessedAt = "processed_at";
-{{- if eq .source "sql" }}
-
-    // Set by the framework on every read's context and carried to the send
-    // side: the port and the watermark range the read covers, such as
-    // {{ .fromPort }}:int:0:int:2. The send side's idempotency keys off it.
-    public const string ContextKeyIdempotencyKey = SourceContextKeys.IdempotencyKey;
 {{- end }}
 }
