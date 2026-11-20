@@ -9,7 +9,7 @@ namespace {{ .name }}.Routes.{{ pascal .subscribes }};
 
 public class Sender(IFileAdapter fileAdapter) : SendStep<Out, Context>
 {
-    public override {{ if not .empty }}async {{ end }}Task<(TechnicalStepResult<Out> Result, Context Context)> ExecuteAsync(
+    public override {{ if not .empty }}async {{ end }}Task<(BusinessStepResult<Out> Result, Context Context)> ExecuteAsync(
         Out input, Context context, CancellationToken ct)
     {
 {{- if .empty }}
@@ -21,7 +21,7 @@ public class Sender(IFileAdapter fileAdapter) : SendStep<Out, Context>
         // Include the message identity so different message types for one order
         // write distinct files: {orderId}.{message}.json.
         await fileAdapter.WriteAsync($"{input.OrderId}.{Route.Message}.json", json, Encoding.UTF8);
-        return (new TechnicalStepResult<Out>.Success(input), context);
+        return (new BusinessStepResult<Out>.Success(input), context);
 {{- end }}
     }
 }
