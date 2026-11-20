@@ -43,7 +43,19 @@ queued file through a send pipeline that writes to its destination port.
   declared in the system host's `Ports.cs`.
 - Config keys (`src/appsettings*.json`):
   - `Ports:{{ .fromPort }}:Kind`, `Ports:{{ .toPort }}:Kind`: `Local` in
-    Development; a deployment sets `Ports__<port>__Kind` (`Sftp`, `AzureBlob`)
+    Development; a deployment sets `Ports__<port>__Kind` (`Sftp`, `Smb`,
+    `AzureBlob`)
+  - `Ports:<port>:BasePath`: the folder under the binding's root that the port
+    reads or writes; `Ports:{{ .fromPort }}:FileNameRegex`: which file names
+    the sweep takes. Both unset.
+{{- if .claimCheck }}
+  - `ClaimStore`: the claim store's binding. `claim-store` under `claims`; in
+    Development the `{{ .toPort }}` folder's `claims` subfolder. A deployment
+    sets `ClaimStore__Kind`.
+  - `TransactionalIntegration:ClaimCheckMode` (`Auto`),
+    `TransactionalIntegration:ClaimCheckThresholdBytes` (`200000`): a larger
+    file is queued as a pointer to the claim store.
+{{- end }}
 {{- end }}
 {{- if eq .bodies "sample" }}
   - `PlatformServices:IdempotencyServiceAppId`: `{{ .idempotencyAppId }}`
@@ -77,6 +89,7 @@ queued file through a send pipeline that writes to its destination port.
 - `test/{{ .name }}.Test.Integration/`: receive-side, send-pipeline and
   composition tests on `Intropy.Framework.Testing` fakes (fakes in `FakeEdges.cs`).
 {{- end }}
+- `test/samples/`: sample files, copied to both test projects' output.
 - `Dockerfile`, `Dockerfile.dockerignore`: image build. The build context is
   the system folder: `docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .`
 

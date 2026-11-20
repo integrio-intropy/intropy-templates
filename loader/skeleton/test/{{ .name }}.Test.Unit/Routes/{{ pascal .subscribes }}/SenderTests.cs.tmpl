@@ -31,7 +31,7 @@ public class SenderTests
         // The text write is an extension over the adapter's binary WriteAsync.
         await fileAdapter.Received(1).WriteAsync(
             Arg.Any<string>(), Arg.Any<byte[]>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
-        Assert.IsType<TechnicalStepResult<Out>.Success>(result);
+        Assert.IsType<BusinessStepResult<Out>.Success>(result);
     }
 {{- else }}
     [Fact]
@@ -57,7 +57,7 @@ public class SenderTests
             Arg.Is<byte[]>(bytes => Encoding.UTF8.GetString(bytes).Contains("\"OrderId\":\"ORD-1001\"")
                                     && Encoding.UTF8.GetString(bytes).Contains("\"Status\":\"Pending\"")),
             Arg.Any<string?>(), Arg.Any<CancellationToken>());
-        var success = Assert.IsType<TechnicalStepResult<Out>.Success>(result);
+        var success = Assert.IsType<BusinessStepResult<Out>.Success>(result);
         Assert.Same(output, success.Value);
     }
 {{- end }}

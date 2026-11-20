@@ -31,7 +31,7 @@ exactly as production composition does — with only the edges faked. No
 sidecar, no Testcontainers.
 
 Note on versions: every `Intropy.Framework.*` package — including
-`Intropy.Framework.Testing` — pins at `2.1.0-beta.15`, so the integration fakes
+`Intropy.Framework.Testing` — pins at `2.1.0-beta.16`, so the integration fakes
 and the framework types they build on always come from the same build.
 
 Components do not run standalone: the job runs via its system host, which
@@ -43,9 +43,9 @@ The template declares `intropy.io/block-kind: transactional-integration`, so
 `intropy sys create` assembles it into the system host as a
 port-to-port block with no system message. The scaffold record
 (`.intropy/scaffold.json`) carries the derived wiring values the host needs:
-`fromPort`/`toPort` (the two ports, `<app-id>-source` /
-`<app-id>-destination`; the Dapr binding names are the same port names) and
-`appId`/`projectName`. The
+`fromPort`/`toPort` (the two ports: the `sourcePort` and `destinationPort`
+parameters, or `<app-id>-source` / `<app-id>-destination` when they are empty;
+the Dapr binding names are the same port names) and `appId`/`projectName`. The
 internal queue between the receive and send pipelines is
 component-owned: the topology mints it as the topic `internal-<app-id>` on the
 system's pub/sub, `<system>-pubsub`, and nothing declares it. The
@@ -91,6 +91,9 @@ The Dockerfile builds with the system folder as its context
 | `name`         | yes      | PascalCase project/namespace/assembly name (dots allowed, e.g. `Int1055.OrderSync`).           |
 | `organization` | yes      | PascalCase organization name; telemetry ServiceNamespace and incident source URN.               |
 | `source`       | no       | What the integration reads: `file` (default) sweeps a folder through a Dapr binding; `sql` queries a database for the rows after a watermark (`src/Sql/Query.sql`, external port, always empty step bodies). See [SQL source](#sql-source). |
+| `sourcePort` | no | Name of the port the integration sweeps. Empty derives `<app-id>-source`; name a port the system already declares to share it with other components. |
+| `destinationPort` | no | Name of the port the send pipeline writes to. Empty derives `<app-id>-destination`; name a port the system already declares to share it. |
+| `claimCheck` | no | Register a claim store (default `false`): `AddClaimStore`, the `ClaimStore` and `TransactionalIntegration` settings, the store's fake and a receive-side test. A file over `ClaimCheckThresholdBytes` is then kept in the store while a pointer travels on the queue. The environment provides the store's binding (`claim-store`) and `ClaimStore__Kind`; in Development the store is the `claims` folder of the destination port's local folder. |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. Wired when `empty` is false or `source` is `sql`. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Rendered and wired like `idempotencyAppId`: when `empty` is false or `source` is `sql`. |
 | `empty`        | no       | File source only: strip sample step bodies and the idempotency/business-incident wiring for a migration agent to fill in. A SQL source always renders empty bodies with both services wired. |

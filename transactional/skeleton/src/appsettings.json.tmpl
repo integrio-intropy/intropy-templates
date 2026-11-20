@@ -4,7 +4,12 @@
       "Default": "Information",
       "Microsoft": "Warning"
     }
-  }
+  }{{- if .claimCheck }},
+
+  "ClaimStore": { "DaprBindingName": "claim-store", "BasePath": "claims" },
+
+  "TransactionalIntegration": { "ClaimCheckMode": "Auto", "ClaimCheckThresholdBytes": 200000 }
+{{- end }}
 {{- if eq .source "sql" }},
 
   "Ports": {

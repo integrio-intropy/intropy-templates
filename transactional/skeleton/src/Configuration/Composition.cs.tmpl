@@ -12,6 +12,9 @@ using Intropy.Framework.Adapters.Sql;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Common;
 using Intropy.Framework.Core.Configuration;
+{{- if .claimCheck }}
+using Intropy.Framework.Hosting.Common;
+{{- end }}
 {{- if eq .source "sql" }}
 using Intropy.Framework.Hosting.StatefulSweeps;
 {{- else }}
@@ -171,6 +174,16 @@ public static class Composition
         services.AddFileAdapter(Constants.SourcePort, configuration.GetSection(
             $"{PortServiceCollectionExtensions.PortsSectionName}:{Constants.SourcePort}"));
         services.AddDestinationPort(Constants.DestinationPort, configuration);
+{{- if .claimCheck }}
+
+        // The claim store: a file larger than
+        // TransactionalIntegration:ClaimCheckThresholdBytes is written there and only a
+        // pointer to it is queued; the send side reads it back. ClaimStore:Kind and
+        // ClaimStore:DaprBindingName name the store, as a port's settings do.
+        // ClaimCheckMode Never stops new files from being claim-checked; keep the store
+        // registered so messages already queued with a pointer can still be read.
+        services.AddClaimStore(configuration);
+{{- end }}
 
         // Register the integration last, after every adapter and platform service its
         // send pipeline resolves from DI has been added to the service collection.
@@ -187,8 +200,11 @@ public static class Composition
         // host and the deployment set from the topology.
         // A port carrying other data gets its own .Port(...) and .On(...) route, with a
         // send pipeline of its own.
+        // The integration's options (the claim check mode and threshold among them) bind
+        // from the TransactionalIntegration section.
         services.AddTransactionalIntegration(
-            new TransactionalIntegrationDefinition<Context>(),
+            configuration.GetSection("TransactionalIntegration"),
+            () => new TransactionalIntegrationDefinition<Context>(),
             sources => sources.Port(Constants.SourcePort),
             routes => routes.On<In, Out>([Constants.SourcePort], SendRoute.Configure));
 

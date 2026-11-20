@@ -64,6 +64,12 @@ spec:
         title: CloudEvent source
         description: Envelope `source` (URI) for published events. The default derives as urn:<organization>:<app-id>; set it to preserve an existing event identity during a migration.
         default: ""
+      sourcePort:
+        type: string
+        title: Source port
+        description: Name of the port the extractor sweeps, as the system host declares it. Empty derives <app-id>-source; name a port the system already has to share it.
+        default: ""
+        pattern: "^([a-z][a-z0-9-]*)?$"
       empty:
         type: boolean
         title: Empty bodies
@@ -86,18 +92,20 @@ spec:
     # the scalar message wiring.
     payloadType: '{{ pascal .publishes }}'
     # The extractor's source port — the named interface it reads the outside
-    # world through. Derived like appId so it stays unique per component.
+    # world through: the sourcePort parameter, or derived like appId so it
+    # stays unique per component.
     # Recorded in .intropy/scaffold.json; `intropy sys create` resolves it to
     # a local file transport by default (external system and transport are
     # never asked for at scaffold time).
-    port: '{{ .name | kebabcase | replace "." "-" }}-source'
+    port: '{{ default (printf "%s-source" (.name | kebabcase | replace "." "-")) .sourcePort }}'
     # How the system reaches the port, recorded in .intropy/scaffold.json:
     # `intropy sys create` declares an external port (a database, an HTTP API)
     # with PortRef.DefineExternal, no binding and no folder.
     portKind: '{{ if eq .source "file" }}binding{{ else }}external{{ end }}'
     # The framework release every framework package reference pins. 2.1.0-beta.15
-    # is the first with Intropy.Framework.Adapters.Sql (the SQL source).
-    frameworkVersion: '2.1.0-beta.15'
+    # is the first with Intropy.Framework.Adapters.Sql (the SQL source);
+    # 2.1.0-beta.16 makes a failed loader send a business failure.
+    frameworkVersion: '2.1.0-beta.16'
     # Whether the step bodies carry the order sample or throw
     # NotImplementedException: "sample" only for a file source with
     # empty=false. A SQL source's sample is its query, so its bodies are

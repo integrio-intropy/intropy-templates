@@ -75,6 +75,7 @@ pass `--build-arg COMPONENT=<folder>` when it differs.
 | `topic`        | no       | The topic the loader consumes. Defaults to the first route's message; set it to the shared topic when the routed messages' producers publish on one (`topic` on the extractor). |
 | `idempotencyAppId` | no  | Dapr app-id of the Idempotency Service (default `idempotency-service.services`). Rendered into `src/appsettings.json`, read via `IConfiguration` in Composition. |
 | `businessIncidentsAppId` | no | Dapr app-id of the Business Incident Service (default `business-incident-service.services`). Same wiring as `idempotencyAppId`. |
+| `destinationPort` | no    | Name of the port the loader writes to. Empty derives `<app-id>-destination`; name a port the system already declares to share it. |
 | `empty`        | no       | Strip sample step bodies for a migration agent to fill in (wiring stays; no idempotency lambdas).     |
 
 ## Render

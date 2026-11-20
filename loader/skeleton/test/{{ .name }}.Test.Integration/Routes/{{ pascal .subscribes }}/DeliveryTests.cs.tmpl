@@ -14,8 +14,8 @@ namespace {{ .name }}.Test.Integration.Routes.{{ pascal .subscribes }};
 /// platform-service clients), and <see cref="AppCallbackDelivery"/> pushes
 /// CloudEvents of the route's type to the callback exactly as the Dapr sidecar
 /// would. These tests pin the route's consumption contract: loaded, duplicate,
-/// and incident-routed messages ack Success; technical failures ack Retry and
-/// leave no trace.
+/// and rejected messages ack Success; a failed send routes an incident and acks
+/// Retry, so the message is redelivered.
 /// </summary>
 public class DeliveryTests
 {
@@ -63,10 +63,10 @@ public class DeliveryTests
     }
 
     [Fact]
-    public async Task DeliverAsync_WhenDestinationIsDown_AcksRetryAndRecordsNothing()
+    public async Task DeliverAsync_WhenDestinationIsDown_RoutesAnIncidentAndAcksRetry()
     {
-        // Arrange: WriteException surfaces as a technical failure through the
-        // pipeline's normal exception handling, matching a dead destination.
+        // Arrange: WriteException makes the Sender throw, as a dead destination
+        // would. A failed send is a retriable business failure.
         await using var sut = await LoaderSut.StartAsync();
         var (sidecar, files, idempotency, incidents) = sut;
         files.WriteException = new InvalidOperationException("Destination unreachable");
@@ -74,12 +74,13 @@ public class DeliveryTests
         // Act
         var ack = await sidecar.DeliverAsync(NewDelivery(ValidRecordJson));
 
-        // Assert: the sidecar redelivers on RETRY; nothing was written,
-        // committed, or incident-routed.
+        // Assert: an incident names the failed send, and the sidecar redelivers
+        // on RETRY; nothing was written or committed.
         Assert.Equal(DeliveryAck.Retry, ack);
         Assert.Empty(files.Files);
         Assert.Empty(idempotency.Committed);
-        Assert.Empty(incidents.Incidents);
+        var incident = Assert.Single(incidents.Incidents);
+        Assert.Contains("'Send'", incident.Data.Description);
     }
 {{- else }}
     private const string ValidOrderJson =
@@ -147,10 +148,10 @@ public class DeliveryTests
     }
 
     [Fact]
-    public async Task DeliverAsync_WhenDestinationIsDown_AcksRetryAndRecordsNothing()
+    public async Task DeliverAsync_WhenDestinationIsDown_RoutesAnIncidentAndAcksRetry()
     {
-        // Arrange: WriteException surfaces as a technical failure through the
-        // pipeline's normal exception handling, matching a dead destination.
+        // Arrange: WriteException makes the Sender throw, as a dead destination
+        // would. A failed send is a retriable business failure.
         await using var sut = await LoaderSut.StartAsync();
         var (sidecar, files, idempotency, incidents) = sut;
         files.WriteException = new InvalidOperationException("Destination unreachable");
@@ -158,12 +159,13 @@ public class DeliveryTests
         // Act
         var ack = await sidecar.DeliverAsync(NewDelivery(ValidOrderJson));
 
-        // Assert: the sidecar redelivers on RETRY; nothing was written,
-        // committed, or incident-routed.
+        // Assert: an incident names the failed send, and the sidecar redelivers
+        // on RETRY; nothing was written or committed.
         Assert.Equal(DeliveryAck.Retry, ack);
         Assert.Empty(files.Files);
         Assert.Empty(idempotency.Committed);
-        Assert.Empty(incidents.Incidents);
+        var incident = Assert.Single(incidents.Incidents);
+        Assert.Contains("'Send'", incident.Data.Description);
     }
 {{- end }}
 

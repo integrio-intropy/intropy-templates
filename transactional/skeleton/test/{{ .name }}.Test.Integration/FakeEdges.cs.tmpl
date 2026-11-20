@@ -9,6 +9,9 @@ using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Blocks.TransactionalIntegration.Receive.Steps;
 using Intropy.Framework.Blocks.TransactionalIntegration.Send;
 using Intropy.Framework.Core.Configuration;
+{{- if .claimCheck }}
+using Intropy.Framework.Hosting.Common;
+{{- end }}
 {{- if eq .source "sql" }}
 using Intropy.Framework.Hosting.StatefulSweeps;
 {{- end }}
@@ -62,6 +65,11 @@ public sealed class FakeEdges
 
     /// <summary>The keyed destination adapter (<see cref="Constants.DestinationPort"/>).</summary>
     public InMemoryFileAdapter DestinationFiles { get; } = new();
+{{- if .claimCheck }}
+
+    /// <summary>The claim store: where a file too large for a queue message is kept.</summary>
+    public InMemoryFileAdapter ClaimStore { get; } = new();
+{{- end }}
 {{- if or (not .empty) (eq .source "sql") }}
 
     public FakeIdempotencyServiceClient Idempotency { get; } = new();
@@ -109,6 +117,11 @@ public sealed class FakeEdges
 {{- end }}
         services.RemoveAllKeyed<IFileAdapter>(Constants.DestinationPort);
         services.AddKeyedSingleton<IFileAdapter>(Constants.DestinationPort, (_, _) => DestinationFiles);
+{{- if .claimCheck }}
+        services.RemoveAllKeyed<IFileAdapter>(ClaimStoreServiceCollectionExtensions.ClaimStoreKey);
+        services.AddKeyedSingleton<IFileAdapter>(ClaimStoreServiceCollectionExtensions.ClaimStoreKey,
+            (_, _) => ClaimStore);
+{{- end }}
 {{- if or (not .empty) (eq .source "sql") }}
         services.RemoveAll<IIdempotencyServiceClient>();
         services.AddSingleton<IIdempotencyServiceClient>(Idempotency);

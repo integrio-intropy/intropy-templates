@@ -8,9 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Intropy.Framework.Adapters" Version="2.1.0-beta.15" />
-    <PackageReference Include="Intropy.Framework.Blocks" Version="2.1.0-beta.15" />
-    <PackageReference Include="Intropy.Framework.Core" Version="2.1.0-beta.15" />
+    <PackageReference Include="Intropy.Framework.Adapters" Version="2.1.0-beta.16" />
+    <PackageReference Include="Intropy.Framework.Blocks" Version="2.1.0-beta.16" />
+    <PackageReference Include="Intropy.Framework.Core" Version="2.1.0-beta.16" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <!-- NSubstitute appears exactly once in the unit suite: the Sender step's
          IFileAdapter constructor seam
@@ -27,6 +27,12 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Sample files (a real input, the output expected for it), shared by
+         both test projects and copied next to the tests as samples/<name>. -->
+    <None Include="../samples/**" Exclude="../samples/README.md" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

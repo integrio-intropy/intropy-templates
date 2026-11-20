@@ -1,4 +1,7 @@
 {
+{{- if .claimCheck }}
+  "ClaimStore": { "Kind": "Local", "DaprBindingName": "{{ .toPort }}", "BasePath": "claims" },
+{{- end }}
   "Ports": {
 {{- if eq .source "sql" }}
     "{{ .fromPort }}": {
