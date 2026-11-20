@@ -1,4 +1,8 @@
+{{- if eq .source "sql" -}}
+using Intropy.Framework.Hosting.StatefulSweeps;
+{{- else -}}
 using Intropy.Framework.Adapters.File;
+{{- end }}
 using Intropy.Framework.Hosting.Jobs;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,6 +25,21 @@ public class CompositionTests
         Assert.NotNull(runner);
     }
 
+{{- if eq .source "sql" }}
+
+    [Fact]
+    public void Composition_ResolvesTheSqlSourceUnderItsPort_WithItsCursor()
+    {
+        // The Development settings stand in for the system host's: a SQLite file
+        // and the cursor store the topology mints for this component.
+        var provider = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development").BuildServiceProvider();
+
+        var source = provider.GetRequiredKeyedService<IPolledSource>(Constants.SourcePort);
+
+        Assert.Equal("{{ .cursorStore }}", source.Cursor?.StoreName);
+    }
+{{- else }}
+
     [Fact]
     public void Composition_ResolvesSourceFileAdapterUnderItsKey()
     {
@@ -30,4 +49,5 @@ public class CompositionTests
 
         Assert.NotNull(adapter);
     }
+{{- end }}
 }

@@ -1,11 +1,18 @@
-{{- /* The seed default follows the first extractor with a port —
+{{- /* The seed default follows the first extractor with a folder port —
 extractors sweep their source folder once at host start, so that folder is
-the one to seed before `task run`. Other components' folders stay reachable
-via the PORT_DIR override. A system without a port-bearing extractor gets a
-placeholder default; PORT_DIR is required there. */ -}}
+the one to seed before `task run`. An external port has no folder to seed.
+Other components' folders stay reachable via the PORT_DIR override. A system
+without a folder-reading extractor gets a placeholder default; PORT_DIR is
+required there. */ -}}
+{{- $external := dict -}}
+{{- range .ports -}}
+{{- if eq (get . "kind") "external" -}}
+{{- $_ := set $external .name true -}}
+{{- end -}}
+{{- end -}}
 {{- $seedPort := "<port>" -}}
 {{- range .components -}}
-{{- if and (eq .kind "extractor") (hasKey . "port") -}}
+{{- if and (eq .kind "extractor") (hasKey . "port") (not (hasKey $external (get . "port"))) -}}
 {{- $seedPort = .port -}}
 {{- end -}}
 {{- end -}}

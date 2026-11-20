@@ -33,6 +33,12 @@ declaration — an Aspire run backend and a generation backend.
   the deployed binding's type, address, and credentials are environment-owned
   deployment configuration the topology deliberately does not repeat. Local
   runs resolve the port through the development definition instead.
+{{- $hasExternal := false }}{{- range .ports }}{{- if eq (get . "kind") "external" }}{{- $hasExternal = true }}{{- end }}{{- end }}
+{{- if $hasExternal }}
+  An external port (`PortRef.DefineExternal`) has no binding: its component
+  reaches the system through a client of its own, and a component that reads
+  it keeps a cursor in a state store the topology mints for it.
+{{- end }}
 {{- if and (hasKey . "endpoints") (gt (len .endpoints) 0) }}
 - `Endpoints.cs` — the HTTP endpoints the system's gateways serve, as refs
   (`EndpointRef`: a name and the path callers POST to). Same
@@ -43,7 +49,10 @@ declaration — an Aspire run backend and a generation backend.
   assembly): local substitutions for the outside world. Same
   regenerate-then-yours lifecycle. `Mock(...).FromOpenApi(...)` stands in an
   OpenAPI-backed mock for a platform service; `Files(...).RootPath(...)` resolves a
-  port to a folder under this project (conventionally `test/<port>/`); and
+  port to a folder under this project (conventionally `test/<port>/`);
+{{- if $hasExternal }}
+  `Settings(...).Set(...)` gives an external port its local values;
+{{- end }} and
   `Rerun("<component>").AfterEachRun(...)` re-runs a declared run-to-completion
   component (extractor or transactional integration) on an interval
   during local runs so a later seed is picked up without a host restart.

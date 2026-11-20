@@ -9,7 +9,13 @@ public sealed class {{ .projectName }}Development : IDevelopmentDefinition
         development.Mock(Services.Idempotency).FromOpenApi("mocks/idempotency-service.openapi.yaml");
         development.Mock(Services.BusinessIncidents).FromOpenApi("mocks/business-incident-service.openapi.yaml");
 {{- range $c := .ports }}
-        development.Files(Ports.{{ regexReplaceAll "[-._]" $c.name " " | title | replace " " "" }}).RootPath("./test/{{ $c.name }}");
+{{- $field := regexReplaceAll "[-._]" $c.name " " | title | replace " " "" }}
+{{- if eq (get $c "kind") "external" }}
+        // {{ $c.name }} is external: no folder. Set the values its client reads from Ports:{{ $c.name }}, e.g.
+        // development.Settings(Ports.{{ $field }}).Set("ConnectionString", "...");
+{{- else }}
+        development.Files(Ports.{{ $field }}).RootPath("./test/{{ $c.name }}");
+{{- end }}
 {{- end }}
 {{- range $c := .components }}
 {{- if or (eq $c.kind "extractor") (eq $c.kind "transactional-integration") (eq $c.kind "job") }}

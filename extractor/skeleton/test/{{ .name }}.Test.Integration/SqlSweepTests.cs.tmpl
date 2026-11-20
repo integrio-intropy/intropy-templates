@@ -1,0 +1,116 @@
+using Intropy.Framework.Hosting.Jobs;
+using Intropy.Framework.Hosting.StatefulSweeps;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The full pipeline (read → deserialize → validate → idempotency → transform →
+/// serialize → publish) over runs of the job against a SQLite file of the test's
+/// own, read with the component's own query (<c>Sql/Query.sql</c>). Only the
+/// externals are faked (see <see cref="FakeEdges"/>), and assertions read their
+/// state directly. These tests pin the watermark's contract: a run publishes the
+/// rows after the watermark as one event and moves the watermark past them, a run
+/// without new rows publishes nothing, and a run that fails keeps its range
+/// pending for the next run.
+/// </summary>
+/// <remarks>
+/// The table is the one <c>Sql/Query.sql</c> selects from. Change both together.
+/// </remarks>
+public sealed class SqlSweepTests : IAsyncLifetime, IDisposable
+{
+    private readonly FakeEdges _edges = new();
+    private IJob _job = null!;
+
+    // Most tests here fail from the start: the framework's BusinessStep wrapper
+    // routes the throwing Deserializer as a business incident, so each read is
+    // consumed with nothing published. Each flips green as the steps are
+    // implemented, with no test edits. The test without new rows passes from the
+    // start: it exercises the query and the watermark only.
+
+    public async Task InitializeAsync()
+    {
+        await _edges.ExecuteAsync("""
+            CREATE TABLE ChangeLog
+            (
+                ChangeId  INTEGER PRIMARY KEY,
+                RecordId  TEXT NOT NULL,
+                ChangedAt TEXT NOT NULL
+            );
+            """);
+        _job = _edges.CreateServices().BuildServiceProvider().GetRequiredService<IJob>();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    public void Dispose() => _edges.Dispose();
+
+    [Fact]
+    public async Task Run_WithNewRows_PublishesThemAsOneEvent_AndMovesTheWatermark()
+    {
+        // Arrange
+        await InsertAsync(1, 2);
+
+        // Act
+        var summary = await _job.ExecuteAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Equal(new RunSummary(1, 0, 0), summary);
+        Assert.Single(_edges.Topic.Events);
+        Assert.Equal([$"{Constants.SourcePort}:int:0:int:2"], _edges.Idempotency.Committed.Select(m => m.Id));
+        Assert.Equal(new CursorState("int:2", null), _edges.Cursors.State[FakeEdges.CursorKey]);
+    }
+
+    [Fact]
+    public async Task Run_AfterAnEarlierRun_ReadsOnlyTheRowsAfterTheWatermark()
+    {
+        // Arrange
+        await InsertAsync(1, 2);
+        await _job.ExecuteAsync(CancellationToken.None);
+        await InsertAsync(3);
+
+        // Act
+        await _job.ExecuteAsync(CancellationToken.None);
+
+        // Assert: one event per run, each for its own range.
+        Assert.Equal(2, _edges.Topic.Count);
+        Assert.Equal(
+            [$"{Constants.SourcePort}:int:0:int:2", $"{Constants.SourcePort}:int:2:int:3"],
+            _edges.Idempotency.Committed.Select(m => m.Id));
+    }
+
+    [Fact]
+    public async Task Run_WithoutNewRows_PublishesNothing()
+    {
+        // Act
+        var summary = await _job.ExecuteAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RunSummary.Empty, summary);
+        Assert.Equal(0, _edges.Topic.Count);
+    }
+
+    [Fact]
+    public async Task Run_WhenBrokerIsDown_KeepsTheRangePending_AndTheNextRunSendsIt()
+    {
+        // Arrange: SendException surfaces as a technical failure, matching a dead
+        // broker in production.
+        await InsertAsync(1, 2);
+        _edges.Topic.SendException = new InvalidOperationException("Broker unreachable");
+
+        // Act: the failed run, then a run after the broker is back.
+        var failed = await _job.ExecuteAsync(CancellationToken.None);
+        _edges.Topic.SendException = null;
+        var retried = await _job.ExecuteAsync(CancellationToken.None);
+
+        // Assert: the range stayed pending, and the retry published exactly it.
+        Assert.Equal(1, failed.Failed);
+        Assert.Equal(new RunSummary(1, 0, 0), retried);
+        Assert.Equal([$"{Constants.SourcePort}:int:0:int:2"], _edges.Idempotency.Committed.Select(m => m.Id));
+        Assert.Equal(new CursorState("int:2", null), _edges.Cursors.State[FakeEdges.CursorKey]);
+    }
+
+    private Task InsertAsync(params int[] changeIds) =>
+        _edges.ExecuteAsync(string.Join("\n", changeIds.Select(id =>
+            $"INSERT INTO ChangeLog (ChangeId, RecordId, ChangedAt) VALUES ({id}, 'REC-{id}', '2026-01-15T09:30:0{id % 10}+00:00');")));
+}

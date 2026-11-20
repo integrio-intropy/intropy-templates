@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: extractor
   title: Extractor Integration
-  description: Run-to-completion .NET extractor that sweeps a local source folder once per run, runs each file through the Intropy extractor pipeline, and publishes the result as a CloudEvent to a Dapr pub/sub topic.
+  description: Run-to-completion .NET extractor that reads its source once per run (a folder's files, or a SQL query's new rows), runs each read through the Intropy extractor pipeline, and publishes the result as a CloudEvent to a Dapr pub/sub topic.
   tags:
     - example
     - dotnet
@@ -43,6 +43,12 @@ spec:
         title: Topic
         description: The topic the extractor declares for its message, recorded for the system host. Defaults to the message name; set it to share one topic between several messages, so one loader can route them all. At run time the extractor publishes on the topic the topology settles (INTROPY_TOPIC_NAME).
         pattern: "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+      source:
+        type: string
+        title: Source
+        description: What the extractor reads. "file" sweeps a folder through a Dapr binding; "sql" queries a database for the rows after a watermark it keeps between runs.
+        enum: [file, sql]
+        default: file
       idempotencyAppId:
         type: string
         title: Idempotency service app-id
@@ -85,6 +91,21 @@ spec:
     # a local file transport by default (external system and transport are
     # never asked for at scaffold time).
     port: '{{ .name | kebabcase | replace "." "-" }}-source'
+    # How the system reaches the port, recorded in .intropy/scaffold.json:
+    # `intropy sys create` declares an external port (a database, an HTTP API)
+    # with PortRef.DefineExternal, no binding and no folder.
+    portKind: '{{ if eq .source "file" }}binding{{ else }}external{{ end }}'
+    # The framework release every framework package reference pins. 2.1.0-beta.15
+    # is the first with Intropy.Framework.Adapters.Sql (the SQL source).
+    frameworkVersion: '2.1.0-beta.15'
+    # The SQL source ships empty bodies only: its sample is the query, not a
+    # business model. Refused up front rather than rendering a half sample.
+    sourceCheck: '{{ if and (eq .source "sql") (not .empty) }}{{ fail "source=sql renders empty step bodies only; scaffold it with empty=true" }}{{ end }}'
+    # The Dapr state store the SQL source keeps its watermark in. The topology
+    # mints it under this name for every component that reads an external
+    # port, and the host passes it as Ports__<port>__CursorStore; the
+    # Development settings repeat it for runs and tests outside the host.
+    cursorStore: '{{ .name | kebabcase | replace "." "-" }}-cursors'
     # CloudEvent identity: the type is the message itself (D1 — message
     # identity is the CloudEvents type). No derivation and no override
     # exist: a topic name is never guessed into an event type, and a
@@ -95,6 +116,15 @@ spec:
     # reads it into the system host's declaration; the code takes the topic the
     # topology settles from INTROPY_TOPIC_NAME, never this value.
     channel: '{{ get . "topic" | default .publishes }}'
+  files:
+    # The query exists only for a SQL source; the folder sweep's tests only
+    # for a file source, the watermark's only for a SQL one.
+    - path: src/Sql/**
+      when: '{{ eq .source "sql" }}'
+    - path: "test/*/SweepTests.cs.tmpl"
+      when: '{{ eq .source "file" }}'
+    - path: "test/*/SqlSweepTests.cs.tmpl"
+      when: '{{ eq .source "sql" }}'
   dependencies:
     - template: shared-contracts
       output: '{{ .contracts }}'

@@ -1,0 +1,12 @@
+-- The rows one run reads: those after the watermark, the highest ChangeId an
+-- earlier run published. @watermark is the port's InitialWatermark on the
+-- first run. Replace the table and columns with the source's; keep the
+-- @watermark filter and the ORDER BY on the watermark column, and change the
+-- column in Composition (Delta.Column) with them.
+--
+-- The same query runs against SQL Server when deployed and SQLite locally, so
+-- keep to SQL both accept: no schema prefix, no TOP, no T-SQL functions.
+SELECT ChangeId, RecordId, ChangedAt
+FROM ChangeLog
+WHERE ChangeId > @watermark
+ORDER BY ChangeId;

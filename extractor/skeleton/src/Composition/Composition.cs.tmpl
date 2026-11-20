@@ -4,13 +4,20 @@ using {{ .name }}.Model;
 using {{ .name }}.Process;
 using Intropy.BusinessIncidentService.Client;
 using Intropy.Framework.Adapters.File;
+{{- if eq .source "sql" }}
+using Intropy.Framework.Adapters.Sql;
+{{- end }}
 using Intropy.Framework.Blocks.Extractor;
 using Intropy.Framework.Blocks.Extractor.Steps;
 using Intropy.Framework.Blocks.Shared;
 using Intropy.Framework.Core.Common;
 using Intropy.Framework.Core.Configuration;
 using Intropy.Framework.Hosting.Extractor;
+{{- if eq .source "sql" }}
+using Intropy.Framework.Hosting.StatefulSweeps;
+{{- else }}
 using Intropy.Framework.Hosting.FileSweeps;
+{{- end }}
 using Intropy.IdempotencyService.Client;
 using Intropy.Telemetry;
 using Intropy.Telemetry.ConsoleApp;
@@ -23,7 +30,7 @@ namespace {{ .name }}.Composition;
 /// <summary>
 /// The component's service registrations, shared by the entrypoint
 /// (<c>Program.cs</c>) and the composition smoke test. Everything the runner
-/// needs — telemetry, Dapr clients, the source file adapter, the extract
+/// needs — telemetry, Dapr clients, the {{ if eq .source "sql" }}SQL source{{ else }}source file adapter{{ end }}, the extract
 /// pipeline — is registered here so the test can prove the whole graph
 /// builds without a sidecar.
 /// </summary>
@@ -114,6 +121,18 @@ public static class Composition
             x.ServiceNamespace = Constants.Organization;
         });
 
+{{- if eq .source "sql" }}
+
+        // The SQL source behind the source port: the query, and the column whose highest
+        // value becomes the next run's @watermark. Its settings come from Ports:<port>:
+        // Kind (Sql for SQL Server, Sqlite for a local file), the connection string, the
+        // initial watermark, and the cursor store the watermark is kept in, which the
+        // system host sets to the store the topology mints for this component. With no
+        // connection string, startup fails naming the port.
+        services.AddSqlSource(Constants.SourcePort, configuration.GetSection(
+            $"{PortServiceCollectionExtensions.PortsSectionName}:{Constants.SourcePort}"), ConfigureSource);
+{{- else }}
+
         // The file adapter behind each source port the framework sweeps is chosen by
         // configuration: Ports:<port>:Kind selects the Dapr binding the port is
         // deployed with (Local, Sftp or AzureBlob).
@@ -124,6 +143,7 @@ public static class Composition
         // the cluster's secret store.
         services.AddFileAdapter(Constants.SourcePort, configuration.GetSection(
             $"{PortServiceCollectionExtensions.PortsSectionName}:{Constants.SourcePort}"));
+{{- end }}
 
         // The publisher is a service like the other externals (source adapter,
         // platform clients): tests swap it for a FakeTopic via RemoveAll/AddSingleton,
@@ -134,6 +154,20 @@ public static class Composition
             TopicName(sp),
             new Uri(Constants.EventSource),
             Constants.EventType));
+
+{{- if eq .source "sql" }}
+
+        // Register the extractor last, after every source, publisher, and platform
+        // client its pipeline resolves from DI has been added to the service collection.
+        // The source port is polled: each run reads the rows after the watermark as one
+        // message, the rows as a JSON array, with a fresh context (holding the port and
+        // the read's range) and its own pipeline. The watermark moves once the message is
+        // published or cancelled as a duplicate; a run that fails reads the same range
+        // again. The run-to-completion host owns the Dapr sidecar lifecycle, tracing, and
+        // exit codes; the job is named after the component.
+        services.AddExtractor(
+            sources => sources.Port(new PolledSourcePort(Constants.SourcePort)),
+{{- else }}
 
         // Register the extractor last, after every adapter, publisher, and platform
         // client its pipeline resolves from DI has been added to the service collection.
@@ -147,11 +181,23 @@ public static class Composition
         // pipeline of its own.
         services.AddExtractor(
             sources => sources.Port(Constants.SourcePort),
+{{- end }}
             routes => routes.On<Source{{ .payloadType }}, {{ .payloadType }}>(
                 [Constants.SourcePort], ConfigurePipeline));
 
         return services;
     }
+{{- if eq .source "sql" }}
+
+    /// <summary>
+    /// The SQL source's query and delta: the rows after the watermark, which moves to the
+    /// highest <c>ChangeId</c> a run published. Shared with the integration tests, which
+    /// run it against a SQLite file of their own.
+    /// </summary>
+    public static void ConfigureSource(SqlSourceBuilder sql) => sql
+        .Query(SqlFile.Embedded("Sql/Query.sql"))
+        .Delta(Delta.Column("ChangeId"));
+{{- end }}
 
     /// <summary>
     /// Configures the extract pipeline of the <see cref="Constants.SourcePort"/> route against
@@ -166,6 +212,11 @@ public static class Composition
         return builder
             .WithDeserializer(new Deserializer())
             .WithValidator(new Validator())
+{{- if eq .source "sql" }}
+            // The SQL source keys each read by the watermark range it covers, so a range
+            // read again after a failed run is recognised as a duplicate.
+            .WithSourceIdempotency()
+{{- else }}
             // Point the idempotency check at a stable business identifier and
             // timestamp — per-delivery values (fresh GUID, wall-clock time)
             // make the check pass everything.
@@ -179,6 +230,7 @@ public static class Composition
                     order.OrderId,
                 dateExtractor: (Source{{ .payloadType }} order, Context _) =>
                     order.OrderDate)
+{{- end }}
 {{- end }}
             .WithTransformer(new Transformer())
             // The framework's serialize step owns the CloudEvent envelope (Id,
@@ -195,10 +247,17 @@ public static class Composition
             // The sender resolves from DI like every other external dependency;
             // tests swap the SendStep<Context> registration for a FakeTopic.
             .WithSender(provider.GetRequiredService<SendStep<Context>>())
+{{- if eq .source "sql" }}
+            // A read has no business id of its own: the range identifies it.
+            .WithBusinessIncidents(
+                messageIdExtractor: ctx => ctx.Metadata[Constants.ContextKeyIdempotencyKey],
+                subjectExtractor: ctx => ctx.Metadata[Constants.ContextKeyIdempotencyKey]);
+{{- else }}
             .WithBusinessIncidents(
                 messageIdExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
                     ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")),
                 subjectExtractor: ctx => ctx.Metadata.GetValueOrDefault(Constants.ContextKeyOrderId,
                     ctx.Metadata.GetValueOrDefault(Constants.ContextKeyFileName, "unknown")));
+{{- end }}
     }
 }

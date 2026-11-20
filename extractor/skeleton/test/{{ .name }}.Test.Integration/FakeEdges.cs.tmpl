@@ -1,3 +1,104 @@
+{{- if eq .source "sql" -}}
+using {{ .contracts }};
+using {{ .name }}.Model;
+using Intropy.Contracts.BusinessIncidentService;
+using Intropy.Contracts.IdempotencyService;
+using Intropy.Framework.Adapters.Sql;
+using Intropy.Framework.Blocks.Extractor;
+using Intropy.Framework.Blocks.Extractor.Steps;
+using Intropy.Framework.Blocks.Shared;
+using Intropy.Framework.Hosting.StatefulSweeps;
+using Intropy.Framework.Testing.Services;
+using Intropy.Framework.Testing.StatefulSweeps;
+using Intropy.Framework.Testing.Topics;
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The externals every integration test fakes, plus the DI wiring that swaps
+/// them into the real <see cref="Composition.Composition.ConfigureServices"/> graph:
+/// the database (a SQLite file of the test's own, read with the component's own
+/// query), the cursor store the watermark is kept in, the two platform-service
+/// clients, and the publish edge. Centralised so <see cref="SqlSweepTests"/> and
+/// the publish tests cannot drift apart when the set of externals changes.
+/// </summary>
+public sealed class FakeEdges : IDisposable
+{
+    private const string CursorStoreName = "{{ .cursorStore }}";
+
+    /// <summary>The SQLite file the source reads; <see cref="ExecuteAsync"/> writes to it.</summary>
+    public string DatabasePath { get; } = Path.Combine(Path.GetTempPath(), $"{Constants.ComponentName}-{Guid.NewGuid():N}.db");
+
+    public InMemoryCursorStore Cursors { get; } = new();
+    public FakeTopic<Context> Topic { get; } = new();
+    public FakeIdempotencyServiceClient Idempotency { get; } = new();
+    public FakeBusinessIncidentServiceClient Incidents { get; } = new();
+
+    /// <summary>The key the sweep keeps the source port's watermark under.</summary>
+    public static string CursorKey => $"{Constants.ComponentName}:{Constants.SourcePort}";
+
+    /// <summary>
+    /// The production service collection with the externals swapped for the
+    /// fakes. Removes the production registrations and adds the fakes, so the
+    /// override never depends on registration order (last-wins). The source keeps
+    /// the component's query and delta (<see cref="Composition.Composition.ConfigureSource"/>)
+    /// and reads <see cref="DatabasePath"/> instead of the configured database.
+    /// </summary>
+    public IServiceCollection CreateServices()
+    {
+        var services = Composition.Composition.ConfigureServices(new ServiceCollection(), "Development");
+        services.RemoveAllKeyed<IPolledSource>(Constants.SourcePort);
+        services.AddSqlSource(Constants.SourcePort, new SqlSourceOptions
+        {
+            Kind = SqlSourceOptions.SqliteKind,
+            ConnectionString = $"Data Source={DatabasePath}",
+            CursorStore = CursorStoreName,
+            InitialWatermark = "int:0"
+        }, Composition.Composition.ConfigureSource);
+        services.AddKeyedSingleton<ICursorStore>(CursorStoreName, Cursors);
+        services.RemoveAll<IIdempotencyServiceClient>();
+        services.AddSingleton<IIdempotencyServiceClient>(Idempotency);
+        services.RemoveAll<IBusinessIncidentServiceClient>();
+        services.AddSingleton<IBusinessIncidentServiceClient>(Incidents);
+        services.RemoveAll<SendStep<Context>>();
+        services.AddSingleton<SendStep<Context>>(Topic);
+        return services;
+    }
+
+    /// <summary>Runs a statement against <see cref="DatabasePath"/>: the test's tables and rows.</summary>
+    public async Task ExecuteAsync(string statement)
+    {
+        await using var connection = new SqliteConnection($"Data Source={DatabasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = statement;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>
+    /// Builds the source port's pipeline from <see cref="Composition.Composition.ConfigurePipeline"/>
+    /// in a fresh scope, as the framework does for each read. The framework also
+    /// stamps the port and the read's range on the context; this pipeline is built without them.
+    /// </summary>
+    public static Extractor<Source{{ .payloadType }}, {{ .payloadType }}, Context> ResolvePipeline(IServiceProvider provider)
+    {
+        var scope = provider.CreateScope().ServiceProvider;
+        var builder = ExtractorBuilder<Source{{ .payloadType }}, {{ .payloadType }}, Context>.Create(
+            $"{Constants.ComponentName}.Process.{Constants.SourcePort}", scope);
+        return Composition.Composition.ConfigurePipeline(builder, scope).Build();
+    }
+
+    public void Dispose()
+    {
+        // SQLite pools connections, which keep the file open.
+        SqliteConnection.ClearAllPools();
+        File.Delete(DatabasePath);
+    }
+}
+{{- else -}}
 using {{ .contracts }};
 using {{ .name }}.Model;
 using Intropy.Contracts.BusinessIncidentService;
@@ -65,3 +166,4 @@ public sealed class FakeEdges
         return Composition.Composition.ConfigurePipeline(builder, scope).Build();
     }
 }
+{{- end }}

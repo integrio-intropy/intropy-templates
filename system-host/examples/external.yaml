@@ -1,0 +1,29 @@
+# Render fixture: a system whose extractor reads an external port (a database
+# query, an HTTP API) and whose loader writes to another, instead of file
+# bindings. Each port carries kind: external; it renders
+# PortRef.DefineExternal, no Files(...) resolution, and a commented
+# Settings(...) line in the development definition.
+#   intropy int create system-host -o /tmp/system-host-external -f system-host/examples/external.yaml --version main --no-input
+name: campaign-sync
+topics:
+  - pubsub: pubsub
+    name: campaigns
+    contract: Campaign
+messages:
+  - name: campaigns
+    contract: Campaign
+    publisher: campaign-extractor
+ports:
+  - name: campaign-db
+    kind: external
+  - name: crm-db
+    kind: external
+components:
+  - appId: campaign-extractor
+    kind: extractor
+    publishes: campaigns
+    port: campaign-db
+  - appId: campaign-loader
+    kind: loader
+    subscribes: campaigns
+    port: crm-db
