@@ -1,6 +1,6 @@
 namespace {{ .name }}.Model;
 
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
 
 public record In();
 {{- else }}

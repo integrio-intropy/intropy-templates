@@ -1,5 +1,8 @@
 using {{ .name }}.Configuration;
 using Intropy.Framework.Adapters.File;
+{{- if eq .source "sql" }}
+using Intropy.Framework.Hosting.StatefulSweeps;
+{{- end }}
 using Intropy.Framework.Hosting.Jobs;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +26,25 @@ public class CompositionTests
         Assert.NotNull(runner);
     }
 
+{{- if eq .source "sql" }}
+
+    [Fact]
+    public void Composition_ResolvesTheSqlSourceWithItsCursor_AndTheDestinationAdapter()
+    {
+        // The Development settings stand in for the system host's: a SQLite file
+        // and the cursor store the topology mints for this component.
+        var provider = FakeEdges.UseInternalQueue(Composition.ConfigureServices(new ServiceCollection(), "Development"))
+            .BuildServiceProvider();
+
+        var source = provider.GetRequiredKeyedService<IPolledSource>(Constants.SourcePort);
+        var destination = provider.GetRequiredKeyedService<IFileAdapter>(Constants.DestinationPort);
+
+        Assert.Equal("{{ .cursorStore }}", source.Cursor?.StoreName);
+        Assert.NotNull(destination);
+    }
+}
+{{- else }}
+
     [Fact]
     public void Composition_ResolvesBothFileAdaptersUnderTheirKeys()
     {
@@ -36,3 +58,4 @@ public class CompositionTests
         Assert.NotNull(destination);
     }
 }
+{{- end }}

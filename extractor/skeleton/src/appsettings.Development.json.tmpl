@@ -1,5 +1,13 @@
 {
   "Ports": {
+{{- if eq .source "sql" }}
+    "{{ .port }}": {
+      "Kind": "Sqlite",
+      "ConnectionString": "Data Source={{ .appId }}.db",
+      "CursorStore": "{{ .cursorStore }}"
+    }
+{{- else }}
     "{{ .port }}": { "Kind": "Local" }
+{{- end }}
   }
 }

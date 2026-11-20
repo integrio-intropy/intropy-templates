@@ -8,7 +8,7 @@ namespace {{ .name }}.Test.Unit.Process;
 
 public class TransformerTests
 {
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
     // Fails from the start: the Transformer body throws NotImplementedException.
     // The assertion pins the step's framework contract — map the source record
     // to the shared contract and return Success — and flips green once the

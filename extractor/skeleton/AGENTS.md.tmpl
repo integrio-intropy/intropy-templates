@@ -1,8 +1,13 @@
 # Agent Instructions
 
 `{{ .name }}` is an Intropy extractor: a run-to-completion .NET 10 job that
+{{- if eq .source "sql" }}
+reads the rows after its watermark from its source port's database once per
+run and publishes them as one `{{ .publishes }}` message.
+{{- else }}
 sweeps its source port once per run and publishes each file as the
 `{{ .publishes }}` message.
+{{- end }}
 
 ## Project overview
 
@@ -12,6 +17,24 @@ sweeps its source port once per run and publishes each file as the
 - Topic: `{{ .channel }}`, declared in `.intropy/scaffold.json`. The code
   publishes on `INTROPY_PUBSUB_NAME` / `INTROPY_TOPIC_NAME`, which the system
   host and the deployment set.
+{{- if eq .source "sql" }}
+- Source port: `{{ .port }}`, an external port (`PortRef.DefineExternal` in the
+  system host's `Ports.cs`): a SQL query, no Dapr binding
+- Query: `src/Sql/Query.sql`, embedded; the watermark column is `ChangeId`
+  (`Delta.Column` in `Composition.cs`)
+- Payload type: `{{ .payloadType }}` in the sibling `../{{ .contracts }}` project;
+  the shape of a read's rows `Source{{ .payloadType }}` stays in `src/Model/`
+- Exit codes: `0` success, `1` a read failed and its range stays pending,
+  `2` sidecar unavailable
+- Config keys (`src/appsettings*.json`):
+  - `Ports:{{ .port }}:Kind`: `Sql` (SQL Server); `Sqlite` in Development
+  - `Ports:{{ .port }}:ConnectionString`: a secret; Development reads
+    `{{ .appId }}.db`, and the system host's development settings override it
+  - `Ports:{{ .port }}:InitialWatermark`: `int:0`, the watermark before the
+    first run
+  - `Ports:{{ .port }}:CursorStore`: the state store the watermark is kept in,
+    `{{ .cursorStore }}`; the system host and the deployment set it
+{{- else }}
 - Source port: `{{ .port }}`, declared in the system host's `Ports.cs`
 - Payload type: `{{ .payloadType }}` in the sibling `../{{ .contracts }}` project;
   the source file shape `Source{{ .payloadType }}` stays in `src/Model/`
@@ -20,27 +43,45 @@ sweeps its source port once per run and publishes each file as the
 - Config keys (`src/appsettings*.json`):
   - `Ports:{{ .port }}:Kind`: `Local` in Development; a deployment sets
     `Ports__{{ .port }}__Kind` (`Sftp`, `AzureBlob`)
+{{- end }}
   - `PlatformServices:IdempotencyServiceAppId`: `{{ .idempotencyAppId }}`
   - `PlatformServices:BusinessIncidentServiceAppId`: `{{ .businessIncidentsAppId }}`
 
 ## Important files
 
+{{- if eq .source "sql" }}
+
+- `src/Composition/Composition.cs`: DI registrations, the SQL source's query
+  and delta (`ConfigureSource`), and the `AddExtractor` sources, routes and
+  pipeline (`ConfigurePipeline`, with source idempotency on the read's range).
+  `{{ .name }}.Composition` is both a namespace and a class, so nested
+  namespaces call `Composition.Composition`.
+{{- else }}
+
 - `src/Composition/Composition.cs`: DI registrations and the `AddExtractor`
   sources, routes and pipeline (`ConfigurePipeline`, with the idempotency id
   and date extractors). `{{ .name }}.Composition` is both a namespace and a
   class, so nested namespaces call `Composition.Composition`.
+{{- end }}
 - `src/Constants.cs`: component name, source port, CloudEvent source and type.
 - `src/Process/`: the pipeline steps (`Deserializer`, `Validator`, `Transformer`).
 - `test/{{ .name }}.Test.Unit/`: step unit tests.
+{{- if eq .source "sql" }}
+- `test/{{ .name }}.Test.Integration/`: watermark (`SqlSweepTests`), publish
+  and composition tests against a SQLite file and `Intropy.Framework.Testing`
+  fakes (in `FakeEdges.cs`). `SqlSweepTests` creates the table
+  `Sql/Query.sql` reads; change them together.
+{{- else }}
 - `test/{{ .name }}.Test.Integration/`: sweep, publish and composition tests
   on `Intropy.Framework.Testing` fakes (fakes in `FakeEdges.cs`).
+{{- end }}
 - `Dockerfile`, `Dockerfile.dockerignore`: image build. The build context is
   the system folder: `docker build -f {{ .appId }}/Dockerfile -t {{ .appId }} .`
 
 ## Build and test
 
 The extractor runs via its system host, which runs it once at startup and
-provides the source binding, the pub/sub and the platform services.
+provides the {{ if eq .source "sql" }}cursor store{{ else }}source binding{{ end }}, the pub/sub and the platform services.
 
 ```bash
 task build
@@ -49,7 +90,13 @@ task coverage    # Cobertura report under the integration project's TestResults/
 ```
 
 ## Development notes
-{{ if .empty }}
+{{ if eq .source "sql" }}
+- The step bodies and the serializer's subject/time throw
+  `NotImplementedException`; `task test` is red until they are implemented,
+  except the tests that exercise only the query and the watermark.
+- The model and the unit tests' inputs are empty shells; give them the shape
+  of `Sql/Query.sql`'s rows.
+{{- else if eq .bodies "stub" }}
 - The step bodies and the idempotency id/date extractors throw
   `NotImplementedException`; `task test` is red until they are implemented.
   The business-incident, duplicate-cancel and delete-failure sweep tests are

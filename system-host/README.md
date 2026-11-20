@@ -46,8 +46,12 @@ connection values are environment-owned deployment configuration the topology
 deliberately does not repeat. The
 local-run picture lives in `<Project>Development.cs`
 (`IDevelopmentDefinition`), so a fully assembled system runs end-to-end with
-zero external configuration. Every port the topology uses must have a
-`Files(...).RootPath(...)` resolution — `check` fails otherwise. The drop
+zero external configuration. Every binding port the topology uses must have a
+`Files(...).RootPath(...)` resolution — `check` fails otherwise. An external
+port has none: its component reaches the system through a client of its own
+(a database, an HTTP API) and takes its local values from
+`Settings(...).Set(...)`; a component that reads one also keeps a cursor in a
+state store the topology mints (`<component>-cursors`). The drop
 folders themselves are **not** created by this render or by
 Intropy.Topology at runtime: `intropy sys create` creates `test/<port>`
 after rendering, and `task seed` `mkdir -p`s its target on demand. When
@@ -74,7 +78,7 @@ identifiers and the joins from components to them.
 | `name` | string | DNS-1123 system name; becomes `SystemName`. |
 | `topics` | list of `{pubsub, name, contract}` | Derived transport list retained for deploy consumers. Sorted by (pubsub, name). |
 | `messages` | list of `{name, type, contract, publisher}` — optional | The message-first view, primary input for `Messages.cs`: one entry per produced message (`type` repeats the name). |
-| `ports` | list of `{name}` | The skeleton derives the PascalCase `Ports` identifier. Sorted by name. |
+| `ports` | list of `{name, kind?}` | The skeleton derives the PascalCase `Ports` identifier. `kind` is `binding` (the default, omitted) or `external`: a system the component reaches through a client of its own (a database, an HTTP API), declared with `PortRef.DefineExternal`. An external port gets no binding, no folder and no `Files(...)` resolution — only a commented `Settings(...)` line — and can be read, written, or both. Sorted by name. |
 | `endpoints` | list of `{name, path}` — optional | The gateways' HTTP endpoints, kept apart from `ports` (the host resolves every port to a file binding). The skeleton derives the PascalCase `Endpoints` identifier. |
 | `components` | list of `{appId, kind, …}` | `kind` is `extractor`, `loader`, `transactional-integration`, `job`, or `gateway`. Extractors carry scalar `publishes`, loaders carry scalar `subscribes`, transactional integrations carry `fromPort`/`toPort`, jobs carry nothing more, and gateways carry `publishes` and `endpoint`. All are raw names; the skeleton joins them to the `Messages`/`Ports`/`Endpoints` fields. |
 | `sharedContracts` | `{name, include}` — optional | `name` is the contracts project/namespace (the `using` in `Messages.cs`); `include` is the slash-separated `ProjectReference` path from the host's output directory to the contracts csproj. A message-free system (e.g. only transactional integrations) has no shared library: the CLI omits the key, and `hasKey` guards in the skeleton skip the `using`, the `ProjectReference`, and the contracts paragraphs. |
@@ -91,21 +95,23 @@ components — for an empty render that error is correct behavior.
 
 ```bash
 intropy int create system-host -o /tmp/system-host-out \
-  -f system-host/examples/minimal.yaml --version main --no-input
+  -f system-host/examples/minimal.yaml --template-version main --no-input
 ```
 
 `examples/empty.yaml` covers the empty-system render. Building a render
 requires the `Intropy.Topology.Aspire` / `Intropy.Topology.Generation`
 packages to be resolvable from the configured NuGet feeds.
 
-The Intropy.Topology / .Aspire / .Generation pins sit at **2.2.0**. On top of
+The Intropy.Topology / .Aspire / .Generation pins sit at **2.3.0**. On top of
 the message-first topology (`MessageRef<T>` replaces `TopicRef`; one
 declaration carries identity + channel + contract), which passes each
 component its pub/sub and topic in `INTROPY_PUBSUB_NAME` and
 `INTROPY_TOPIC_NAME` and records them as the graph's `channel`, 2.1.0 adds the
 gateway kind and 2.2.0 the job kind (`AddJob`) and port mocks
 (`development.Mock(port).FromOpenApi(...)`, an HTTP API behind a port served
-from Microcks locally). Do not lower any pin: the declaration shape and the
+from Microcks locally), and 2.3.0 external ports (`PortRef.DefineExternal`,
+`development.Settings(port)`) with a cursor store minted for each component
+that reads one. Do not lower any pin: the declaration shape and the
 run semantics require it (message-first refs, transactional `From`/`To`
 ports, run-to-completion terminal state, the channel variables the framework
 reads, the job kind the job template's records name). A

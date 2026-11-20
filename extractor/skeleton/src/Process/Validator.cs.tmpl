@@ -11,7 +11,7 @@ public class Validator : ValidateStep<Source{{ .payloadType }}, Context>
     public override Task<(BusinessStepResult<Source{{ .payloadType }}> Result, Context Context)> ExecuteAsync(
         Source{{ .payloadType }} input, Context context, CancellationToken ct)
     {
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
         throw new NotImplementedException();
 {{- else }}
         var error = Validate(input);
@@ -35,7 +35,7 @@ public class Validator : ValidateStep<Source{{ .payloadType }}, Context>
             (new BusinessStepResult<Source{{ .payloadType }}>.Success(input), context));
 {{- end }}
     }
-{{- if not .empty }}
+{{- if eq .bodies "sample" }}
 
     private static string? Validate(Source{{ .payloadType }} order)
     {

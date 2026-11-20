@@ -24,9 +24,13 @@ task seed       # drop the sample order into the port folder (run-to-completion 
 task publish    # publish the sample order to the topic through a running sidecar
 ```
 
-`task seed PORT_DIR=./test/<port>` targets the folder the port
-resolves to in the development definition (conventionally `test/<port-name>`);
-the default targets the first declared extractor's port folder. `task publish` takes overrides for
+`task seed` exists only when a component sweeps a folder port: an extractor's
+source port or a transactional integration's From port, when that port is a
+binding. An external port (a database, an HTTP API) has no folder to seed.
+`task seed PORT_DIR=./test/<port>` targets the folder the port resolves to in
+the development definition (conventionally `test/<port-name>`); the default
+targets the first folder-reading extractor's port, else the first
+folder-reading transactional integration's From port. `task publish` takes overrides for
 the publishing component (`PUBLISH_APP_ID`) and the topic (`TOPIC`) — the dapr
 CLI resolves the sidecar from the app-id.
 

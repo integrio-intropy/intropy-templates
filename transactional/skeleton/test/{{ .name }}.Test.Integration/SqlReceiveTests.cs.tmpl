@@ -1,0 +1,138 @@
+using System.Text;
+using Intropy.Framework.Hosting.Jobs;
+using Intropy.Framework.Hosting.StatefulSweeps;
+using Intropy.Framework.Hosting.TransactionalIntegration;
+using Intropy.Framework.Testing.Delivery;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ .name }}.Test.Integration;
+
+/// <summary>
+/// The receive side, run the way the host runs it: executions of the component's
+/// run-to-completion job over the real DI graph, against a SQLite file of the
+/// test's own, read with the component's own query (<c>Sql/Query.sql</c>). Only
+/// the externals are faked (see <see cref="FakeEdges"/>). These tests pin the
+/// watermark's contract: a run queues the rows after the watermark as one message
+/// and moves the watermark past them, a run without new rows queues nothing, and a
+/// run whose message cannot be queued keeps its range pending for the next run.
+/// The enqueue fake captures instead of publishing, so nothing arrives on the
+/// integration's queue and each run ends once the read is done.
+/// </summary>
+/// <remarks>
+/// The table is the one <c>Sql/Query.sql</c> selects from. Change both together.
+/// These tests pass from the start: the send pipeline's steps never run here.
+/// </remarks>
+public sealed class SqlReceiveTests : IAsyncLifetime, IDisposable
+{
+    private readonly FakeEdges _edges = new();
+
+    public Task InitializeAsync() => _edges.ExecuteAsync("""
+        CREATE TABLE ChangeLog
+        (
+            ChangeId  INTEGER PRIMARY KEY,
+            RecordId  TEXT NOT NULL,
+            ChangedAt TEXT NOT NULL
+        );
+        """);
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    public void Dispose() => _edges.Dispose();
+
+    [Fact]
+    public async Task Run_WithNewRows_QueuesThemAsOneMessage_AndMovesTheWatermark()
+    {
+        // Arrange
+        await InsertAsync(1, 2);
+
+        // Act
+        var summary = await RunAsync();
+
+        // Assert: one message holding both rows, and the watermark past them.
+        Assert.Equal(new RunSummary(1, 0, 0), summary);
+        var rows = Payload(Assert.Single(_edges.Enqueue.Captured).Item.Data);
+        Assert.Contains("REC-1", rows);
+        Assert.Contains("REC-2", rows);
+        Assert.Equal(new CursorState("int:2", null), _edges.Cursors.State[FakeEdges.CursorKey]);
+    }
+
+    [Fact]
+    public async Task Run_AfterAnEarlierRun_QueuesOnlyTheRowsAfterTheWatermark()
+    {
+        // Arrange
+        await InsertAsync(1, 2);
+        await RunAsync();
+        await InsertAsync(3);
+
+        // Act
+        await RunAsync();
+
+        // Assert: one message per run, the second holding only the new row.
+        Assert.Equal(2, _edges.Enqueue.Count);
+        var rows = Payload(_edges.Enqueue.Captured[1].Item.Data);
+        Assert.Contains("REC-3", rows);
+        Assert.DoesNotContain("REC-2", rows);
+        Assert.Equal(new CursorState("int:3", null), _edges.Cursors.State[FakeEdges.CursorKey]);
+    }
+
+    [Fact]
+    public async Task Run_WithoutNewRows_QueuesNothing()
+    {
+        // Act
+        var summary = await RunAsync();
+
+        // Assert
+        Assert.Equal(RunSummary.Empty, summary);
+        Assert.Equal(0, _edges.Enqueue.Count);
+    }
+
+    [Fact]
+    public async Task Run_WhenBrokerIsDown_KeepsTheRangePending_AndTheNextRunQueuesIt()
+    {
+        // Arrange: a dead broker surfaces as a technical failure of the publish.
+        await InsertAsync(1, 2);
+        _edges.Enqueue.SendException = new InvalidOperationException("Broker unreachable");
+
+        // Act: the failed run, then a run after the broker is back.
+        var failed = await RunAsync();
+        _edges.Enqueue.SendException = null;
+        var retried = await RunAsync();
+
+        // Assert: the failed run is counted (the run exits 1), the range stayed
+        // pending, and the retry queued exactly it.
+        Assert.Equal(1, failed.Failed);
+        Assert.Equal(new RunSummary(1, 0, 0), retried);
+        var rows = Payload(_edges.Enqueue.Captured[^1].Item.Data);
+        Assert.Contains("REC-1", rows);
+        Assert.Contains("REC-2", rows);
+        Assert.Equal(new CursorState("int:2", null), _edges.Cursors.State[FakeEdges.CursorKey]);
+    }
+
+    /// <summary>
+    /// One execution of the job, as one host start runs it. The database, the cursor
+    /// store and the queue fake live in <see cref="FakeEdges"/>, so they carry over
+    /// between runs.
+    /// </summary>
+    private Task<RunSummary> RunAsync()
+    {
+        var provider = _edges.CreateServices().BuildServiceProvider();
+
+        // The send side serves the Dapr gRPC app callback that pushes the
+        // integration's queue; a test binds a free port instead of APP_PORT's
+        // default 8080.
+        var options = provider.GetRequiredService<TransactionalIntegrationOptions>();
+        options.CallbackPort = AppCallbackDelivery.AvailablePort();
+
+        // Nothing arrives on the integration's queue: end the run once the read is done.
+        options.IdleTimeout = TimeSpan.Zero;
+        options.PostIdleGracePeriod = TimeSpan.Zero;
+
+        return provider.GetRequiredService<IJob>().ExecuteAsync(CancellationToken.None);
+    }
+
+    private static string Payload(byte[] data) => Encoding.UTF8.GetString(data);
+
+    private Task InsertAsync(params int[] changeIds) =>
+        _edges.ExecuteAsync(string.Join("\n", changeIds.Select(id =>
+            $"INSERT INTO ChangeLog (ChangeId, RecordId, ChangedAt) VALUES ({id}, 'REC-{id}', '2026-01-15T09:30:0{id % 10}+00:00');")));
+}

@@ -7,6 +7,18 @@ public static class Constants
     public const string ComponentName = "{{ .name | kebabcase }}";
     public const string Organization = "{{ .organization }}";
 
+{{- if eq .source "sql" }}
+
+    // The source port: the named interface this component reads the outside
+    // world through. The name is the port's whole identity — declared in the
+    // system host's Ports.cs as an external port (no Dapr binding), it is the
+    // key of the SQL source registered for it and of its section in
+    // configuration, Ports:<port>. The name never changes between
+    // environments; the environment sets the database behind it (Kind, the
+    // connection string). A second port carrying other data is declared next to
+    // it, in the system host, and as a source and route in Composition.
+{{- else }}
+
     // The source port: the named interface this component reads the outside
     // world through. The name is the port's whole identity — declared in the
     // system host's Ports.cs, it is also the Dapr binding component's name and
@@ -15,6 +27,7 @@ public static class Constants
     // folder, SFTP, …) behind it. A second port carrying other data is
     // declared next to it, in the system host, and as a source and route in
     // Composition.
+{{- end }}
     public const string SourcePort = "{{ .port }}";
 
     // CloudEvent envelope: where the data came from and what kind of event it is.
@@ -29,7 +42,17 @@ public static class Constants
 {{- end }}
     public const string EventType = "{{ .publishes }}";
 
+{{- if eq .source "sql" }}
+
+    // Set by the framework on every read's context before the pipeline runs: the
+    // port and the watermark range the read covers, such as
+    // {{ .port }}:int:0:int:2. It identifies the batch for idempotency and
+    // incidents.
+    public const string ContextKeyIdempotencyKey = SourceContextKeys.IdempotencyKey;
+{{- else }}
+
     // Set by the framework on every source file's context before the pipeline runs.
     public const string ContextKeyFileName = SourceContextKeys.FileName;
     public const string ContextKeyOrderId = "order_id";
+{{- end }}
 }

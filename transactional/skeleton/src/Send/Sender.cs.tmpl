@@ -8,10 +8,10 @@ namespace {{ .name }}.Send;
 
 public class Sender(IFileAdapter fileAdapter) : SendStep<Context>
 {
-    public override {{ if not .empty }}async {{ end }}Task<(BusinessStepResult<byte[]> Result, Context Context)> ExecuteAsync(
+    public override {{ if eq .bodies "sample" }}async {{ end }}Task<(BusinessStepResult<byte[]> Result, Context Context)> ExecuteAsync(
         byte[] input, Context context, CancellationToken ct)
     {
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
         throw new NotImplementedException();
 {{- else }}
         var orderId = context.Metadata[Constants.ContextKeyOrderId];

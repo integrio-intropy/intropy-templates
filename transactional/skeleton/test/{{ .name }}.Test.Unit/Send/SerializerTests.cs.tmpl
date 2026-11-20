@@ -8,7 +8,7 @@ namespace {{ .name }}.Test.Unit.Send;
 
 public class SerializerTests
 {
-{{- if .empty }}
+{{- if eq .bodies "stub" }}
     // Add tests as you implement the pipeline steps.
 {{- else }}
     [Fact]

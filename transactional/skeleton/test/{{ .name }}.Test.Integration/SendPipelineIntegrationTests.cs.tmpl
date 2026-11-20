@@ -5,7 +5,7 @@ using Intropy.Framework.Blocks.TransactionalIntegration.Send;
 using Intropy.Framework.Core.Pipeline.Abstractions.Results;
 using Intropy.Framework.Testing.Adapters;
 using Microsoft.Extensions.DependencyInjection;
-{{- if not .empty }}
+{{- if or (not .empty) (eq .source "sql") }}
 using Intropy.Contracts.IdempotencyService;
 using Intropy.Framework.Testing.Services;
 using Action = Intropy.Contracts.IdempotencyService.Action;
@@ -14,6 +14,23 @@ using Action = Intropy.Contracts.IdempotencyService.Action;
 namespace {{ .name }}.Test.Integration;
 
 /// <summary>
+{{- if eq .source "sql" }}
+/// The full send pipeline (deserialize → idempotency → extract → validate →
+/// transform → serialize → send), built from the real DI graph with only the
+/// externals faked (see <see cref="FakeEdges"/>), for one SQL read as the
+/// receive side queues it: the rows as a JSON array, and the read's watermark
+/// range on its context. These tests pin the send pipeline's consumption
+/// contract: a read is written and its range committed; a range already
+/// committed is consumed without writing again; a destination fault routes an
+/// incident named by the range and stays retriable.
+/// </summary>
+{{- else if .empty }}
+/// The full send pipeline (deserialize → extract → validate → transform →
+/// serialize → send), built from the real DI graph with only the externals
+/// faked (see <see cref="FakeEdges"/>). These tests pin the send pipeline's
+/// consumption contract: a valid message is written to the destination.
+/// </summary>
+{{- else }}
 /// The full send pipeline (deserialize → idempotency → extract → validate →
 /// transform → serialize → send), built from the real DI graph with only
 /// the externals faked (see <see cref="FakeEdges"/>). These tests pin the send
@@ -24,9 +41,94 @@ namespace {{ .name }}.Test.Integration;
 /// <c>BusinessStep</c>) that routes an incident and stays retriable, so the
 /// message is redelivered rather than lost.
 /// </summary>
+{{- end }}
 public class SendPipelineIntegrationTests
 {
-{{- if .empty }}
+{{- if eq .source "sql" }}
+    // One read of Sql/Query.sql's rows, as the SQL source sends it. Replace it
+    // with a real sample when the query changes.
+    private const string ReadJson =
+        """[{"ChangeId":1,"RecordId":"REC-1","ChangedAt":"2026-01-15T09:30:00+00:00"},{"ChangeId":2,"RecordId":"REC-2","ChangedAt":"2026-01-15T09:30:01+00:00"}]""";
+
+    private static readonly string s_range = $"{Constants.SourcePort}:int:0:int:2";
+
+    // Every test in this suite fails from the start: the framework's
+    // BusinessStep wrapper routes the throwing Deserializer as a business
+    // incident, so the pipeline consumes the input with nothing written. Each
+    // failure flips green as the steps are implemented — no test edits needed.
+
+    [Fact]
+    public async Task Execute_WithARead_WritesOutputAndCommitsTheRange()
+    {
+        // Arrange
+        var edges = new FakeEdges();
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = FakeEdges.ResolveSendPipeline(provider);
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            Encoding.UTF8.GetBytes(ReadJson), NewReadContext(), CancellationToken.None);
+
+        // Assert
+        Assert.IsType<StepResult<byte[]>.Success>(result);
+        Assert.Single(edges.DestinationFiles.Files);
+        Assert.Equal([s_range], edges.Idempotency.Committed.Select(m => m.Id));
+    }
+
+    [Fact]
+    public async Task Execute_WithARangeAlreadyCommitted_WritesNothing()
+    {
+        // Arrange: a run that failed after queueing reads the same range again.
+        var edges = new FakeEdges();
+        edges.Idempotency.NextStatus = new StatusResponse(Action.Ignore, Reason.SameData);
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = FakeEdges.ResolveSendPipeline(provider);
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            Encoding.UTF8.GetBytes(ReadJson), NewReadContext(), CancellationToken.None);
+
+        // Assert: the duplicate cancels as a traceable no-op.
+        Assert.IsType<StepResult<byte[]>.Cancelled>(result);
+        Assert.Empty(edges.DestinationFiles.Files);
+        Assert.Empty(edges.Idempotency.Committed);
+    }
+
+    [Fact]
+    public async Task Execute_WhenDestinationThrows_RoutesAnIncidentForTheRange_AndKeepsTheReadForRedelivery()
+    {
+        // Arrange: the transactional SendStep is a BusinessStep, so a fault at the
+        // destination adapter routes an incident. An unreachable destination says
+        // nothing about the data, so the failure stays retriable.
+        var edges = new FakeEdges();
+        edges.DestinationFiles.WriteException = new InvalidOperationException("Destination unreachable");
+        var provider = edges.CreateServices().BuildServiceProvider();
+        var pipeline = FakeEdges.ResolveSendPipeline(provider);
+
+        // Act
+        var (result, _) = await pipeline.Execute(
+            Encoding.UTF8.GetBytes(ReadJson), NewReadContext(), CancellationToken.None);
+
+        // Assert: one incident from the Send step, named by the read's range;
+        // nothing written or committed.
+        var failure = Assert.IsType<StepResult<byte[]>.BusinessFailure>(result);
+        Assert.True(failure.Retriable);
+        Assert.Empty(edges.DestinationFiles.Files);
+        Assert.Empty(edges.Idempotency.Committed);
+        var incident = Assert.Single(edges.Incidents.Incidents);
+        Assert.Equal(s_range, incident.Subject);
+        Assert.Contains("'Send' step", incident.Data.Description);
+    }
+
+    // What the receive side stamps on a read's context and carries to the send
+    // side: its port, its range and when it was read.
+    private static Context NewReadContext() => new(new Dictionary<string, string>
+    {
+        [SourceContextKeys.SourcePort] = Constants.SourcePort,
+        [Constants.ContextKeyIdempotencyKey] = s_range,
+        [SourceContextKeys.ReceivedAt] = DateTimeOffset.UtcNow.ToString("O")
+    });
+{{- else if .empty }}
     // Test-owned valid input: the scaffold's In/Out records are empty shells
     // until the real contract is defined, so this file deliberately uses its
     // own field names instead of guessing the eventual shape. Replace it with
@@ -149,5 +251,8 @@ public class SendPipelineIntegrationTests
     }
 {{- end }}
 
+{{- if ne .source "sql" }}
+
     private static Context NewContext() => new(new Dictionary<string, string>());
+{{- end }}
 }

@@ -5,6 +5,15 @@
       "Microsoft": "Warning"
     }
   },
+{{- if eq .source "sql" }}
+
+  "Ports": {
+    "{{ .port }}": {
+      "Kind": "Sql",
+      "InitialWatermark": "int:0"
+    }
+  },
+{{- end }}
 
   "PlatformServices": {
     "IdempotencyServiceAppId": "{{ .idempotencyAppId }}",

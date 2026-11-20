@@ -1,4 +1,4 @@
 # Render fixture: full sample (business logic + service wiring).
-#   intropy int create transactional -o /tmp/tx-full -f transactional/examples/full.yaml --version main --no-input
+#   intropy int create transactional -o /tmp/tx-full -f transactional/examples/full.yaml --template-version main --no-input
 name: OrderSync
 organization: Fluxia
